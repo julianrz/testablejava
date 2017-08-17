@@ -247,6 +247,9 @@ public class BaseTest extends TestCase {
 
         Path directory = Paths.get(dir.getAbsolutePath());
 
+        if (!directory.toFile().exists())
+            return;
+
         Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
 
             @Override

@@ -1,7 +1,5 @@
 package org.testability;
 
-import org.testability.BaseTest;
-
 import static java.util.stream.Collectors.joining;
 
 /**

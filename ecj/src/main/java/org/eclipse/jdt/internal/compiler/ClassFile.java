@@ -48,8 +48,11 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.problem.ShouldNotImplement;
 import org.eclipse.jdt.internal.compiler.util.Messages;
 import org.eclipse.jdt.internal.compiler.util.Util;
+import org.testability.Testability;
 
 import java.util.*;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Represents a class file wrapper on bytes, it is aware of its actual
@@ -476,7 +479,7 @@ public class ClassFile implements TypeConstants, TypeIds {
      *
      * @param fieldBinding the given field binding
      */
-    private void addFieldInfo(FieldBinding fieldBinding) {
+    public void addFieldInfo(FieldBinding fieldBinding) {
         // check that there is enough space to write all the bytes for the field info corresponding
         // to the @fieldBinding
         if (this.contentsOffset + 8 >= this.contents.length) {
@@ -528,7 +531,12 @@ public class ClassFile implements TypeConstants, TypeIds {
     public void addFieldInfos() {
         SourceTypeBinding currentBinding = this.referenceBinding;
         FieldBinding[] syntheticFields = currentBinding.syntheticFields();
-        int fieldCount = currentBinding.fieldCount() + (syntheticFields == null ? 0 : syntheticFields.length);
+
+        TypeDeclaration typeDeclaration = this.referenceBinding.scope.referenceContext;
+
+        int fieldCount = currentBinding.fieldCount() +
+                (syntheticFields == null ? 0 : syntheticFields.length) +
+                typeDeclaration.allCallsToRedirect.size();
 
         // write the number of fields
         if (fieldCount > 0xFFFF) {
@@ -550,7 +558,41 @@ public class ClassFile implements TypeConstants, TypeIds {
                 addFieldInfo(syntheticFields[i]);
             }
         }
+
+        List<FieldDeclaration> testabilityFieldDeclarations =
+                Testability.makeTestabilityRedirectorFields(
+                        typeDeclaration,
+                        currentBinding);
+
+        if (!testabilityFieldDeclarations.isEmpty()) {
+
+            for(FieldDeclaration fieldDeclaration : testabilityFieldDeclarations) {
+                FieldBinding fieldBinding = fieldDeclaration.binding;
+                this.addFieldInfo(fieldBinding);
+            }
+
+            //make new fields discoverable, put into original fields array
+            if (null == currentBinding.scope.referenceContext.fields)
+                currentBinding.scope.referenceContext.fields = new FieldDeclaration[0];
+
+            currentBinding.scope.referenceContext.fields = Arrays.copyOf(
+                    currentBinding.scope.referenceContext.fields,
+                    currentBinding.scope.referenceContext.fields.length + testabilityFieldDeclarations.size());
+
+            for (int iField = 0; iField < testabilityFieldDeclarations.size(); iField++)
+                currentBinding.scope.referenceContext.fields[
+                        currentBinding.scope.referenceContext.fields.length -
+                                testabilityFieldDeclarations.size() +
+                                iField] = testabilityFieldDeclarations.get(iField);
+
+            currentBinding.setFields(
+                    Arrays.stream(currentBinding.scope.referenceContext.fields).
+                            map(decl -> decl.binding).
+                            collect(toList()).
+                            toArray(new FieldBinding[0]));
+        }
     }
+
 
     private void addMissingAbstractProblemMethod(MethodDeclaration methodDeclaration, MethodBinding methodBinding, CategorizedProblem problem, CompilationResult compilationResult) {
         // always clear the strictfp/native/abstract bit for a problem method

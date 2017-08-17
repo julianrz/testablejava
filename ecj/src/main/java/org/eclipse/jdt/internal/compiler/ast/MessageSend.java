@@ -75,6 +75,7 @@ import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
+import org.testability.Testability;
 
 import java.util.HashMap;
 
@@ -407,6 +408,22 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
      * @param valueRequired boolean
      */
     public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+
+        { //check if this needs to be replaced with special redirector message send, which will be used in generation instead
+            MessageSend messageGetField = Testability.replaceCallWithFieldRedirectorIfNeeded(
+                    this, currentScope, codeStream, valueRequired);
+
+            if (messageGetField != null) {
+
+                messageGetField.generateCode(currentScope, codeStream, valueRequired);
+
+                System.out.println(
+                        "replaced call for " + this + " in " + currentScope.methodScope().referenceContext +
+                                " with call " + messageGetField);
+                return;
+            }
+        }
+
         cleanUpInferenceContexts();
         int pc = codeStream.position;
         // generate receiver/enclosing instance access
@@ -874,6 +891,9 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
         if (this.typeArguments != null && this.binding.original().typeVariables == Binding.NO_TYPE_VARIABLES) {
             scope.problemReporter().unnecessaryTypeArgumentsForMethodInvocation(this.binding, this.genericTypeArguments, this.typeArguments);
         }
+
+        Testability.registerCallToRedirectIfNeeded(this, scope);
+
         return (this.resolvedType.tagBits & TagBits.HasMissingType) == 0
                 ? this.resolvedType
                 : null;

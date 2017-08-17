@@ -29,6 +29,9 @@ import org.eclipse.jdt.internal.compiler.parser.*;
 import org.eclipse.jdt.internal.compiler.problem.*;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TypeDeclaration extends Statement implements ProblemSeverities, ReferenceContext {
     // Type decl kinds
     public static final int CLASS_DECL = 1;
@@ -65,6 +68,8 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
 
     public FieldBinding enumValuesSyntheticfield;    // for enum
     public int enumConstantsCounter;
+
+    public List<MessageSend> allCallsToRedirect = new ArrayList<>();
 
     // 1.5 support
     public TypeParameter[] typeParameters;

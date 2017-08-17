@@ -13,17 +13,30 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler;
 
-import org.eclipse.jdt.core.compiler.*;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.CompilationProgress;
+import org.eclipse.jdt.core.compiler.IProblem;
+import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.ImportReference;
 import org.eclipse.jdt.internal.compiler.env.*;
-import org.eclipse.jdt.internal.compiler.impl.*;
-import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.lookup.*;
-import org.eclipse.jdt.internal.compiler.parser.*;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.impl.CompilerStats;
+import org.eclipse.jdt.internal.compiler.impl.ITypeRequestor;
+import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
+import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
+import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.SourceTypeCollisionException;
+import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.*;
-import org.eclipse.jdt.internal.compiler.util.*;
+import org.eclipse.jdt.internal.compiler.util.Messages;
+import org.eclipse.jdt.internal.compiler.util.Util;
+import org.testability.Testability;
 
-import java.io.*;
-import java.util.*;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 @SuppressWarnings("rawtypes")
 public class Compiler implements ITypeRequestor, ProblemSeverities {
@@ -398,12 +411,21 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         compile(sourceUnits, false);
     }
 
+    ICompilationUnit[] sourceUnitsInjected = Testability.makeFunctionNCompilationUnits();
+
     /**
      * General API
      * -> compile each of supplied files
      * -> recompile any required types for which we have an incomplete principle structure
      */
-    private void compile(ICompilationUnit[] sourceUnits, boolean lastRound) {
+    private void compile(ICompilationUnit[] sourceUnitsInitial, boolean lastRound) {
+
+        ICompilationUnit[] sourceUnits = Arrays.copyOf(sourceUnitsInitial, sourceUnitsInitial.length + sourceUnitsInjected.length);
+
+        for (int i = 0; i < sourceUnitsInjected.length; i++) {
+            sourceUnits[sourceUnitsInitial.length + i] = sourceUnitsInjected[i];
+        }
+
         this.stats.startTime = System.currentTimeMillis();
         try {
             // build and record parsed units
