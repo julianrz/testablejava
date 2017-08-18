@@ -61,7 +61,10 @@ public class Testability {
         messageGetField.binding.modifiers = ClassFileConstants.AccPublic;
         messageGetField.binding.selector = messageGetField.selector;
 
-        messageGetField.binding.parameters = messageSend.binding.parameters.clone();
+        messageGetField.binding.parameters = Arrays.copyOf(messageSend.binding.parameters,messageSend.binding.parameters.length + 1);
+        System.arraycopy(messageGetField.binding.parameters, 0, messageGetField.binding.parameters, 1, messageGetField.binding.parameters.length -1);
+        messageGetField.binding.parameters[0] = messageSend.receiver.resolvedType;
+
         messageGetField.binding.returnType = messageSend.binding().returnType;
         messageGetField.binding.declaringClass = currentScope.classScope().referenceContext.binding;
 
@@ -78,8 +81,15 @@ public class Testability {
 
         messageGetField.actualReceiverType = messageGetField.receiver.resolvedType;
 
-        messageGetField.arguments = messageSend.arguments == null ? null : messageSend.arguments.clone();
+        //shift/insert receiver at pos 0
+        int originalArgCount = messageSend.arguments == null ? 0 : messageSend.arguments.length;
+        Expression[] argsWithReceiver = new Expression[originalArgCount + 1];
+        for (int iArg = 0; iArg< originalArgCount; iArg++)
+            argsWithReceiver[iArg + 1] = messageSend.arguments[iArg];
 
+        argsWithReceiver[0] = messageSend.receiver;
+
+        messageGetField.arguments = argsWithReceiver;
 
         return messageGetField;
     }
@@ -98,7 +108,6 @@ public class Testability {
     }
 
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
-//            ClassFile classFile,
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding){
 
@@ -123,21 +132,22 @@ public class Testability {
 
             char[][] path = {
                     ("Function" + (originalMessageSend.arguments == null ?
-                            0 :
-                            originalMessageSend.arguments.length)
+                            1 :
+                            originalMessageSend.arguments.length + 1)
                     ).
-                            toCharArray()
+                    toCharArray()
             };
 
             ReferenceBinding genericType = lookupEnvironment.getType(path);
 
-            TypeBinding[] typeArguments;
+            TypeBinding[] typeArguments; //receiver, args, return
             if (originalMessageSend.arguments == null) {
-                typeArguments = new TypeBinding[]{fieldTypeBinding};
+                typeArguments = new TypeBinding[]{originalMessageSend.receiver.resolvedType, fieldTypeBinding};
             } else {
-                typeArguments = new TypeBinding[originalMessageSend.arguments.length + 1];
+                typeArguments = new TypeBinding[originalMessageSend.arguments.length + 2];
+                typeArguments[0] = originalMessageSend.receiver.resolvedType;
 
-                int iArg = 0;
+                int iArg = 1;
                 for (Expression arg : originalMessageSend.arguments) {
                     typeArguments[iArg++] = arg.resolvedType;
                 }
@@ -171,12 +181,13 @@ public class Testability {
             LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
             //see ReferenceExpression::generateImplicitLambda
 
-            int argc = Optional.ofNullable(originalMessageSend.arguments).map(ex -> ex.length).orElse(0);//this.descriptor.parameters.length;
+            int argc = typeArguments.length - 1; //type args has return at the end, method args do not //Optional.ofNullable(originalMessageSend.arguments).map(ex -> ex.length).orElse(0);//this.descriptor.parameters.length;
             Argument[] arguments = new Argument[argc];
             for (int i = 0; i < argc; i++) {
                 TypeReference typeReference = typeReferenceFromTypeBinding(typeBinding.arguments[i]);
                 arguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
             }
+
             lambdaExpression.setArguments(arguments);
 
             lambdaExpression.setExpressionContext(originalMessageSend.expressionContext);
@@ -187,14 +198,7 @@ public class Testability {
 
             messageSendInLambdaBody.selector = originalMessageSend.selector;
 
-            QualifiedNameReference newReceiver =
-                    originalMessageSend.receiver instanceof QualifiedNameReference ?
-                            new QualifiedNameReference( //clone
-                                    ((QualifiedNameReference) originalMessageSend.receiver).tokens,
-                                    ((QualifiedNameReference) originalMessageSend.receiver).sourcePositions,
-                                    ((QualifiedNameReference) originalMessageSend.receiver).sourceStart,
-                                    ((QualifiedNameReference) originalMessageSend.receiver).sourceEnd
-                            ) : null; //TODO implement case when receiver is a constant
+            Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
 
             messageSendInLambdaBody.receiver = newReceiver;
 
@@ -202,11 +206,12 @@ public class Testability {
             messageSendInLambdaBody.binding = originalMessageSend.binding;
 
             //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
-            boolean receiverPrecedesParameters = false;//TODO
+
+            boolean receiverPrecedesParameters = true;
             int parameterShift = receiverPrecedesParameters ? 1 : 0;
             Expression[] argv = new SingleNameReference[argc - parameterShift];
             for (int i = 0, length = argv.length; i < length; i++) {
-                char[] name = (" arg" + i).toCharArray();//arguments[i].name;//CharOperation.append(ImplicitArgName, Integer.toString((i + parameterShift)).toCharArray());
+                char[] name = (" arg" + (i + parameterShift)).toCharArray();//arguments[i].name;//CharOperation.append(ImplicitArgName, Integer.toString((i + parameterShift)).toCharArray());
 
                 SingleNameReference singleNameReference = new SingleNameReference(name, 0);
 
@@ -278,15 +283,22 @@ public class Testability {
     }
 
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
-        return typeBinding.dimensions() == 0 ?
-                new SingleTypeReference(
-                        typeBinding.sourceName(), 0
-                ) :
-                new ArrayTypeReference(
-                        typeBinding.sourceName(),
-                        typeBinding.dimensions() - 1,
-                        typeBinding.id
-                );
+        if (typeBinding.dimensions() == 0){
+            if (typeBinding instanceof BinaryTypeBinding) {
+                BinaryTypeBinding binaryTypeBinding = (BinaryTypeBinding) typeBinding;
+                return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
+            }
+            return new SingleTypeReference(
+                    typeBinding.sourceName(), 0
+            );
+
+        } else {
+            return new ArrayTypeReference(
+                    typeBinding.sourceName(),
+                    typeBinding.dimensions() - 1,
+                    typeBinding.id
+            );
+        }
     }
 
     /**
