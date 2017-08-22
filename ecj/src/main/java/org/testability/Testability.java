@@ -159,9 +159,19 @@ public class Testability {
                             genericType,
                             typeArguments,
                             referenceBinding);
+            TypeReference b = typeReferenceFromTypeBinding(typeArguments[0]);
 
             TypeReference[][] typeReferences = new TypeReference[path.length][];
-            typeReferences[path.length - 1] = new TypeReference[]{typeReferenceFromTypeBinding(fieldTypeBinding)};
+            typeReferences[path.length - 1] = Arrays.stream(typeArguments).
+                    map(Testability::typeReferenceFromTypeBinding).
+                    collect(toList()).
+                    toArray(new TypeReference[0]);
+
+//                    new TypeReference[]{
+//                    typeReferenceFromTypeBinding(fieldTypeBinding)
+//                    }
+//            };
+
             ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReference = new ParameterizedQualifiedTypeReference(
                     path,
                     typeReferences,
