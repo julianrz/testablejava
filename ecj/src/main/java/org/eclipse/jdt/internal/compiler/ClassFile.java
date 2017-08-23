@@ -590,6 +590,8 @@ public class ClassFile implements TypeConstants, TypeIds {
                             map(decl -> decl.binding).
                             collect(toList()).
                             toArray(new FieldBinding[0]));
+
+            ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());
         }
     }
 

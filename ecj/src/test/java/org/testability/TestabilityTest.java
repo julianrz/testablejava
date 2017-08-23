@@ -9,6 +9,24 @@ public class TestabilityTest extends BaseTest {
     public TestabilityTest(String name) {
         super(name);
     }
+//TODO reen/fix
+//    public void testPackageCollideWithType() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "package a;\n" +
+//                "public class X {}",
+//
+//                "A.java",
+//                "package X;\n" +
+//                "public class A {}"
+//
+//        };
+//        String expectedOutput = task[1];
+//
+//        Map<String, List<String>> stringListMap = compileAndDisassemble(task);
+//        assertEquals(expectedOutput, stringListMap.get("a.X").stream().collect(joining("\n")));
+//    }
 
     public void testTestabilityInjectFunctionField_NotExpandingInsideRedirectedFields() throws Exception {
 
@@ -49,6 +67,68 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+    //TODO fix/implement
+//    public void testTestabilityInjectFunctionField_ValueType() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "	void fn() throws Exception {" +
+//                        "     int i=0;" +
+//                        "     System.out.write(i);" +
+//                        "   }" +
+//                        "}\n"
+//        };
+//        String expectedOutput =
+//                "import java.io.PrintStream;\n\n" +
+//                        "public class X {\n" +
+//                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$println = (var0, var1) -> {\n" +
+//                        "      var0.write(var1);\n" +
+//                        "      return null;\n" +
+//                        "   };\n\n" +
+//                        "   void fn() {\n" +
+//                        "     this.$$java$io$PrintStream$write.apply(System.out, 1);\n" +
+//                        "   }\n" +
+//                        "}";
+//
+//        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+//    }
+
+    public void testTestabilityInjectFunctionField_MultipleCalls() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "     java.io.PrintStream x = System.out;" +
+                        "     Integer i=0;" +
+                        "     x.write(i);" +
+                        "     x.close();" +
+                        "   }" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import java.io.PrintStream;\n\n" +
+                        "public class X {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var0, var1) -> {\n" +
+                        "      var0.write(var1.intValue());\n" +
+                        "      return null;\n" +
+                        "   };\n" +
+                        "   Function1<PrintStream, Void> $$java$io$PrintStream$close = (var0) -> {\n" +
+                        "      var0.close();\n" +
+                        "      return null;\n" +
+                        "   };\n\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      PrintStream var1 = System.out;\n" +
+                        "      Integer var2 = Integer.valueOf(0);\n"+
+                        "      this.$$java$io$PrintStream$write.apply(var1, var2.intValue());\n" +
+                        "      this.$$java$io$PrintStream$close.apply(var1);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+    }
+
     public void testTestabilityInjectFunctionField_ForStaticCallPassingArgsThrough() throws Exception {
 
         String[] task = {
