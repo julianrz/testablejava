@@ -149,7 +149,7 @@ public class Testability {
 
                 int iArg = 1;
                 for (Expression arg : originalMessageSend.arguments) {
-                    typeArguments[iArg++] = arg.resolvedType;
+                    typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
                 }
                 typeArguments[iArg++] = fieldTypeBinding;
             }
@@ -159,18 +159,13 @@ public class Testability {
                             genericType,
                             typeArguments,
                             referenceBinding);
-            TypeReference b = typeReferenceFromTypeBinding(typeArguments[0]);
 
             TypeReference[][] typeReferences = new TypeReference[path.length][];
             typeReferences[path.length - 1] = Arrays.stream(typeArguments).
+                    map(type -> Testability.boxIfApplicable(type, lookupEnvironment)).
                     map(Testability::typeReferenceFromTypeBinding).
                     collect(toList()).
                     toArray(new TypeReference[0]);
-
-//                    new TypeReference[]{
-//                    typeReferenceFromTypeBinding(fieldTypeBinding)
-//                    }
-//            };
 
             ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReference = new ParameterizedQualifiedTypeReference(
                     path,
@@ -194,7 +189,8 @@ public class Testability {
             int argc = typeArguments.length - 1; //type args has return at the end, method args do not //Optional.ofNullable(originalMessageSend.arguments).map(ex -> ex.length).orElse(0);//this.descriptor.parameters.length;
             Argument[] arguments = new Argument[argc];
             for (int i = 0; i < argc; i++) {
-                TypeReference typeReference = typeReferenceFromTypeBinding(typeBinding.arguments[i]);
+                TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
+                TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
                 arguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
             }
 
@@ -309,6 +305,16 @@ public class Testability {
                     typeBinding.id
             );
         }
+    }
+    static public TypeBinding boxIfApplicable(TypeBinding typeBinding, LookupEnvironment lookupEnvironment) {
+        if (typeBinding instanceof BaseTypeBinding){
+            BaseTypeBinding baseTypeBinding = (BaseTypeBinding) typeBinding;
+            if (baseTypeBinding.isPrimitiveType()){
+                //box the type
+                return lookupEnvironment.computeBoxingType(typeBinding);
+            }
+        }
+        return typeBinding;
     }
 
     /**

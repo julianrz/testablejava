@@ -67,14 +67,41 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
-    //TODO fix/implement
-//    public void testTestabilityInjectFunctionField_ValueType() throws Exception {
+
+    public void testTestabilityInjectFunctionField_PrimitiveType() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "     int i = 434242342;" +
+                        "     System.out.write(i);" +
+                        "   }" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import java.io.PrintStream;\n\n" +
+                        "public class X {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var0, var1) -> {\n" +
+                        "      var0.write(var1.intValue());\n" +
+                        "      return null;\n" +
+                        "   };\n\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      int var1 = 434242342;\n" +
+                        "      this.$$java$io$PrintStream$write.apply(System.out, var1);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+    }
+    //TODO fix
+//    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
 //
 //        String[] task = {
 //                "X.java",
 //                "public class X {\n" +
 //                        "	void fn() throws Exception {" +
-//                        "     int i=0;" +
+//                        "     int i = Integer.INT_MAX;" +
 //                        "     System.out.write(i);" +
 //                        "   }" +
 //                        "}\n"
@@ -82,12 +109,13 @@ public class TestabilityTest extends BaseTest {
 //        String expectedOutput =
 //                "import java.io.PrintStream;\n\n" +
 //                        "public class X {\n" +
-//                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$println = (var0, var1) -> {\n" +
+//                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var0, var1) -> {\n" +
 //                        "      var0.write(var1);\n" +
 //                        "      return null;\n" +
 //                        "   };\n\n" +
 //                        "   void fn() {\n" +
-//                        "     this.$$java$io$PrintStream$write.apply(System.out, 1);\n" +
+//                        "     int i = Integer.INT_MAX;" +
+//                        "     this.$$java$io$PrintStream$write.apply(System.out, i);\n" +
 //                        "   }\n" +
 //                        "}";
 //
