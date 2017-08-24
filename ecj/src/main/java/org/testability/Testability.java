@@ -388,7 +388,7 @@ public class Testability {
         if (originalMessageSend.arguments == null) {
             typeArguments = new TypeBinding[]{fieldTypeBinding};
         } else {
-            typeArguments = new TypeBinding[originalMessageSend.arguments.length];
+            typeArguments = new TypeBinding[originalMessageSend.arguments.length + 1];
 
             int iArg = 0;
             for (Expression arg : originalMessageSend.arguments) {
