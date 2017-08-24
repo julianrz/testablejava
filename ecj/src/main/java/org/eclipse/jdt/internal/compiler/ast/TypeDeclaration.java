@@ -77,7 +77,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     public FieldBinding enumValuesSyntheticfield;    // for enum
     public int enumConstantsCounter;
 
-    public Map<String, MessageSend> allCallsToRedirect = new HashMap<>();
+    public Map<String, Expression> allCallsToRedirect = new HashMap<>();
 
     // 1.5 support
     public TypeParameter[] typeParameters;

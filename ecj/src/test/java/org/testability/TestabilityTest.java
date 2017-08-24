@@ -285,5 +285,27 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_NewOperator() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){new String();}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                        "public class X {\n" +
+                        "   Function0<String> $$java$lang$String$new = () -> {\n" +
+                        "      new String();\n" +
+                        "      return null;\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "      this.$$java$lang$String$new.apply();\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
 
 }
