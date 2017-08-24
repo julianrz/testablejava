@@ -8,7 +8,6 @@ import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -38,11 +37,9 @@ public class Testability {
         //original message sent is rewired to localfield.apply()
 
         MessageSend thisMessageSend = messageSend;
-        Optional<MessageSend> needsCodeReplace = classDeclaration.allCallsToRedirect.stream().
-                filter(ms -> ms == thisMessageSend).
-                findFirst();//TODO could have just determined directly if replace is needed
+        boolean needsCodeReplace = classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(thisMessageSend));
 
-        if (!needsCodeReplace.isPresent())
+        if (!needsCodeReplace)
             return null;
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
@@ -103,7 +100,7 @@ public class Testability {
                 !isTestabilityFieldAccess(messageSend.receiver)) //it calls the testability field apply method
 
         {
-            classReferenceContext.allCallsToRedirect.add(messageSend);
+            classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptor(messageSend), messageSend);
         }
     }
 
@@ -111,25 +108,26 @@ public class Testability {
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding){
 
-        List<FieldDeclaration> testabilityFieldDeclarations = new ArrayList<>();
+        return typeDeclaration.allCallsToRedirect.values().stream().
+                map(originalMessageSend -> {
 
-        for (MessageSend originalMessageSend : typeDeclaration.allCallsToRedirect) {
+                    char[] invokedMethodName = originalMessageSend.selector;
+                    String invokedClassName = fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
+                    String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
 
-            char[] invokedMethodName = originalMessageSend.selector;
-            String invokedClassName = fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
-            String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
+                    FieldDeclaration fieldDeclaration = makeRedirectorFieldDeclaration(typeDeclaration, referenceBinding, originalMessageSend, fieldName);
 
-            FieldDeclaration fieldDeclaration = makeRedirectionField(typeDeclaration, referenceBinding, originalMessageSend, fieldName);
+                    fieldDeclaration.resolve(typeDeclaration.initializerScope);
 
-            fieldDeclaration.resolve(typeDeclaration.initializerScope);
-
-            testabilityFieldDeclarations.add(fieldDeclaration);
-        }
-
-        return testabilityFieldDeclarations;
+                    return fieldDeclaration;
+                }).collect(toList());
     }
 
-    static FieldDeclaration makeRedirectionField(TypeDeclaration typeDeclaration, SourceTypeBinding referenceBinding, MessageSend originalMessageSend, String fieldName) {
+    static String toUniqueMethodDescriptor(MessageSend m) {
+            return m.receiver.toString() + "." + m.binding.toString();
+    }
+
+    static FieldDeclaration makeRedirectorFieldDeclaration(TypeDeclaration typeDeclaration, SourceTypeBinding referenceBinding, MessageSend originalMessageSend, String fieldName) {
         TypeBinding fieldTypeBinding = //TypeReference.baseTypeReference(TypeIds.T_int, 0).resolveType(currentBinding.scope);
                 originalMessageSend.binding.returnType;
 

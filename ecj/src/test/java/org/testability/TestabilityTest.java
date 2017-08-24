@@ -67,6 +67,34 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_DuplicateCalls() throws Exception {
+
+        //expecting single field
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn1(){System.out.println();}" +
+                        "	void fn2(){System.out.println();}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import java.io.PrintStream;\n\n" +
+                        "public class X {\n" +
+                        "   Function1<PrintStream, Void> $$java$io$PrintStream$println = (var0) -> {\n" +
+                        "      var0.println();\n" +
+                        "      return null;\n" +
+                        "   };\n\n" +
+                        "   void fn1() {\n" +
+                        "      this.$$java$io$PrintStream$println.apply(System.out);\n" +
+                        "   }\n\n" +
+                        "   void fn2() {\n" +
+                        "      this.$$java$io$PrintStream$println.apply(System.out);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
 
     public void testTestabilityInjectFunctionField_PrimitiveType() throws Exception {
 
@@ -94,33 +122,6 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
     }
-    //TODO fix
-//    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
-//
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "	void fn() throws Exception {" +
-//                        "     int i = Integer.INT_MAX;" +
-//                        "     System.out.write(i);" +
-//                        "   }" +
-//                        "}\n"
-//        };
-//        String expectedOutput =
-//                "import java.io.PrintStream;\n\n" +
-//                        "public class X {\n" +
-//                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var0, var1) -> {\n" +
-//                        "      var0.write(var1);\n" +
-//                        "      return null;\n" +
-//                        "   };\n\n" +
-//                        "   void fn() {\n" +
-//                        "     int i = Integer.INT_MAX;" +
-//                        "     this.$$java$io$PrintStream$write.apply(System.out, i);\n" +
-//                        "   }\n" +
-//                        "}";
-//
-//        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
-//    }
 
     public void testTestabilityInjectFunctionField_MultipleCalls() throws Exception {
 
