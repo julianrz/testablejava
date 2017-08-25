@@ -21,6 +21,20 @@ public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
 
     /**
+     *
+     * @param currentScope
+     * @param expressionToBeReplaced
+     * @return truen if original expression needs to be redirected using field/apply
+     */
+    static boolean needsCodeReplace(BlockScope currentScope, Expression expressionToBeReplaced){
+        TypeDeclaration classDeclaration = currentScope.methodScope().classScope().referenceContext;
+
+        if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
+            return false;
+
+        return classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(expressionToBeReplaced));
+    }
+    /**
      * add a redirection via field to call - change the call so that it uses field and its 'apply' method
      * which, in turn makes the original call
      * @param messageSend
@@ -30,41 +44,31 @@ public class Testability {
      * @return true if redirection was needed (and was added)
      */
     public static MessageSend replaceCallWithFieldRedirectorIfNeeded(MessageSend messageSend, BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
-        TypeDeclaration classDeclaration = currentScope.methodScope().classScope().referenceContext;
-
-        if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
-            return null;
-
-        //original message sent is rewired to localfield.apply()
-
-        MessageSend thisMessageSend = messageSend;
-        boolean needsCodeReplace = classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(thisMessageSend));
-
-        if (!needsCodeReplace)
+        if (!needsCodeReplace(currentScope, messageSend))
             return null;
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
 
-        MessageSend messageGetField = new MessageSend();
+        MessageSend messageToFieldApply = new MessageSend();
 
         String methodClassName = new String(messageSend.binding.declaringClass.readableName());
 
         String targetFieldNameInThis = testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
         String targetMethodName = "apply";
 
-        messageGetField.selector = targetMethodName.toCharArray();
-        messageGetField.binding =
+        messageToFieldApply.selector = targetMethodName.toCharArray();
+        messageToFieldApply.binding =
                 new MethodBinding(0, new TypeBinding[]{}, new ReferenceBinding[]{}, messageSend.binding.declaringClass);
 
-        messageGetField.binding.modifiers = ClassFileConstants.AccPublic;
-        messageGetField.binding.selector = messageGetField.selector;
+        messageToFieldApply.binding.modifiers = ClassFileConstants.AccPublic;
+        messageToFieldApply.binding.selector = messageToFieldApply.selector;
 
-        messageGetField.binding.parameters = Arrays.copyOf(messageSend.binding.parameters,messageSend.binding.parameters.length + 1);
-        System.arraycopy(messageGetField.binding.parameters, 0, messageGetField.binding.parameters, 1, messageGetField.binding.parameters.length -1);
-        messageGetField.binding.parameters[0] = messageSend.receiver.resolvedType;
+        messageToFieldApply.binding.parameters = Arrays.copyOf(messageSend.binding.parameters,messageSend.binding.parameters.length + 1);
+        System.arraycopy(messageToFieldApply.binding.parameters, 0, messageToFieldApply.binding.parameters, 1, messageToFieldApply.binding.parameters.length -1);
+        messageToFieldApply.binding.parameters[0] = messageSend.receiver.resolvedType;
 
-        messageGetField.binding.returnType = messageSend.binding().returnType;
-        messageGetField.binding.declaringClass = currentScope.classScope().referenceContext.binding;
+        messageToFieldApply.binding.returnType = messageSend.binding().returnType;
+        messageToFieldApply.binding.declaringClass = currentScope.classScope().referenceContext.binding;
 
         char[][] path = new char[1][];
         path[0] = targetFieldNameInThis.toCharArray();
@@ -72,12 +76,12 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = new QualifiedNameReference(path, new long[path.length], 0, 0);
         qualifiedNameReference.resolve(currentScope);
 
-        messageGetField.receiver = qualifiedNameReference;
+        messageToFieldApply.receiver = qualifiedNameReference;
 
-        if (null == messageGetField.receiver.resolvedType)
+        if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
 
-        messageGetField.actualReceiverType = messageGetField.receiver.resolvedType;
+        messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
         //shift/insert receiver at pos 0
         int originalArgCount = messageSend.arguments == null ? 0 : messageSend.arguments.length;
@@ -87,10 +91,12 @@ public class Testability {
 
         argsWithReceiver[0] = messageSend.receiver;
 
-        messageGetField.arguments = argsWithReceiver;
+        messageToFieldApply.arguments = argsWithReceiver;
 
-        return messageGetField;
+        return messageToFieldApply;
     }
+
+
     /**
      * add a redirection via field to call - change the call so that it uses field and its 'apply' method
      * which, in turn makes the original call
@@ -101,40 +107,31 @@ public class Testability {
      * @return true if redirection was needed (and was added)
      */
     public static MessageSend replaceCallWithFieldRedirectorIfNeeded(AllocationExpression allocationExpression, BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
-        TypeDeclaration classDeclaration = currentScope.methodScope().classScope().referenceContext;
 
-        if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
-            return null;
-
-        //original message sent is rewired to localfield.apply()
-
-        AllocationExpression thisAllocationExpression = allocationExpression;
-        boolean needsCodeReplace = classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(thisAllocationExpression));
-
-        if (!needsCodeReplace)
+        if (!needsCodeReplace(currentScope, allocationExpression))
             return null;
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
 
-        MessageSend messageGetField = new MessageSend();
+        MessageSend messageToFieldApply = new MessageSend();
 
         String methodClassName = new String(allocationExpression.binding.declaringClass.readableName());
 
         String targetFieldNameInThis = testabilityFieldNameForNewOperator(methodClassName);
         String targetMethodName = "apply";
 
-        messageGetField.selector = targetMethodName.toCharArray();
-        messageGetField.binding =
+        messageToFieldApply.selector = targetMethodName.toCharArray();
+        messageToFieldApply.binding =
                 new MethodBinding(0, new TypeBinding[]{}, new ReferenceBinding[]{}, allocationExpression.binding.declaringClass);
 
-        messageGetField.binding.modifiers = ClassFileConstants.AccPublic;
-        messageGetField.binding.selector = messageGetField.selector;
+        messageToFieldApply.binding.modifiers = ClassFileConstants.AccPublic;
+        messageToFieldApply.binding.selector = messageToFieldApply.selector;
 
-        messageGetField.binding.parameters = Arrays.copyOf(allocationExpression.binding.parameters,
+        messageToFieldApply.binding.parameters = Arrays.copyOf(allocationExpression.binding.parameters,
                 allocationExpression.binding.parameters.length);
 
-        messageGetField.binding.returnType = allocationExpression.resolvedType;
-        messageGetField.binding.declaringClass = currentScope.classScope().referenceContext.binding;
+        messageToFieldApply.binding.returnType = allocationExpression.resolvedType;
+        messageToFieldApply.binding.declaringClass = currentScope.classScope().referenceContext.binding;
 
         char[][] path = new char[1][];
         path[0] = targetFieldNameInThis.toCharArray();
@@ -142,12 +139,12 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = new QualifiedNameReference(path, new long[path.length], 0, 0);
         qualifiedNameReference.resolve(currentScope);
 
-        messageGetField.receiver = qualifiedNameReference;
+        messageToFieldApply.receiver = qualifiedNameReference;
 
-        if (null == messageGetField.receiver.resolvedType)
+        if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
 
-        messageGetField.actualReceiverType = messageGetField.receiver.resolvedType;
+        messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
         //shift/insert receiver at pos 0
         int originalArgCount = allocationExpression.arguments == null ? 0 : allocationExpression.arguments.length;
@@ -155,9 +152,9 @@ public class Testability {
         for (int iArg = 0; iArg< originalArgCount; iArg++)
             argsCopy[iArg] = allocationExpression.arguments[iArg];
 
-        messageGetField.arguments = argsCopy;
+        messageToFieldApply.arguments = argsCopy;
 
-        return messageGetField;
+        return messageToFieldApply;
     }
 
     public static void registerCallToRedirectIfNeeded(MessageSend messageSend, BlockScope scope) {
@@ -178,7 +175,6 @@ public class Testability {
             classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorAllocationExpression(allocationExpression), allocationExpression);
         }
     }
-
 
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
             TypeDeclaration typeDeclaration,
