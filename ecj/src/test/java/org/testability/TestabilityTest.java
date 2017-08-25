@@ -218,8 +218,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
                         "   Function1<PrintStream, String> $$java$lang$Object$toString = (var0) -> {\n" +
-                        "      var0.toString();\n" +
-                        "      return null;\n" +
+                        "      return var0.toString();\n" +
                         "   };\n" +
                         "\n" +
                         "   void fn() {\n" +
@@ -296,8 +295,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                         "public class X {\n" +
                         "   Function0<String> $$java$lang$String$new = () -> {\n" +
-                        "      new String();\n" +
-                        "      return null;\n" +
+                        "      return new String();\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      this.$$java$lang$String$new.apply();\n" +
@@ -318,8 +316,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                         "public class X {\n" +
                         "   Function1<StringBuilder, String> $$java$lang$String$new = (var0) -> {\n" +
-                        "      new String(var0);\n" +
-                        "      return null;\n" +
+                        "      return new String(var0);\n" +
                         "   };\n\n" +
                         "   void fn(StringBuilder var1) {\n" +
                         "      this.$$java$lang$String$new.apply(var1);\n" +
@@ -327,6 +324,51 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorReturn() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String fn(){ return new String();}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function0<String> $$java$lang$String$new = () -> {\n" +
+                        "      return new String();\n" +
+                        "   };\n\n" +
+                        "   String fn() {\n" +
+                        "      return this.$$java$lang$String$new.apply();\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
+
+    public void testTestabilityInjectFunctionField_ForStaticCallReturn() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.io.PrintStream;\n" +
+                "public class X {\n" +
+                        "	PrintStream fn(){return System.out.append('c');}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import java.io.PrintStream;\n\n" +
+                        "public class X {\n" +
+                        "   Function2<PrintStream, Character, PrintStream> $$java$io$PrintStream$append = (var0, var1) -> {\n" +
+                        "      return var0.append(var1.charValue());\n" +
+                        "   };\n\n" +
+                        "   PrintStream fn() {\n" +
+                        "      return this.$$java$io$PrintStream$append.apply(System.out, 'c');\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
     }
 
 }

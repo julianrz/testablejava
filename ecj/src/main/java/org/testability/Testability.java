@@ -133,7 +133,7 @@ public class Testability {
         messageGetField.binding.parameters = Arrays.copyOf(allocationExpression.binding.parameters,
                 allocationExpression.binding.parameters.length);
 
-        messageGetField.binding.returnType = allocationExpression.binding().returnType;
+        messageGetField.binding.returnType = allocationExpression.resolvedType;
         messageGetField.binding.declaringClass = currentScope.classScope().referenceContext.binding;
 
         char[][] path = new char[1][];
@@ -342,19 +342,31 @@ public class Testability {
 
         messageSendInLambdaBody.arguments = argv;
 
-        Expression nullExpression = new NullLiteral(0, 0);
-        ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
                 "testabilitylabel".toCharArray(),
                 new EmptyStatement(0, 0),
                 0, 0);
 
-        block.statements = new Statement[]{
-                labeledStatement,
-                messageSendInLambdaBody,
-                returnStatement
-        };
+        if (messageSendInLambdaBody.binding.returnType instanceof VoidTypeBinding) {
+            Expression nullExpression = new NullLiteral(0, 0);
+            ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
+
+            block.statements = new Statement[]{
+                    labeledStatement,
+                    messageSendInLambdaBody,
+                    returnStatement
+            };
+
+        } else {
+
+            ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+
+            block.statements = new Statement[]{
+                    labeledStatement,
+                    returnStatement
+            };
+        }
 
         lambdaExpression.setBody(block);
 
@@ -471,17 +483,16 @@ public class Testability {
 
         messageSendInLambdaBody.arguments = argv;
 
-        Expression nullExpression = new NullLiteral(0, 0);
-        ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
                 "testabilitylabel".toCharArray(),
                 new EmptyStatement(0, 0),
                 0, 0);
 
+        ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+
         block.statements = new Statement[]{
                 labeledStatement,
-                messageSendInLambdaBody,
                 returnStatement
         };
 
