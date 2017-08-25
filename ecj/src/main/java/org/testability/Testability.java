@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.toList;
 
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
+    public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
 
     /**
      *
@@ -54,26 +55,16 @@ public class Testability {
         String methodClassName = new String(messageSend.binding.declaringClass.readableName());
 
         String targetFieldNameInThis = testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
-        String targetMethodName = "apply";
 
-        messageToFieldApply.selector = targetMethodName.toCharArray();
-        messageToFieldApply.binding =
-                new MethodBinding(0, new TypeBinding[]{}, new ReferenceBinding[]{}, messageSend.binding.declaringClass);
+        messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
-        messageToFieldApply.binding.modifiers = ClassFileConstants.AccPublic;
-        messageToFieldApply.binding.selector = messageToFieldApply.selector;
+        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
+                messageSend.binding,
+                currentScope,
+                Optional.of(messageSend.receiver.resolvedType),
+                messageSend.binding.returnType);
 
-        messageToFieldApply.binding.parameters = Arrays.copyOf(messageSend.binding.parameters,messageSend.binding.parameters.length + 1);
-        System.arraycopy(messageToFieldApply.binding.parameters, 0, messageToFieldApply.binding.parameters, 1, messageToFieldApply.binding.parameters.length -1);
-        messageToFieldApply.binding.parameters[0] = messageSend.receiver.resolvedType;
-
-        messageToFieldApply.binding.returnType = messageSend.binding().returnType;
-        messageToFieldApply.binding.declaringClass = currentScope.classScope().referenceContext.binding;
-
-        char[][] path = new char[1][];
-        path[0] = targetFieldNameInThis.toCharArray();
-
-        QualifiedNameReference qualifiedNameReference = new QualifiedNameReference(path, new long[path.length], 0, 0);
+        QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
         messageToFieldApply.receiver = qualifiedNameReference;
@@ -94,6 +85,35 @@ public class Testability {
         messageToFieldApply.arguments = argsWithReceiver;
 
         return messageToFieldApply;
+    }
+
+    static MethodBinding makeRedirectorFieldMethodBinding(
+            MethodBinding originalBinding,
+            BlockScope currentScope,
+            Optional<TypeBinding> receiverType,
+            TypeBinding returnType) {
+
+        MethodBinding binding = new MethodBinding(
+                0,
+                new TypeBinding[]{},
+                new ReferenceBinding[]{},
+                originalBinding.declaringClass);
+
+        binding.modifiers = ClassFileConstants.AccPublic;
+        binding.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
+
+        if (receiverType.isPresent()) {
+            binding.parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length + 1);
+            System.arraycopy(binding.parameters, 0, binding.parameters, 1, binding.parameters.length - 1);
+            binding.parameters[0] = receiverType.get();
+        } else {
+            binding.parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
+        }
+
+        binding.returnType = returnType;
+        binding.declaringClass = currentScope.classScope().referenceContext.binding;
+
+        return binding;
     }
 
 
@@ -118,25 +138,16 @@ public class Testability {
         String methodClassName = new String(allocationExpression.binding.declaringClass.readableName());
 
         String targetFieldNameInThis = testabilityFieldNameForNewOperator(methodClassName);
-        String targetMethodName = "apply";
 
-        messageToFieldApply.selector = targetMethodName.toCharArray();
-        messageToFieldApply.binding =
-                new MethodBinding(0, new TypeBinding[]{}, new ReferenceBinding[]{}, allocationExpression.binding.declaringClass);
+        messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
-        messageToFieldApply.binding.modifiers = ClassFileConstants.AccPublic;
-        messageToFieldApply.binding.selector = messageToFieldApply.selector;
+        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
+                allocationExpression.binding,
+                currentScope,
+                Optional.empty(),
+                allocationExpression.resolvedType);
 
-        messageToFieldApply.binding.parameters = Arrays.copyOf(allocationExpression.binding.parameters,
-                allocationExpression.binding.parameters.length);
-
-        messageToFieldApply.binding.returnType = allocationExpression.resolvedType;
-        messageToFieldApply.binding.declaringClass = currentScope.classScope().referenceContext.binding;
-
-        char[][] path = new char[1][];
-        path[0] = targetFieldNameInThis.toCharArray();
-
-        QualifiedNameReference qualifiedNameReference = new QualifiedNameReference(path, new long[path.length], 0, 0);
+        QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
         messageToFieldApply.receiver = qualifiedNameReference;
@@ -146,15 +157,19 @@ public class Testability {
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
-        //shift/insert receiver at pos 0
-        int originalArgCount = allocationExpression.arguments == null ? 0 : allocationExpression.arguments.length;
-        Expression[] argsCopy = new Expression[originalArgCount];
-        for (int iArg = 0; iArg< originalArgCount; iArg++)
-            argsCopy[iArg] = allocationExpression.arguments[iArg];
-
-        messageToFieldApply.arguments = argsCopy;
+        if (allocationExpression.arguments == null)
+            messageToFieldApply.arguments = null;
+        else
+            messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
 
         return messageToFieldApply;
+    }
+
+    static QualifiedNameReference makeQualifiedNameReference(String targetFieldNameInThis) {
+        char[][] path = new char[1][];
+        path[0] = targetFieldNameInThis.toCharArray();
+
+        return new QualifiedNameReference(path, new long[path.length], 0, 0);
     }
 
     public static void registerCallToRedirectIfNeeded(MessageSend messageSend, BlockScope scope) {
