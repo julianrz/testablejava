@@ -28,6 +28,22 @@ public class TestabilityTest extends BaseTest {
 //        assertEquals(expectedOutput, stringListMap.get("a.X").stream().collect(joining("\n")));
 //    }
 
+//    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "   public static void main(String[]args){\n" +
+//                        "       new X();\n" +
+//                        "   }" +
+//                        "}\n"
+//        };
+//        String expectedOutput = task[1];
+//
+//        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+//    }
+
+
     public void testTestabilityInjectFunctionField_NotExpandingInsideRedirectedFields() throws Exception {
 
         String[] task = {
@@ -44,7 +60,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
     }
 
-    public void testTestabilityInjectFunctionField_ForStaticCallNoArgs() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallNoArgs() throws Exception {
 
         String[] task = {
                 "X.java",
@@ -158,7 +174,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
     }
 
-    public void testTestabilityInjectFunctionField_ForStaticCallPassingArgsThrough() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallPassingArgsThrough() throws Exception {
 
         String[] task = {
                 "X.java",
@@ -181,7 +197,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
     }
 
-    public void testTestabilityInjectFunctionField_ForStaticCallPassingInAConstant() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallPassingInAConstant() throws Exception {
 
         String[] task = {
                 "X.java",
@@ -204,7 +220,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
-    public void testTestabilityInjectFunctionField_ForStaticCallBaseClass() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallBaseClass() throws Exception {
 
         //field named after method that is actually called (base class)
         String[] task = {
@@ -347,7 +363,7 @@ public class TestabilityTest extends BaseTest {
 
     }
 
-    public void testTestabilityInjectFunctionField_ForStaticCallReturn() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallReturn() throws Exception {
 
         String[] task = {
                 "X.java",

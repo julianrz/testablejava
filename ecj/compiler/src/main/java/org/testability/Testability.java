@@ -299,6 +299,8 @@ public class Testability {
                 0,
                 new long[path.length]);
 
+        //TODO maketypereference
+
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
         FieldBinding fieldBinding = new
