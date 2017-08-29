@@ -4,9 +4,9 @@
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.eclipse.jdt.core.compiler</groupId>
-    <artifactId>ecj-with-testability-enhancements</artifactId>
-    <version>4.6.1</version>
-    <packaging>jar</packaging>
+    <artifactId>parent</artifactId>
+    <version>4.6.1-TESTABILITY</version>
+    <packaging>pom</packaging>
 
     <inceptionYear>2017</inceptionYear>
 
@@ -14,6 +14,12 @@
         <name>Julian Rozentur</name>
         <url></url>
     </organization>
+
+    <modules>
+        <module>compiler</module>
+        <module>samples</module>
+    </modules>
+
 
     <dependencies>
         <dependency>
