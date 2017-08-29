@@ -83,6 +83,21 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_ForExternalCallNoArgsFromStaticContentForNow() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   static void fn() {\n" +
+                        "      System.out.println();\n" +
+                        "   }\n" +
+                        "}"
+        };
+        String expectedOutput = task[1];
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
     public void testTestabilityInjectFunctionField_DuplicateCalls() throws Exception {
 
         //expecting single field
@@ -382,6 +397,21 @@ public class TestabilityTest extends BaseTest {
                         "      return this.$$java$io$PrintStream$append.apply(System.out, 'c');\n" +
                         "   }\n" +
                         "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorFromStaticContextForNow() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   static void fn() {\n" +
+                        "      new String();\n" +
+                        "   }\n" +
+                        "}"
+        };
+        String expectedOutput = task[1];
 
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 

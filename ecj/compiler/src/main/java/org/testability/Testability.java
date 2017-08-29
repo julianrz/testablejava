@@ -28,7 +28,14 @@ public class Testability {
      * @return truen if original expression needs to be redirected using field/apply
      */
     static boolean needsCodeReplace(BlockScope currentScope, Expression expressionToBeReplaced){
-        TypeDeclaration classDeclaration = currentScope.methodScope().classScope().referenceContext;
+        MethodScope methodScope = currentScope.methodScope();
+        if (methodScope == null)
+            return false;
+
+        if (methodScope.isStatic)
+            return false; //TODO remove when implemented
+
+        TypeDeclaration classDeclaration = methodScope.classScope().referenceContext;
 
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
             return false;
@@ -178,7 +185,9 @@ public class Testability {
 //                    !classReferenceContext.isTestabilityRedirectorField(this.receiver) &&
                 !fromTestabilityFieldInitializer(scope) && //it calls original code
 //                    !classReferenceContext.isTestabilityRedirectorMethod(scope) &&
-                !isTestabilityFieldAccess(messageSend.receiver)) //it calls the testability field apply method
+                !isTestabilityFieldAccess(messageSend.receiver) &&
+                        (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
+                ) //it calls the testability field apply method
 
         {
             classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorMessageSend(messageSend), messageSend);
@@ -186,7 +195,9 @@ public class Testability {
     }
     public static void registerCallToRedirectIfNeeded(AllocationExpression allocationExpression, BlockScope scope) {
         TypeDeclaration classReferenceContext = scope.classScope().referenceContext;
-        if (!fromTestabilityFieldInitializer(scope)) {//it calls original code
+        if (!fromTestabilityFieldInitializer(scope) &&
+            (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
+           ) {//it calls original code
             classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorAllocationExpression(allocationExpression), allocationExpression);
         }
     }
