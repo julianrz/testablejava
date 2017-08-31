@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
+    public static final String TESTABILITYLABEL = "testabilitylabel";
 
     /**
      *
@@ -111,15 +112,18 @@ public class Testability {
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
+        boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
+        int parameterShift = receiverPrecedes ? 1 : 0;
+
         //shift/insert receiver at pos 0
         int originalArgCount = messageSend.arguments == null ? 0 : messageSend.arguments.length;
-        Expression[] argsWithReceiver = new Expression[originalArgCount + 1];
+        Expression[] argsWithReceiver = new Expression[parameterShift + originalArgCount];
         for (int iArg = 0; iArg< originalArgCount; iArg++) {
-            argsWithReceiver[iArg + 1] = messageSend.arguments[iArg];
-            addBoxingIfNeeded(argsWithReceiver[iArg + 1]);
+            argsWithReceiver[iArg + parameterShift] = messageSend.arguments[iArg];
+            addBoxingIfNeeded(argsWithReceiver[iArg + parameterShift]);
         }
-
-        argsWithReceiver[0] = messageSend.receiver;
+        if (receiverPrecedes)
+            argsWithReceiver[0] = messageSend.receiver;
 
         messageToFieldApply.arguments = argsWithReceiver;
 
@@ -256,6 +260,7 @@ public class Testability {
                         }).
                 filter(Objects::nonNull).
                 peek(fieldDeclaration -> fieldDeclaration.resolve(typeDeclaration.initializerScope)).
+                peek(fieldDeclaration -> System.out.println("injected redirector field: " + fieldDeclaration)).
                 collect(toList());
     }
 
@@ -286,29 +291,29 @@ public class Testability {
 
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
 
+        int parameterShift = receiverPrecedesParameters(originalMessageSend) ? 1 : 0;
+
         char[][] path = {
-                ("Function" + (originalMessageSend.arguments == null ?
-                        1 :
-                        originalMessageSend.arguments.length + 1)
-                ).
+                functionNameForArgs(originalMessageSend).
                 toCharArray()
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
-        TypeBinding[] typeArguments; //receiver, args, return
-        if (originalMessageSend.arguments == null) {
-            typeArguments = new TypeBinding[]{originalMessageSend.receiver.resolvedType, fieldTypeBinding};
-        } else {
-            typeArguments = new TypeBinding[originalMessageSend.arguments.length + 2];
+        TypeBinding[] typeArguments; //(receiver), args, return
+        Expression[] originalArguments = originalMessageSend.arguments;
+        if (originalArguments == null)
+            originalArguments = new Expression[0];
+
+        typeArguments = new TypeBinding[parameterShift + originalArguments.length + 1];
+        if (parameterShift > 0)
             typeArguments[0] = originalMessageSend.receiver.resolvedType;
 
-            int iArg = 1;
-            for (TypeBinding arg : originalMessageSend.binding.parameters) {
-                typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
-            }
-            typeArguments[iArg++] = fieldTypeBinding;
+        int iArg = parameterShift;
+        for (TypeBinding arg : originalMessageSend.binding.parameters) {
+            typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
         }
+        typeArguments[iArg++] = fieldTypeBinding;
 
         ParameterizedTypeBinding typeBinding =
                 lookupEnvironment.createParameterizedType(
@@ -344,7 +349,8 @@ public class Testability {
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
 
-        int argc = typeArguments.length - 1; //type args has return at the end, method args do not //Optional.ofNullable(originalMessageSend.arguments).map(ex -> ex.length).orElse(0);//this.descriptor.parameters.length;
+        int argc = typeArguments.length - 1; //type args has return at the end, method args do not
+
         Argument[] arguments = new Argument[argc];
         for (int i = 0; i < argc; i++) {
             TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
@@ -362,20 +368,28 @@ public class Testability {
 
         messageSendInLambdaBody.selector = originalMessageSend.selector;
 
-        Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
+        //if receiver provided as lambda arg0, (arg0, arg1, .. argN) -> arg0.apply(arg1, .. argN)
+        //otherwise (arg0, .. argN) -> (hardcodedReceiver, arg0, .. argN)
 
-        messageSendInLambdaBody.receiver = newReceiver;
+        if (receiverPrecedesParameters(originalMessageSend)) {
+            Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
+
+            messageSendInLambdaBody.receiver = newReceiver;
+        } else {
+            messageSendInLambdaBody.receiver = originalMessageSend.receiver;
+            //reset receiver type or it will re-resolve incorrectly to be of local field, and fail
+            if (messageSendInLambdaBody.receiver instanceof NameReference)
+                ((NameReference) messageSendInLambdaBody.receiver).actualReceiverType = null;
+        }
 
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = originalMessageSend.binding;
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 
-        boolean receiverPrecedesParameters = true;
-        int parameterShift = receiverPrecedesParameters ? 1 : 0;
         Expression[] argv = new SingleNameReference[argc - parameterShift];
         for (int i = 0, length = argv.length; i < length; i++) {
-            char[] name = (" arg" + (i + parameterShift)).toCharArray();//arguments[i].name;//CharOperation.append(ImplicitArgName, Integer.toString((i + parameterShift)).toCharArray());
+            char[] name = (" arg" + (i + parameterShift)).toCharArray();
 
             SingleNameReference singleNameReference = new SingleNameReference(name, 0);
 
@@ -387,7 +401,7 @@ public class Testability {
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
-                "testabilitylabel".toCharArray(),
+                TESTABILITYLABEL.toCharArray(),
                 new EmptyStatement(0, 0),
                 0, 0);
 
@@ -416,6 +430,25 @@ public class Testability {
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
     }
+
+    /**
+     * Function name reflects # of its arguments, which is # of type args - 1
+     * @param messageSend
+     * @return
+     */
+    static String functionNameForArgs(MessageSend messageSend) {
+        int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
+        int functionArgCount = (messageSend.arguments == null? 0 : messageSend.arguments.length) + parameterShift;
+        return "Function" + functionArgCount;
+    }
+
+    static boolean receiverPrecedesParameters(MessageSend messageSend) {
+        boolean ret = true;
+        if (messageSend.receiver instanceof NameReference && ((NameReference) messageSend.receiver).binding instanceof BinaryTypeBinding)
+            ret = false; //this is type reference line "Integer."
+        return ret;
+    }
+
     static FieldDeclaration makeRedirectorFieldDeclaration(TypeDeclaration typeDeclaration, SourceTypeBinding referenceBinding, AllocationExpression originalMessageSend, String fieldName) {
         TypeBinding fieldTypeBinding = //TypeReference.baseTypeReference(TypeIds.T_int, 0).resolveType(currentBinding.scope);
                 originalMessageSend.binding.declaringClass;

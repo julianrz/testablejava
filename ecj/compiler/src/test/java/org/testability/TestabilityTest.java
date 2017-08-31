@@ -74,6 +74,63 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithClassReceiver() throws Exception {
+
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){Integer.valueOf(2);}" +
+                        "   static public void exec() throws Exception {new X().fn();}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                        "public class X {\n" +
+                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var0) -> {\n" +
+                        "      return Integer.valueOf(var0.intValue());\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "      this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithArgs() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){Integer.getInteger(\"1\", Integer.valueOf(2));}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                        "public class X {\n" +
+                        "   Function2<String, Integer, Integer> $$java$lang$Integer$getInteger = (var0, var1) -> {\n" +
+                        "      return Integer.getInteger(var0, var1);\n" +
+                        "   };\n" +
+                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var0) -> {\n" +
+                        "      return Integer.valueOf(var0.intValue());\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "      this.$$java$lang$Integer$getInteger.apply(\"1\", (Integer)this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2)));\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+
+    }
     public void testTestabilityInjectFunctionField_ForExternalCallNoArgsFromStaticContentForNow() throws Exception {
 
         String[] task = {
