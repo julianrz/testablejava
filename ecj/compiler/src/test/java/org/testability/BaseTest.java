@@ -21,10 +21,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -135,6 +132,10 @@ public class BaseTest extends TestCase {
 
         ArrayList<FileSystem.Classpath> cp = new ArrayList<>();
         org.eclipse.jdt.internal.compiler.util.Util.collectRunningVMBootclasspath(cp);
+
+//        cp.add(FileSystem.getClasspath("target/classes", null, false,
+//        null, null, Collections.emptyMap()));
+
         INameEnvironment env =
                 new FileSystem(
                         cp.toArray(new FileSystem.Classpath[cp.size()]),

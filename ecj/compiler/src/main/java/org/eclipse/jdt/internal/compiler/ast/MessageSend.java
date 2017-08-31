@@ -411,7 +411,7 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
 
         { //check if this needs to be replaced with special redirector message send, which will be used in generation instead
             MessageSend messageGetField = Testability.replaceCallWithFieldRedirectorIfNeeded(
-                    this, currentScope, codeStream, valueRequired);
+                    this, currentScope, valueRequired);
 
             if (messageGetField != null) {
 

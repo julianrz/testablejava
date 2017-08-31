@@ -1,5 +1,11 @@
 package org.testability;
 
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.List;
+import java.util.Map;
+
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -26,21 +32,6 @@ public class TestabilityTest extends BaseTest {
 //
 //        Map<String, List<String>> stringListMap = compileAndDisassemble(task);
 //        assertEquals(expectedOutput, stringListMap.get("a.X").stream().collect(joining("\n")));
-//    }
-
-//    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
-//
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "   public static void main(String[]args){\n" +
-//                        "       new X();\n" +
-//                        "   }" +
-//                        "}\n"
-//        };
-//        String expectedOutput = task[1];
-//
-//        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 //    }
 
 
@@ -136,8 +127,10 @@ public class TestabilityTest extends BaseTest {
                         "     int i = 434242342;" +
                         "     System.out.write(i);" +
                         "   }" +
+                        "   static public void exec() throws Exception {new X().fn();}\n" +
                         "}\n"
         };
+
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
@@ -147,11 +140,123 @@ public class TestabilityTest extends BaseTest {
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
                         "      int var1 = 434242342;\n" +
-                        "      this.$$java$io$PrintStream$write.apply(System.out, var1);\n" +
+                        "      this.$$java$io$PrintStream$write.apply(System.out, Integer.valueOf(var1));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    public void testTestabilityInjectFunctionField_PrimitiveType_InNewOperator() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.math.BigDecimal;\n" +
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "     int i = 434242342;" +
+                        "     new BigDecimal(i);" +
+                        "   }" +
+                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "import java.math.BigDecimal;\n\n" +
+                        "public class X {\n" +
+                        "   Function1<Integer, BigDecimal> $$java$math$BigDecimal$new = (var0) -> {\n" +
+                        "      return new BigDecimal(var0.intValue());\n" +
+                        "   };\n\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      int var1 = 434242342;\n" +
+                        "      this.$$java$math$BigDecimal$new.apply(Integer.valueOf(var1));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    public void testTestabilityInjectFunctionField_PrimitiveTypeConst() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "     System.out.write(434242342);" +
+                        "   }" +
+                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "import java.io.PrintStream;\n\n" +
+                        "public class X {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var0, var1) -> {\n" +
+                        "      var0.write(var1.intValue());\n" +
+                        "      return null;\n" +
+                        "   };\n\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      this.$$java$io$PrintStream$write.apply(System.out, Integer.valueOf(434242342));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
+                        "   }\n"+
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    public void testTestabilityInjectFunctionField_PrimitiveTypeConst_InNewOperator() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.math.BigDecimal;\n" +
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "     new BigDecimal(434242342);" +
+                        "   }" +
+                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "import java.math.BigDecimal;\n\n" +
+                        "public class X {\n" +
+                        "   Function1<Integer, BigDecimal> $$java$math$BigDecimal$new = (var0) -> {\n" +
+                        "      return new BigDecimal(var0.intValue());\n" +
+                        "   };\n\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      this.$$java$math$BigDecimal$new.apply(Integer.valueOf(434242342));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
+                        "   }\n"+
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
 
     public void testTestabilityInjectFunctionField_MultipleCalls() throws Exception {
@@ -336,6 +441,62 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+
+    public void testTestabilityInjectFunctionField_ForNewOperator___explore_cast() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   Function1<String, String> $$java$lang$String$new = (s) -> {\n" +
+                        "      return new String(s);\n" +
+                        "   };\n\n" +
+                        "   String fn(String s) {\n" +
+                        "      return this.$$java$lang$String$new.apply(s);\n" +
+                        "   }\n" +
+                        "}"
+
+        };
+        compileAndDisassemble(task);
+    }
+
+
+    public void testTestabilityInjectFunctionField_ForNewOperatorWithExecute() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String fn(){return new String(\"x\");}" +
+                        "   public static String exec(){return new X().fn();}" +
+                        "}\n"
+        };
+
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "x");
+
+
+    }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   java.io.PrintStream fn(String x){return System.out.append(x);}\n" +
+                        "   public static java.io.PrintStream exec(){return new X().fn(\"x\");}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals(ret, System.out);
+    }
     public void testTestabilityInjectFunctionField_ForNewOperatorPassingArgsThrough() throws Exception {
 
         String[] task = {
@@ -370,13 +531,15 @@ public class TestabilityTest extends BaseTest {
                         "      return new String();\n" +
                         "   };\n\n" +
                         "   String fn() {\n" +
-                        "      return this.$$java$lang$String$new.apply();\n" +
+                        "      return (String)this.$$java$lang$String$new.apply();\n" +
                         "   }\n" +
                         "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
 
     }
+
+
 
     public void testTestabilityInjectFunctionField_ForExternalCallReturn() throws Exception {
 
@@ -385,6 +548,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "public class X {\n" +
                         "	PrintStream fn(){return System.out.append('c');}" +
+                        "   public static PrintStream exec(){return new X().fn();}\n" +
                         "}\n"
         };
         String expectedOutput =
@@ -394,11 +558,22 @@ public class TestabilityTest extends BaseTest {
                         "      return var0.append(var1.charValue());\n" +
                         "   };\n\n" +
                         "   PrintStream fn() {\n" +
-                        "      return this.$$java$io$PrintStream$append.apply(System.out, 'c');\n" +
+                        "      return (PrintStream)this.$$java$io$PrintStream$append.apply(System.out, Character.valueOf('c'));\n" +
+                        "   }\n\n" +
+                        "   public static PrintStream exec() {\n" +
+                        "      return (new X()).fn();\n" +
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals(ret, System.out);
+
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorFromStaticContextForNow() throws Exception {

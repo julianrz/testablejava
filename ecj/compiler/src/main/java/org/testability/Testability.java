@@ -1,9 +1,9 @@
 package org.testability;
 
+
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
@@ -42,16 +42,45 @@ public class Testability {
 
         return classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(expressionToBeReplaced));
     }
+    static MethodBinding makeRedirectorFieldMethodBinding(
+            QualifiedNameReference newReceiver,
+            MethodBinding originalBinding,
+            BlockScope currentScope,
+            Optional<TypeBinding> receiverType,
+            InvocationSite invocationSite) {
+
+        TypeBinding[] parameters;
+
+        if (receiverType.isPresent()) {
+            parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length + 1);
+            System.arraycopy(parameters, 0, parameters, 1, parameters.length - 1);
+            parameters[0] = receiverType.get();
+        } else {
+            parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
+        }
+
+        MethodBinding binding =
+                currentScope.getMethod(
+                        newReceiver.resolvedType,
+                        TARGET_REDIRECTED_METHOD_NAME.toCharArray(),
+                        parameters,
+                        invocationSite);
+
+        binding.modifiers = ClassFileConstants.AccPublic;
+        binding.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
+
+        return binding;
+    }
+
     /**
      * add a redirection via field to call - change the call so that it uses field and its 'apply' method
      * which, in turn makes the original call
      * @param messageSend
      * @param currentScope
-     * @param codeStream
      * @param valueRequired
      * @return true if redirection was needed (and was added)
      */
-    public static MessageSend replaceCallWithFieldRedirectorIfNeeded(MessageSend messageSend, BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+    public static MessageSend replaceCallWithFieldRedirectorIfNeeded(MessageSend messageSend, BlockScope currentScope, boolean valueRequired) {
         if (!needsCodeReplace(currentScope, messageSend))
             return null;
 
@@ -65,16 +94,17 @@ public class Testability {
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
-        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
-                messageSend.binding,
-                currentScope,
-                Optional.of(messageSend.receiver.resolvedType),
-                messageSend.binding.returnType);
-
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
         messageToFieldApply.receiver = qualifiedNameReference;
+
+        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
+                qualifiedNameReference,
+                messageSend.binding,
+                currentScope,
+                Optional.of(messageSend.receiver.resolvedType),
+                messageSend);
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
@@ -84,56 +114,30 @@ public class Testability {
         //shift/insert receiver at pos 0
         int originalArgCount = messageSend.arguments == null ? 0 : messageSend.arguments.length;
         Expression[] argsWithReceiver = new Expression[originalArgCount + 1];
-        for (int iArg = 0; iArg< originalArgCount; iArg++)
+        for (int iArg = 0; iArg< originalArgCount; iArg++) {
             argsWithReceiver[iArg + 1] = messageSend.arguments[iArg];
+            addBoxingIfNeeded(argsWithReceiver[iArg + 1]);
+        }
 
         argsWithReceiver[0] = messageSend.receiver;
 
         messageToFieldApply.arguments = argsWithReceiver;
 
+        if (valueRequired)
+            messageToFieldApply.valueCast = messageSend.resolvedType;
+
         return messageToFieldApply;
     }
-
-    static MethodBinding makeRedirectorFieldMethodBinding(
-            MethodBinding originalBinding,
-            BlockScope currentScope,
-            Optional<TypeBinding> receiverType,
-            TypeBinding returnType) {
-
-        MethodBinding binding = new MethodBinding(
-                0,
-                new TypeBinding[]{},
-                new ReferenceBinding[]{},
-                originalBinding.declaringClass);
-
-        binding.modifiers = ClassFileConstants.AccPublic;
-        binding.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
-
-        if (receiverType.isPresent()) {
-            binding.parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length + 1);
-            System.arraycopy(binding.parameters, 0, binding.parameters, 1, binding.parameters.length - 1);
-            binding.parameters[0] = receiverType.get();
-        } else {
-            binding.parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
-        }
-
-        binding.returnType = returnType;
-        binding.declaringClass = currentScope.classScope().referenceContext.binding;
-
-        return binding;
-    }
-
 
     /**
      * add a redirection via field to call - change the call so that it uses field and its 'apply' method
      * which, in turn makes the original call
      * @param allocationExpression
      * @param currentScope
-     * @param codeStream
      * @param valueRequired
      * @return true if redirection was needed (and was added)
      */
-    public static MessageSend replaceCallWithFieldRedirectorIfNeeded(AllocationExpression allocationExpression, BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+    public static MessageSend replaceCallWithFieldRedirectorIfNeeded(AllocationExpression allocationExpression, BlockScope currentScope, boolean valueRequired) {
 
         if (!needsCodeReplace(currentScope, allocationExpression))
             return null;
@@ -148,16 +152,17 @@ public class Testability {
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
-        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
-                allocationExpression.binding,
-                currentScope,
-                Optional.empty(),
-                allocationExpression.resolvedType);
-
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
         messageToFieldApply.receiver = qualifiedNameReference;
+
+        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
+                qualifiedNameReference,
+                allocationExpression.binding,
+                currentScope,
+                Optional.empty(),
+                allocationExpression);
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
@@ -166,10 +171,24 @@ public class Testability {
 
         if (allocationExpression.arguments == null)
             messageToFieldApply.arguments = null;
-        else
+        else {
             messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
+            for (Expression arg : messageToFieldApply.arguments) {
+                addBoxingIfNeeded(arg);
+            }
+        }
+
+        if (valueRequired)
+            messageToFieldApply.valueCast = allocationExpression.resolvedType;
 
         return messageToFieldApply;
+    }
+
+    static void addBoxingIfNeeded(Expression expression) {
+        if (expression.resolvedType instanceof BaseTypeBinding) //Function.apply always takes boxed types
+            expression.implicitConversion =
+                    TypeIds.BOXING |
+                            (expression.resolvedType.id<<4); //in case it is primitive type //TODO why contains integer conversion when char?
     }
 
     static QualifiedNameReference makeQualifiedNameReference(String targetFieldNameInThis) {
@@ -285,8 +304,8 @@ public class Testability {
             typeArguments[0] = originalMessageSend.receiver.resolvedType;
 
             int iArg = 1;
-            for (Expression arg : originalMessageSend.arguments) {
-                typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
+            for (TypeBinding arg : originalMessageSend.binding.parameters) {
+                typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
             }
             typeArguments[iArg++] = fieldTypeBinding;
         }
@@ -419,6 +438,10 @@ public class Testability {
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        if (genericType == null) {
+            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+        }
 
         TypeBinding[] typeArguments; //args, return
         if (originalMessageSend.arguments == null) {
