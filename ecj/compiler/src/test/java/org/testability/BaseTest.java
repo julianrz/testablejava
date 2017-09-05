@@ -3,6 +3,8 @@ package org.testability;
 import junit.framework.TestCase;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.*;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
@@ -11,6 +13,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.problem.DefaultProblem;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
@@ -128,7 +131,7 @@ public class BaseTest extends TestCase {
 
         final HashMap<String, byte[]> classMap = new HashMap<>();
 
-        List<CompilationResult> compilationProblems = new ArrayList<>();
+        List<CompilationResult> compilationResultsWithProblems = new ArrayList<>();
 
         ArrayList<FileSystem.Classpath> cp = new ArrayList<>();
         org.eclipse.jdt.internal.compiler.util.Util.collectRunningVMBootclasspath(cp);
@@ -148,13 +151,12 @@ public class BaseTest extends TestCase {
             public void acceptResult(CompilationResult result) {
 
                 if (result.problemCount>0)
-                    compilationProblems.add(result);
-                else {
-                    ClassFile[] cfs = result.getClassFiles();
-                    for (ClassFile cf :cfs){
-                        String className = toHumanReadableClassName(cf.getCompoundName());
-                        classMap.put(className, cf.getBytes());
-                    }
+                    compilationResultsWithProblems.add(result);
+
+                ClassFile[] cfs = result.getClassFiles();
+                for (ClassFile cf :cfs){
+                    String className = toHumanReadableClassName(cf.getCompoundName());
+                    classMap.put(className, cf.getBytes());
                 }
             }
 
@@ -194,8 +196,20 @@ public class BaseTest extends TestCase {
 
         compiler.compile(units.toArray(new ICompilationUnit[0]));
 
-        if (!compilationProblems.isEmpty()){
-            throw new Exception("Compilation problems: "+compilationProblems.stream().map(Object::toString).collect(joining()));
+        List<CategorizedProblem> individualProblems = compilationResultsWithProblems.stream().
+                filter(cr -> cr.problems != null).
+                flatMap(cr -> Arrays.stream(cr.problems)).
+                filter(Objects::nonNull).collect(toList());
+
+        individualProblems.forEach(problem ->
+                System.out.printf("File %s has problem: %s",
+                        problem instanceof DefaultProblem? problem.getOriginatingFileName() : "",
+                        problem));
+
+        if (individualProblems.stream().
+                anyMatch(IProblem::isError)
+                ){
+            throw new Exception("Compilation problems: "+compilationResultsWithProblems.stream().map(Object::toString).collect(joining()));
         }
 
         return classMap;
