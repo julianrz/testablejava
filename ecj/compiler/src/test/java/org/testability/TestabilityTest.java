@@ -106,6 +106,41 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithClassReceiver_StaticallyImported() throws Exception {
+
+        //here receiver appears empty, should not resolve to 'this'
+
+        String[] task = {
+                "X.java",
+                "import static java.lang.Integer.valueOf;" +
+                "public class X {\n" +
+                        "	void fn(){valueOf(2);}" +
+                        "   static public void exec() throws Exception {new X().fn();}" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var0) -> {\n" +
+                        "      return Integer.valueOf(var0.intValue());\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "      this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2));\n" +
+                        "   }\n\n" +
+                        "   public static void exec() throws Exception {\n" +
+                        "      (new X()).fn();\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+
     public void testTestabilityInjectFunctionField_ForExternalCallWithArgs() throws Exception {
 
         String[] task = {
@@ -534,6 +569,37 @@ public class TestabilityTest extends BaseTest {
         Method main = cl.loadClass("X").getMethod("exec");
         Object ret = main.invoke(null);
         assertEquals((String)ret, "x");
+
+
+    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorAssignedLambdaNotExpanded() throws Exception {
+
+        //when we reassign a field, supplied code (lambda set in exec2) should not be subject to rewrite
+        //TODO need a way to mark code so that it is not rewritten
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String fn(){return new String(\"x\");}" +
+                        "}\n",
+                "Y.java",
+                "public class Y {\n" +
+                        "	String exec2(){" +
+                        "     X x = new X();\n" +
+                        "     x.$$java$lang$String$new = (arg) -> new String(\"redirected\");" +
+                        "     return x.fn();" +
+                        "   }" +
+                        "   public static String exec(){\n" +
+                        "     return new Y().exec2();" +
+                        "   }\n" +
+                        "}"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("Y").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "redirected");
 
 
     }

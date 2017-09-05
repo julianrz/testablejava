@@ -41,7 +41,9 @@ public class Testability {
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
             return false;
 
-        return classDeclaration.allCallsToRedirect.containsKey(toUniqueMethodDescriptor(expressionToBeReplaced));
+        String key = toUniqueMethodDescriptor(expressionToBeReplaced);
+
+        return classDeclaration.allCallsToRedirect.containsKey(key);
     }
     static MethodBinding makeRedirectorFieldMethodBinding(
             QualifiedNameReference newReceiver,
@@ -240,9 +242,8 @@ public class Testability {
                                 String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
 
                                 fieldDeclaration = makeRedirectorFieldDeclaration(
-                                        typeDeclaration,
+                                        originalMessageSend, typeDeclaration,
                                         referenceBinding,
-                                        originalMessageSend,
                                         fieldName);
                             } else if (originalCall instanceof AllocationExpression) {
                                 AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
@@ -251,9 +252,8 @@ public class Testability {
                                 String fieldName = testabilityFieldNameForNewOperator(invokedClassName);
 
                                 fieldDeclaration = makeRedirectorFieldDeclaration(
-                                        typeDeclaration,
+                                        originalAllocationExpression, typeDeclaration,
                                         referenceBinding,
-                                        originalAllocationExpression,
                                         fieldName);
                             }
                             return fieldDeclaration;
@@ -265,7 +265,7 @@ public class Testability {
     }
 
     static String toUniqueMethodDescriptorMessageSend(MessageSend m) {
-            return m.receiver.toString() + "." + m.binding.toString();
+        return m.receiver.toString() + "." + m.binding.toString();
     }
     static String toUniqueMethodDescriptorAllocationExpression(AllocationExpression m) {
         return  "new" + m.binding.toString();
@@ -278,9 +278,42 @@ public class Testability {
         else return "";
     }
 
-    static FieldDeclaration makeRedirectorFieldDeclaration(TypeDeclaration typeDeclaration, SourceTypeBinding referenceBinding, MessageSend originalMessageSend, String fieldName) {
-        TypeBinding fieldTypeBinding = //TypeReference.baseTypeReference(TypeIds.T_int, 0).resolveType(currentBinding.scope);
-                originalMessageSend.binding.returnType;
+    static LambdaExpression makeLambdaExpression(
+            MessageSend originalMessageSend,
+            TypeDeclaration typeDeclaration,
+            ParameterizedQualifiedTypeReference typeReferenceForFunction,
+            LookupEnvironment lookupEnvironment,
+            TypeBinding[] typeArgumentsForFunction,
+            ParameterizedTypeBinding typeBindingForFunction) {
+
+        LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
+        //see ReferenceExpression::generateImplicitLambda
+
+        int argc = typeArgumentsForFunction.length - 1;
+
+        Argument[] lambdaArguments = new Argument[argc];
+        for (int i = 0; i < argc; i++) { //type args has return at the end, method args do not
+            TypeBinding typeBindingForArg = boxIfApplicable(typeBindingForFunction.arguments[i], lookupEnvironment);
+            TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
+            lambdaArguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
+        }
+
+        lambdaExpression.setArguments(lambdaArguments);
+
+        lambdaExpression.setExpressionContext(originalMessageSend.expressionContext);
+
+        lambdaExpression.setExpectedType(typeReferenceForFunction.resolvedType);
+
+        return lambdaExpression;
+    }
+
+    static FieldDeclaration makeRedirectorFieldDeclaration(
+            MessageSend originalMessageSend,
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding,
+            String fieldName) {
+
+        TypeBinding fieldTypeBinding = originalMessageSend.binding.returnType;
 
         if (new String(fieldTypeBinding.shortReadableName()).equals("void")) {
             TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(referenceBinding.scope);
@@ -294,41 +327,45 @@ public class Testability {
         int parameterShift = receiverPrecedesParameters(originalMessageSend) ? 1 : 0;
 
         char[][] path = {
-                functionNameForArgs(originalMessageSend).
-                toCharArray()
+            functionNameForArgs(originalMessageSend, originalMessageSend.arguments).toCharArray()
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
-        TypeBinding[] typeArguments; //(receiver), args, return
+        if (genericType == null) {
+            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+        }
+
         Expression[] originalArguments = originalMessageSend.arguments;
         if (originalArguments == null)
             originalArguments = new Expression[0];
 
-        typeArguments = new TypeBinding[parameterShift + originalArguments.length + 1];
+        TypeBinding[] typeArgumentsForFunction //(receiver), args, return
+                   = new TypeBinding[parameterShift + originalArguments.length + 1];
+
         if (parameterShift > 0)
-            typeArguments[0] = originalMessageSend.receiver.resolvedType;
+            typeArgumentsForFunction[0] = originalMessageSend.receiver.resolvedType;
 
         int iArg = parameterShift;
         for (TypeBinding arg : originalMessageSend.binding.parameters) {
-            typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
+            typeArgumentsForFunction[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
         }
-        typeArguments[iArg++] = fieldTypeBinding;
+        typeArgumentsForFunction[iArg++] = fieldTypeBinding;
 
-        ParameterizedTypeBinding typeBinding =
+        ParameterizedTypeBinding typeBindingForFunction =
                 lookupEnvironment.createParameterizedType(
                         genericType,
-                        typeArguments,
+                        typeArgumentsForFunction,
                         referenceBinding);
 
         TypeReference[][] typeReferences = new TypeReference[path.length][];
-        typeReferences[path.length - 1] = Arrays.stream(typeArguments).
+        typeReferences[path.length - 1] = Arrays.stream(typeArgumentsForFunction).
                 map(type -> Testability.boxIfApplicable(type, lookupEnvironment)).
                 map(Testability::typeReferenceFromTypeBinding).
                 collect(toList()).
                 toArray(new TypeReference[0]);
 
-        ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReference = new ParameterizedQualifiedTypeReference(
+        ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReferenceForFunction = new ParameterizedQualifiedTypeReference(
                 path,
                 typeReferences,
                 0,
@@ -336,42 +373,30 @@ public class Testability {
 
         //TODO maketypereference
 
-        fieldDeclaration.type = parameterizedQualifiedTypeReference;
+        fieldDeclaration.type = parameterizedQualifiedTypeReferenceForFunction;
 
         FieldBinding fieldBinding = new
                 FieldBinding(
-                fieldDeclaration, typeBinding, fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
-
-        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
+                fieldDeclaration, typeBindingForFunction, fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
 
         fieldDeclaration.binding = fieldBinding;
+        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
 
-        LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
-        //see ReferenceExpression::generateImplicitLambda
-
-        int argc = typeArguments.length - 1; //type args has return at the end, method args do not
-
-        Argument[] arguments = new Argument[argc];
-        for (int i = 0; i < argc; i++) {
-            TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
-            TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
-            arguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
-        }
-
-        lambdaExpression.setArguments(arguments);
-
-        lambdaExpression.setExpressionContext(originalMessageSend.expressionContext);
-
-        lambdaExpression.setExpectedType(fieldDeclaration.type.resolvedType);
+        LambdaExpression lambdaExpression = makeLambdaExpression(
+                originalMessageSend,
+                typeDeclaration,
+                parameterizedQualifiedTypeReferenceForFunction,
+                lookupEnvironment,
+                typeArgumentsForFunction,
+                typeBindingForFunction);
 
         MessageSend messageSendInLambdaBody = new MessageSend();
-
         messageSendInLambdaBody.selector = originalMessageSend.selector;
 
         //if receiver provided as lambda arg0, (arg0, arg1, .. argN) -> arg0.apply(arg1, .. argN)
         //otherwise (arg0, .. argN) -> (hardcodedReceiver, arg0, .. argN)
 
-        if (receiverPrecedesParameters(originalMessageSend)) {
+        if (receiverPrecedesParameters(originalMessageSend)){//originalMessageSend.receiver)) {
             Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
 
             messageSendInLambdaBody.receiver = newReceiver;
@@ -383,11 +408,11 @@ public class Testability {
         }
 
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
-        messageSendInLambdaBody.binding = originalMessageSend.binding;
+        messageSendInLambdaBody.binding = null;//this is to resolve expression without apparent receiver
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 
-        Expression[] argv = new SingleNameReference[argc - parameterShift];
+        Expression[] argv = new SingleNameReference[typeArgumentsForFunction.length - 1 - parameterShift];
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + parameterShift)).toCharArray();
 
@@ -405,7 +430,8 @@ public class Testability {
                 new EmptyStatement(0, 0),
                 0, 0);
 
-        if (messageSendInLambdaBody.binding.returnType instanceof VoidTypeBinding) {
+        if (originalMessageSend.binding.returnType instanceof VoidTypeBinding &&
+                !originalMessageSend.binding.isConstructor()) { //constructor AllocationExpression has void return!
             Expression nullExpression = new NullLiteral(0, 0);
             ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
 
@@ -431,26 +457,22 @@ public class Testability {
         return fieldDeclaration;
     }
 
-    /**
-     * Function name reflects # of its arguments, which is # of type args - 1
-     * @param messageSend
-     * @return
-     */
-    static String functionNameForArgs(MessageSend messageSend) {
-        int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
-        int functionArgCount = (messageSend.arguments == null? 0 : messageSend.arguments.length) + parameterShift;
-        return "Function" + functionArgCount;
-    }
-
     static boolean receiverPrecedesParameters(MessageSend messageSend) {
-        boolean ret = true;
-        if (messageSend.receiver instanceof NameReference && ((NameReference) messageSend.receiver).binding instanceof BinaryTypeBinding)
-            ret = false; //this is type reference line "Integer."
-        return ret;
+        if (!(messageSend.actualReceiverType instanceof BinaryTypeBinding))
+            return true;
+        if (messageSend.binding.isStatic()) //receiver is hardcoded in lambda implementation
+            return false;
+        return true;
     }
 
-    static FieldDeclaration makeRedirectorFieldDeclaration(TypeDeclaration typeDeclaration, SourceTypeBinding referenceBinding, AllocationExpression originalMessageSend, String fieldName) {
-        TypeBinding fieldTypeBinding = //TypeReference.baseTypeReference(TypeIds.T_int, 0).resolveType(currentBinding.scope);
+
+    static FieldDeclaration makeRedirectorFieldDeclaration(
+            AllocationExpression originalMessageSend,
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding,
+            String fieldName) {
+
+        TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
 
         if (new String(fieldTypeBinding.shortReadableName()).equals("void")) {
@@ -463,11 +485,7 @@ public class Testability {
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
 
         char[][] path = {
-                ("Function" + (originalMessageSend.arguments == null ?
-                        0 :
-                        originalMessageSend.arguments.length)
-                ).
-                        toCharArray()
+            functionNameForArgs(originalMessageSend.arguments, 0).toCharArray()
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
@@ -476,18 +494,18 @@ public class Testability {
             throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
         }
 
-        TypeBinding[] typeArguments; //args, return
-        if (originalMessageSend.arguments == null) {
-            typeArguments = new TypeBinding[]{fieldTypeBinding};
-        } else {
-            typeArguments = new TypeBinding[originalMessageSend.arguments.length + 1];
+        Expression[] originalArguments = originalMessageSend.arguments;
+        if (originalArguments == null)
+            originalArguments = new Expression[0];
 
-            int iArg = 0;
-            for (Expression arg : originalMessageSend.arguments) {
-                typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
-            }
-            typeArguments[iArg++] = fieldTypeBinding;
+        TypeBinding[] typeArguments //args, return
+                = new TypeBinding[originalArguments.length + 1];
+
+        int iArg = 0;
+        for (Expression arg : originalArguments) {
+            typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
         }
+        typeArguments[iArg++] = fieldTypeBinding;
 
         ParameterizedTypeBinding typeBinding =
                 lookupEnvironment.createParameterizedType(
@@ -514,9 +532,8 @@ public class Testability {
                 FieldBinding(
                 fieldDeclaration, typeBinding, fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
 
-        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
-
         fieldDeclaration.binding = fieldBinding;
+        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
 
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
@@ -537,13 +554,6 @@ public class Testability {
 
         AllocationExpression messageSendInLambdaBody = new AllocationExpression();
         messageSendInLambdaBody.type = originalMessageSend.type;
-
-//        messageSendInLambdaBody.selector = originalMessageSend.selector;
-
-//        Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
-//
-//        messageSendInLambdaBody.receiver = newReceiver;
-
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = originalMessageSend.binding;
 
@@ -551,6 +561,7 @@ public class Testability {
 
         boolean receiverPrecedesParameters = false;
         int parameterShift = receiverPrecedesParameters ? 1 : 0;
+
         Expression[] argv = new SingleNameReference[argc - parameterShift];
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + parameterShift)).toCharArray();//arguments[i].name;//CharOperation.append(ImplicitArgName, Integer.toString((i + parameterShift)).toCharArray());
@@ -565,7 +576,7 @@ public class Testability {
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
-                "testabilitylabel".toCharArray(),
+                TESTABILITYLABEL.toCharArray(),
                 new EmptyStatement(0, 0),
                 0, 0);
 
@@ -581,6 +592,30 @@ public class Testability {
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
     }
+
+
+    /**
+     * Function name reflects # of its arguments, which is # of type args - 1
+     * @param messageSend
+     * @return
+     */
+    static String functionNameForArgs(MessageSend messageSend, Expression [] messageSendArguments) {
+        int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
+        return functionNameForArgs(messageSendArguments, parameterShift);
+    }
+
+    static String functionNameForArgs(Expression [] arguments, int parameterShift) {
+        int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
+        return "Function" + functionArgCount;
+    }
+
+//    static boolean receiverPrecedesParameters(Expression messageSendReceiver) {
+//        boolean ret = true;
+//        if (messageSendReceiver instanceof NameReference && ((NameReference) messageSendReceiver).binding instanceof BinaryTypeBinding)
+//            ret = false; //this is type reference line "Integer."
+//        return ret;
+//    }
+
 
     public static String fullyQualifiedFromCompoundName(char[][] compoundName) {
         return Arrays.stream(compoundName).map(pathEl -> new String(pathEl)).collect(joining("."));
