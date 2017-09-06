@@ -603,6 +603,120 @@ public class TestabilityTest extends BaseTest {
 
 
     }
+    public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaField() throws Exception {
+//TODO heve field referencing another field is a problem??
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task);
+    }
+    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   Function1<String, String> ff = (a) -> a;" +
+                        "	void fn(){\n" +
+                        "     Function1<String, String> f = (arg) -> {ff.apply(\"\");return \"\";};\n" +
+                        "     assert f!=null;" +
+                        "   };" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task);
+
+    }
+
+    public void testTestabilityInjectFunctionField_BlockRedirection() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){\n" +
+                        "     int i=3;" +
+                        "     while(i>0){dontredirect:new String(\"a\");i--;}" +
+                        "     dontredirect:while(i>0){new String(\"b\");i--;}" +
+                        "     dontredirectB:new String(\"c\");" +
+                        "     new String(\"d\");" +
+                        "   };" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function1<String, String> $$java$lang$String$new = (var0) -> {\n" +
+                        "      return new String(var0);\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "      int var1;\n" +
+                        "      for(var1 = 3; var1 > 0; --var1) {\n" +
+                        "         new String(\"a\");\n" +
+                        "      }\n" +
+                        "\n" +
+                        "      while(var1 > 0) {\n" +
+                        "         new String(\"b\");\n" +
+                        "         --var1;\n" +
+                        "      }\n" +
+                        "\n" +
+                        "      new String(\"c\");\n" +
+                        "      this.$$java$lang$String$new.apply(\"d\");\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+
+    public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaWithArg() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   Function1<String, String> ff = (a) -> a;" +
+                        "	void fn(){\n" +
+                        "     Function1<String, String> f = @Deprecated (arg) -> {dontredirect:ff.apply(\"\");return new String(\"x\");};\n" +
+                        "     assert f!=null;" +
+                        "   };" +
+                        "   public static void exec(){\n" +
+                        "     new X().fn();" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        String expectedOutput =
+                "public class X {\n" +
+                "   Function1<String, String> $$java$lang$String$new = (var0) -> {\n" +
+                "      return new String(var0);\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      Function1 var1 = (var0) -> {\n" +
+                "         return (String)$$java$lang$String$new.apply(\"x\");\n" +
+                "      };\n" +
+                "\n" +
+                "      assert var1 != null;\n" +
+                "\n" +
+                "   }\n" +
+                "\n" +
+                "   public static void exec() {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n" +
+                "}\n";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        main.invoke(null);
+    }
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute() throws Exception {
 
         String[] task = {

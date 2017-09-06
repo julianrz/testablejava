@@ -1,6 +1,7 @@
 package org.testability;
 
 
+import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -8,10 +9,8 @@ import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.joining;
@@ -30,12 +29,14 @@ public class Testability {
      */
     static boolean needsCodeReplace(BlockScope currentScope, Expression expressionToBeReplaced){
         MethodScope methodScope = currentScope.methodScope();
-        if (methodScope == null)
+        if (methodScope == null) //TODO could it be block scope?
             return false;
 
         if (methodScope.isStatic)
             return false; //TODO remove when implemented
 
+        if (isLabelledAsDontRedirect(methodScope, expressionToBeReplaced))
+            return false;
         TypeDeclaration classDeclaration = methodScope.classScope().referenceContext;
 
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
@@ -45,6 +46,58 @@ public class Testability {
 
         return classDeclaration.allCallsToRedirect.containsKey(key);
     }
+
+    /**
+     *
+     * @param methodScope
+     * @param expressionToBeReplaced
+     * @return true if the given expression or any of its parents marked with dontredirect: label
+     */
+    static boolean isLabelledAsDontRedirect(MethodScope methodScope, Expression expressionToBeReplaced) {
+        //get to list of statements for method, find current expression, see if it is under a labelled statement
+        if (!(methodScope.referenceContext instanceof MethodDeclaration))
+            return false;
+
+        MethodDeclaration declaration = (MethodDeclaration) methodScope.referenceContext;
+        List<LabeledStatement> labelledStatementsDontRedirect = new ArrayList<>();
+
+        declaration.traverse(new ASTVisitor() {
+            @Override
+            public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
+                System.out.println(labeledStatement);
+                if (new String(labeledStatement.label).startsWith("dontredirect"))
+                    labelledStatementsDontRedirect.add(labeledStatement);
+                super.endVisit(labeledStatement, scope);
+            }
+
+        }, methodScope.classScope());
+
+        //traverse each labelled statement to find our expressionToBeReplaced
+        //if found, the expression is marked with dontredirect label, return true
+
+        AtomicBoolean found = new AtomicBoolean(false);
+        for (LabeledStatement labeledStatement : labelledStatementsDontRedirect) {
+
+            labeledStatement.traverse(new ASTVisitor() {
+                @Override
+                public void endVisit(MessageSend messageSend, BlockScope scope) {
+                    if (messageSend == expressionToBeReplaced)
+                        found.set(true);
+                    super.endVisit(messageSend, scope);
+                }
+
+                @Override
+                public void endVisit(AllocationExpression allocationExpression, BlockScope scope) {
+                    if (allocationExpression == expressionToBeReplaced)
+                        found.set(true);
+                    super.endVisit(allocationExpression, scope);
+                }
+            }, methodScope);
+        }
+
+        return found.get();
+    }
+
     static MethodBinding makeRedirectorFieldMethodBinding(
             QualifiedNameReference newReceiver,
             MethodBinding originalBinding,
@@ -260,7 +313,9 @@ public class Testability {
                         }).
                 filter(Objects::nonNull).
                 peek(fieldDeclaration -> fieldDeclaration.resolve(typeDeclaration.initializerScope)).
-                peek(fieldDeclaration -> System.out.println("injected redirector field: " + fieldDeclaration)).
+                peek(fieldDeclaration -> {
+                    System.out.println("injected redirector field: " + fieldDeclaration);
+                }).
                 collect(toList());
     }
 
