@@ -201,10 +201,21 @@ public class BaseTest extends TestCase {
                 flatMap(cr -> Arrays.stream(cr.problems)).
                 filter(Objects::nonNull).collect(toList());
 
-        individualProblems.forEach(problem ->
-                System.out.printf("File %s has problem: %s",
-                        problem instanceof DefaultProblem? problem.getOriginatingFileName() : "",
-                        problem));
+        individualProblems.forEach(problem -> {
+            String fileName = "";
+            String severity = "";
+            if (problem instanceof DefaultProblem) {
+                fileName = new String(problem.getOriginatingFileName());
+                if (problem.isError())
+                    severity = "ERROR";
+                else if (problem.isWarning())
+                    severity = "WARN";
+                else if (problem.isInfo())
+                    severity = "INFO";
+            }
+            System.out.printf("File %s has %s:\t%s\n",
+                    fileName,severity,problem);
+        });
 
         if (individualProblems.stream().
                 anyMatch(IProblem::isError)
