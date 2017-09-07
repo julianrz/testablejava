@@ -197,8 +197,18 @@ public class Testability {
 
         messageToFieldApply.arguments = argsWithReceiver;
 
-        if (valueRequired)
-            messageToFieldApply.valueCast = messageSend.resolvedType;
+        if (valueRequired) {
+            //valuecast is always needed because compiler emits lambda call (Object...):Object
+            //in case where return is primitive type, need to find and cast to matching boxed type
+            //unboxing will be a subsequent implicit conversion
+            //TODO in mock situation it will be possible that lambda returns null, but in real code this will not be possible. Document
+            messageToFieldApply.valueCast = boxIfApplicable(
+                    messageSend.resolvedType,
+                    currentScope.environment());
+            if (messageSend.resolvedType instanceof BaseTypeBinding){
+                addUnBoxing(messageToFieldApply, messageSend.resolvedType);
+            }
+        }
 
         return messageToFieldApply;
     }
@@ -260,10 +270,24 @@ public class Testability {
 
     static void addBoxingIfNeeded(Expression expression) {
         if (expression.resolvedType instanceof BaseTypeBinding) //Function.apply always takes boxed types
-            expression.implicitConversion =
-                    TypeIds.BOXING |
-                            (expression.resolvedType.id<<4); //in case it is primitive type //TODO why contains integer conversion when char?
+            addBoxing(expression, expression.resolvedType);
     }
+
+    /**
+     *
+     * @param expression to set boxing request in its implicitConversion
+     * @param resolvedType to use to determine type of conversion
+     */
+    static void addBoxing(Expression expression, TypeBinding resolvedType) {
+        expression.implicitConversion =
+                TypeIds.BOXING |
+                        (resolvedType.id<<4); //in case it is primitive type
+    }
+    static void addUnBoxing(Expression expression, TypeBinding resolvedType) {
+        expression.implicitConversion =
+                TypeIds.UNBOXING | resolvedType.id; //in case it is primitive type
+    }
+
 
     static QualifiedNameReference makeQualifiedNameReference(String targetFieldNameInThis) {
         char[][] path = new char[1][];
@@ -420,9 +444,9 @@ public class Testability {
 
         int iArg = parameterShift;
         for (TypeBinding arg : originalMessageSend.binding.parameters) {
-            typeArgumentsForFunction[iArg++] = boxIfApplicable(arg, lookupEnvironment);//boxIfApplicable(arg.resolvedType, lookupEnvironment);
+            typeArgumentsForFunction[iArg++] = boxIfApplicable(arg, lookupEnvironment);
         }
-        typeArgumentsForFunction[iArg++] = fieldTypeBinding;
+        typeArgumentsForFunction[iArg++] = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
 
         ParameterizedTypeBinding typeBindingForFunction =
                 lookupEnvironment.createParameterizedType(
@@ -449,7 +473,7 @@ public class Testability {
 
         FieldBinding fieldBinding = new
                 FieldBinding(
-                fieldDeclaration, typeBindingForFunction, fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
+                fieldDeclaration, typeBindingForFunction, fieldDeclaration.modifiers /*| ClassFilConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
@@ -497,7 +521,9 @@ public class Testability {
 
         messageSendInLambdaBody.arguments = argv;
 
-//        messageSendInLambdaBody.valueCast = originalMessageSend.resolvedType;//TODO experiment, e.g. orig returned primitive type, as in Integer.parseInt?
+        //TODO needed?
+        if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
+            addBoxing(messageSendInLambdaBody, originalMessageSend.resolvedType);
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(

@@ -677,7 +677,7 @@ public class TestabilityTest extends BaseTest {
         compileAndDisassemble(task);
     }
     public void testTestabilityInjectFunctionField_ForApply() throws Exception {
-
+        //TODO Pb(75) Cannot reference a field before it is defined
         String[] task = {
                 "X.java",
                 "public class X {\n" +
@@ -765,9 +765,8 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "public class X {\n" +
                         "	void fn(){\n" +
-//                          "     dontredirect:new String();" + //works
                         "     dontredirect:Integer.parseInt(\"0\");" + //corrupt file
-//                        "     Integer.parseInt(\"1\");" +
+                        "     Integer.parseInt(\"1\");" +
                         "   };" +
                         "}\n"
         };
@@ -777,16 +776,51 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "public class X {\n" +
                         "   Function1<String, Integer> $$java$lang$Integer$parseInt = (var0) -> {\n" +
-                        "      return Integer.parseInt(var0);\n" +
+                        "      return Integer.valueOf(Integer.parseInt(var0));\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "     dontredirect:Integer.parseInt(\"0\");" +
-                        "     this.$$java$lang$Integer$parseInt.apply(\"1\");\n" +
+                        "      Integer.parseInt(\"0\");\n" +
+                        "      this.$$java$lang$Integer$parseInt.apply(\"1\");\n" +
                         "   }\n" +
                         "}";
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
+    }
+    public void testTestabilityInjectFunctionField_ExternalCall_ReturningPrimitiveType() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	int fn(){\n" +
+                        "     return Integer.parseInt(\"1\");" +
+                        "   };\n" +
+                        "   public static int exec() {\n" +
+                        "     return new X().fn();\n" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function1<String, Integer> $$java$lang$Integer$parseInt = (var0) -> {\n" +
+                        "      return Integer.valueOf(Integer.parseInt(var0));\n" +
+                        "   };\n\n" +
+                        "   int fn() {\n" +
+                        "      return ((Integer)this.$$java$lang$Integer$parseInt.apply(\"1\")).intValue();\n" +
+                        "   }\n\n"+
+                        "   public static int exec() {\n" +
+                        "      return (new X()).fn();\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((int)ret, 1);
     }
 
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaWithArg() throws Exception {
