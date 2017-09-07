@@ -132,7 +132,7 @@ public class Testability {
 
         MethodBinding binding =
                 currentScope.getMethod(
-                        newReceiver.resolvedType,
+                        newReceiver.resolvedType, //TODO may be unresolved? use receiverType passed in?
                         TARGET_REDIRECTED_METHOD_NAME.toCharArray(),
                         parameters,
                         invocationSite);
@@ -279,6 +279,7 @@ public class Testability {
                 !fromTestabilityFieldInitializer(scope) && //it calls original code
 //                    !classReferenceContext.isTestabilityRedirectorMethod(scope) &&
                 !isTestabilityFieldAccess(messageSend.receiver) &&
+                !isLabelledAsDontRedirect(scope.methodScope(), messageSend) &&
                         (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
                 ) //it calls the testability field apply method
 
@@ -289,6 +290,7 @@ public class Testability {
     public static void registerCallToRedirectIfNeeded(AllocationExpression allocationExpression, BlockScope scope) {
         TypeDeclaration classReferenceContext = scope.classScope().referenceContext;
         if (!fromTestabilityFieldInitializer(scope) &&
+                !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression) &&
             (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
            ) {//it calls original code
             classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorAllocationExpression(allocationExpression), allocationExpression);

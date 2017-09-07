@@ -635,6 +635,36 @@ public class TestabilityTest extends BaseTest {
         Object ret = main.invoke(null);
         assertEquals((String)ret, "redirected");
     }
+    public void testTestabilityInjectFunctionField_Reproduction2() throws Exception {
+//simplification of the above
+//        java.lang.VerifyError: Bad type on operand stack
+//        Exception Details:
+//        Location:
+//        Y.lambda$3(Ljava/lang/String;)Ljava/lang/String; @1: getfield
+//        Reason:
+//        Type 'java/lang/String' (current frame, stack[0]) is not assignable to 'Y'
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String exec2(){" +
+                        "     Function1<String, String> f = (arg) -> {return new String(\"redirected\");};" +
+                        "     dontredirect: return f.apply(\"\");" +
+//                        "    return \"\";" +
+                        "   }" +
+//                        "   public static String exec(){\n" +
+//                        "     return new X().exec2();" +
+//                        "   }\n" +
+                        "}"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "redirected");
+    }
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaField() throws Exception {
 //TODO field referencing another field is a problem??
         String[] task = {
@@ -704,7 +734,30 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_BlockRedirectionFieldCreationForDontRedirectBlocks() throws Exception {
 
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){\n" +
+                        "     dontredirect:new String(\"c\");" +
+                        "     dontredirect:Integer.parseInt(\"1\");" +
+                        "   };" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   void fn() {\n" +
+                        "      new String(\"c\");\n" +
+                        "      Integer.parseInt(\"1\");\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
 
     public void testTestabilityInjectFunctionField_BlockRedirectionForExternalCall() throws Exception {
 
