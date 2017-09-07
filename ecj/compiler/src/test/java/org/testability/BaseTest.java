@@ -194,34 +194,45 @@ public class BaseTest extends TestCase {
         Compiler compiler = new Compiler(env, DefaultErrorHandlingPolicies.exitAfterAllProblems(),
                 options, requestor, new DefaultProblemFactory());
 
-        compiler.compile(units.toArray(new ICompilationUnit[0]));
+        List<CategorizedProblem> individualProblems = new ArrayList<>();
+        Exception compilerException = null;
+        try {
+            compiler.compile(units.toArray(new ICompilationUnit[0]));
+        } catch (Exception ex) {
+            compilerException = ex;
+        } finally {
 
-        List<CategorizedProblem> individualProblems = compilationResultsWithProblems.stream().
-                filter(cr -> cr.problems != null).
-                flatMap(cr -> Arrays.stream(cr.problems)).
-                filter(Objects::nonNull).collect(toList());
+            individualProblems = compilationResultsWithProblems.stream().
+                    filter(cr -> cr.problems != null).
+                    flatMap(cr -> Arrays.stream(cr.problems)).
+                    filter(Objects::nonNull).collect(toList());
 
-        individualProblems.forEach(problem -> {
-            String fileName = "";
-            String severity = "";
-            if (problem instanceof DefaultProblem) {
-                fileName = new String(problem.getOriginatingFileName());
-                if (problem.isError())
-                    severity = "ERROR";
-                else if (problem.isWarning())
-                    severity = "WARN";
-                else if (problem.isInfo())
-                    severity = "INFO";
-            }
-            System.out.printf("File %s has %s:\t%s\n",
-                    fileName,severity,problem);
-        });
-
-        if (individualProblems.stream().
-                anyMatch(IProblem::isError)
-                ){
-            throw new Exception("Compilation problems: "+compilationResultsWithProblems.stream().map(Object::toString).collect(joining()));
+            individualProblems.forEach(problem -> {
+                String fileName = "";
+                String severity = "";
+                if (problem instanceof DefaultProblem) {
+                    fileName = new String(problem.getOriginatingFileName());
+                    if (problem.isError())
+                        severity = "ERROR";
+                    else if (problem.isWarning())
+                        severity = "WARN";
+                    else if (problem.isInfo())
+                        severity = "INFO";
+                }
+                System.out.printf("File %s has %s:\t%s\n",
+                        fileName, severity, problem);
+            });
         }
+        if (compilerException!=null || individualProblems.stream().
+                anyMatch(IProblem::isError)
+                ) {
+            String message = "Compilation problems: " +
+                    compilationResultsWithProblems.stream().
+                            map(Object::toString).
+                            collect(joining());
+            throw new Exception(message, compilerException);
+        }
+
 
         return classMap;
     }
