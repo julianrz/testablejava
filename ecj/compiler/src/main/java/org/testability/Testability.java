@@ -19,7 +19,7 @@ import static java.util.stream.Collectors.toList;
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
-    public static final String TESTABILITYLABEL = "testabilitylabel";
+    public static final String TESTABILITYLABEL = "testabilitylabel"; //TODO can we use dontredirect: instead?
 
     /**
      *
@@ -47,6 +47,7 @@ public class Testability {
         return classDeclaration.allCallsToRedirect.containsKey(key);
     }
 
+
     /**
      *
      * @param methodScope
@@ -55,22 +56,36 @@ public class Testability {
      */
     static boolean isLabelledAsDontRedirect(MethodScope methodScope, Expression expressionToBeReplaced) {
         //get to list of statements for method, find current expression, see if it is under a labelled statement
-        if (!(methodScope.referenceContext instanceof MethodDeclaration))
-            return false;
-
-        MethodDeclaration declaration = (MethodDeclaration) methodScope.referenceContext;
         List<LabeledStatement> labelledStatementsDontRedirect = new ArrayList<>();
 
-        declaration.traverse(new ASTVisitor() {
-            @Override
-            public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
-                System.out.println(labeledStatement);
-                if (new String(labeledStatement.label).startsWith("dontredirect"))
-                    labelledStatementsDontRedirect.add(labeledStatement);
-                super.endVisit(labeledStatement, scope);
-            }
+        if (methodScope.referenceContext instanceof AbstractMethodDeclaration) {
+            AbstractMethodDeclaration declaration = (AbstractMethodDeclaration) methodScope.referenceContext;
 
-        }, methodScope.classScope());
+            declaration.traverse(new ASTVisitor() {
+                @Override
+                public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
+                    System.out.println(labeledStatement);
+                    if (new String(labeledStatement.label).startsWith("dontredirect"))
+                        labelledStatementsDontRedirect.add(labeledStatement);
+                    super.endVisit(labeledStatement, scope);
+                }
+
+            }, methodScope.classScope());
+        } else if (methodScope.referenceContext instanceof Expression) {
+            Expression declaration = (Expression) methodScope.referenceContext;
+            declaration.traverse(new ASTVisitor() {
+                @Override
+                public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
+                    System.out.println(labeledStatement);
+                    if (new String(labeledStatement.label).startsWith("dontredirect"))
+                        labelledStatementsDontRedirect.add(labeledStatement);
+                    super.endVisit(labeledStatement, scope);
+                }
+
+            }, methodScope.methodScope());
+        } else {
+            return false;
+        }
 
         //traverse each labelled statement to find our expressionToBeReplaced
         //if found, the expression is marked with dontredirect label, return true
@@ -460,6 +475,7 @@ public class Testability {
             //reset receiver type or it will re-resolve incorrectly to be of local field, and fail
             if (messageSendInLambdaBody.receiver instanceof NameReference)
                 ((NameReference) messageSendInLambdaBody.receiver).actualReceiverType = null;
+            //TODO warning: receiver of original message is modified!! clone?
         }
 
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
@@ -478,6 +494,8 @@ public class Testability {
         }
 
         messageSendInLambdaBody.arguments = argv;
+
+//        messageSendInLambdaBody.valueCast = originalMessageSend.resolvedType;//TODO experiment, e.g. orig returned primitive type, as in Integer.parseInt?
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
@@ -610,7 +628,7 @@ public class Testability {
         AllocationExpression messageSendInLambdaBody = new AllocationExpression();
         messageSendInLambdaBody.type = originalMessageSend.type;
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
-        messageSendInLambdaBody.binding = originalMessageSend.binding;
+        messageSendInLambdaBody.binding = originalMessageSend.binding;//TODO null to match MessageSend version? see "fixed static import case' commit
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 

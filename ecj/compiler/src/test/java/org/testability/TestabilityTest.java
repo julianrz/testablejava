@@ -575,7 +575,7 @@ public class TestabilityTest extends BaseTest {
     public void testTestabilityInjectFunctionField_ForNewOperatorAssignedLambdaNotExpanded() throws Exception {
 
         //when we reassign a field, supplied code (lambda set in exec2) should not be subject to rewrite
-        //TODO need a way to mark code so that it is not rewritten
+
         String[] task = {
                 "X.java",
                 "public class X {\n" +
@@ -585,7 +585,7 @@ public class TestabilityTest extends BaseTest {
                 "public class Y {\n" +
                         "	String exec2(){" +
                         "     X x = new X();\n" +
-                        "     x.$$java$lang$String$new = (arg) -> new String(\"redirected\");" +
+                        "     x.$$java$lang$String$new = (arg) -> {dontredirect:return new String(\"redirected\");};" +
                         "     return x.fn();" +
                         "   }" +
                         "   public static String exec(){\n" +
@@ -600,11 +600,43 @@ public class TestabilityTest extends BaseTest {
         Method main = cl.loadClass("Y").getMethod("exec");
         Object ret = main.invoke(null);
         assertEquals((String)ret, "redirected");
+    }
+    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
 
+//        java.lang.VerifyError: Bad type on operand stack
+//        Exception Details:
+//        Location:
+//        Y.lambda$3(Ljava/lang/String;)Ljava/lang/String; @1: getfield
+//        Reason:
+//        Type 'java/lang/String' (current frame, stack[0]) is not assignable to 'Y'
 
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String fn(){return new String(\"x\");}" +
+                        "}\n",
+                "Y.java",
+                "public class Y {\n" +
+                        "	String exec2(){" +
+                        "     X x = new X();\n" +
+                        "     x.$$java$lang$String$new = (arg) -> {return new String(\"redirected\");};" +
+                        "     return x.fn();" +
+                        "   }" +
+                        "   public static String exec(){\n" +
+                        "     return new Y().exec2();" +
+                        "   }\n" +
+                        "}"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("Y").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "redirected");
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaField() throws Exception {
-//TODO heve field referencing another field is a problem??
+//TODO field referencing another field is a problem??
         String[] task = {
                 "X.java",
                 "public class X {\n" +
@@ -631,7 +663,7 @@ public class TestabilityTest extends BaseTest {
 
     }
 
-    public void testTestabilityInjectFunctionField_BlockRedirection() throws Exception {
+    public void testTestabilityInjectFunctionField_BlockRedirectionForAllocation() throws Exception {
 
         String[] task = {
                 "X.java",
@@ -673,6 +705,37 @@ public class TestabilityTest extends BaseTest {
 
     }
 
+
+    public void testTestabilityInjectFunctionField_BlockRedirectionForExternalCall() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){\n" +
+//                          "     dontredirect:new String();" + //works
+                        "     dontredirect:Integer.parseInt(\"0\");" + //corrupt file
+//                        "     Integer.parseInt(\"1\");" +
+                        "   };" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function1<String, Integer> $$java$lang$Integer$parseInt = (var0) -> {\n" +
+                        "      return Integer.parseInt(var0);\n" +
+                        "   };\n\n" +
+                        "   void fn() {\n" +
+                        "     dontredirect:Integer.parseInt(\"0\");" +
+                        "     this.$$java$lang$Integer$parseInt.apply(\"1\");\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaWithArg() throws Exception {
 
         String[] task = {
@@ -680,7 +743,7 @@ public class TestabilityTest extends BaseTest {
                 "public class X {\n" +
                         "   Function1<String, String> ff = (a) -> a;" +
                         "	void fn(){\n" +
-                        "     Function1<String, String> f = @Deprecated (arg) -> {dontredirect:ff.apply(\"\");return new String(\"x\");};\n" +
+                        "     Function1<String, String> f = (arg) -> {dontredirect:ff.apply(\"\");return new String(\"x\");};\n" +
                         "     assert f!=null;" +
                         "   };" +
                         "   public static void exec(){\n" +
