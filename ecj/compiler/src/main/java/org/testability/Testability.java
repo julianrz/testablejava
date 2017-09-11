@@ -168,13 +168,15 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
+        boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
+
         messageToFieldApply.receiver = qualifiedNameReference;
 
         messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
                 qualifiedNameReference,
                 messageSend.binding,
                 currentScope,
-                Optional.of(messageSend.receiver.resolvedType),
+                receiverPrecedes? Optional.of(messageSend.receiver.resolvedType) : Optional.empty(),
                 messageSend);
 
         if (null == messageToFieldApply.receiver.resolvedType)
@@ -182,7 +184,7 @@ public class Testability {
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
-        boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
+
         int parameterShift = receiverPrecedes ? 1 : 0;
 
         //shift/insert receiver at pos 0
@@ -210,7 +212,16 @@ public class Testability {
             }
         }
 
+        diagnoseBinding(messageToFieldApply, currentScope);
         return messageToFieldApply;
+    }
+
+    static void diagnoseBinding(MessageSend messageSend, BlockScope currentScope) {
+        MethodBinding binding = messageSend.binding;
+        if (binding instanceof ProblemMethodBinding) {
+            throw new RuntimeException("testability field method not found: " + binding + "; closest match: " + ((ProblemMethodBinding) binding).closestMatch);
+        }
+
     }
 
     /**

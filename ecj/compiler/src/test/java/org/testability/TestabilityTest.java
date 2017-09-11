@@ -640,22 +640,29 @@ public class TestabilityTest extends BaseTest {
 //        java.lang.VerifyError: Bad type on operand stack
 //        Exception Details:
 //        Location:
-//        Y.lambda$3(Ljava/lang/String;)Ljava/lang/String; @1: getfield
+//        X.lambda$1(Ljava/lang/String;)Ljava/lang/String; @1: getfield
 //        Reason:
-//        Type 'java/lang/String' (current frame, stack[0]) is not assignable to 'Y'
+//        Type 'java/lang/String' (current frame, stack[0]) is not assignable to 'X'
+//        Current Frame:
+//        bci: @1
+//        flags: { }
+//        locals: { 'java/lang/String' }
+//        stack: { 'java/lang/String' }
+//        Bytecode:
+//        0x0000000: 2ab4 0012 1222 b900 2402 00c0 001c b0
+
+//Result:
+//        Function1 var10000 = (var0) -> {
+//            return (String)  var0.  $$java$lang$String$new.apply("redirected");
+//        };
 
         String[] task = {
                 "X.java",
                 "public class X {\n" +
                         "	String exec2(){" +
                         "     Function1<String, String> f = (arg) -> {return new String(\"redirected\");};" +
-                        "     dontredirect: return f.apply(\"\");" +
-//                        "    return \"\";" +
-                        "   }" +
-//                        "   public static String exec(){\n" +
-//                        "     return new X().exec2();" +
-//                        "   }\n" +
-                        "}"
+                        "    return \"\";" +
+                        "   }}"
         };
 
         compileAndDisassemble(task);
@@ -664,6 +671,63 @@ public class TestabilityTest extends BaseTest {
         Method main = cl.loadClass("X").getMethod("exec");
         Object ret = main.invoke(null);
         assertEquals((String)ret, "redirected");
+    }
+
+
+    public void testTestabilityInjectFunctionField_Reproduction2a() throws Exception {
+//        java.lang.VerifyError: Bad type on operand stack
+//        Exception Details:
+//        Location:
+//        X.lambda$1(Ljava/lang/String;)Ljava/lang/String; @1: getfield
+//        Reason:
+//        Type 'java/lang/String' (current frame, stack[0]) is not assignable to 'X'
+//        Current Frame:
+//        bci: @1
+//        flags: { }
+//        locals: { 'java/lang/String' }
+//        stack: { 'java/lang/String' }
+//        Bytecode:
+//        0x0000000: 2ab4 0012 1223 b900 2502 00c0 001d b0
+
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String exec2(){" +
+                        "     Function1<String, String> f = (arg) -> {return String.valueOf(\"1\");};" +
+                        "    return \"\";" +
+                        "   }\n" +
+                        "   public static String exec(){\n" +
+                        "     return new X().exec2();" +
+                        "   }}\n"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "redirected");
+    }
+    public void testTestabilityInjectFunctionField_Reproduction2b() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	String exec2(){" +
+                        "     return String.valueOf(1);};" +
+                        "   public static String exec(){\n" +
+                        "     return new X().exec2();" +
+                        "   }\n" +
+                        "   }"
+        };
+
+        compileAndDisassemble(task);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals((String)ret, "1");
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideLambdaField() throws Exception {
 //TODO field referencing another field is a problem??
@@ -828,9 +892,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   Function1<String, String> ff = (a) -> a;" +
                         "	void fn(){\n" +
-                        "     Function1<String, String> f = (arg) -> {dontredirect:ff.apply(\"\");return new String(\"x\");};\n" +
+                        "     Function1<String, String> f = (arg) -> {return new String(\"x\");};\n" +
                         "     assert f!=null;" +
                         "   };" +
                         "   public static void exec(){\n" +
