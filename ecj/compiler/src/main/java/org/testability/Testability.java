@@ -114,7 +114,7 @@ public class Testability {
     }
 
     static MethodBinding makeRedirectorFieldMethodBinding(
-            QualifiedNameReference newReceiver,
+            NameReference newReceiver,
             MethodBinding originalBinding,
             BlockScope currentScope,
             Optional<TypeBinding> receiverType,
@@ -181,6 +181,8 @@ public class Testability {
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
+
+        messageToFieldApply.argumentTypes = messageToFieldApply.binding.parameters;//TODO original message has this, needed?
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
@@ -305,6 +307,9 @@ public class Testability {
         path[0] = targetFieldNameInThis.toCharArray();
 
         return new QualifiedNameReference(path, new long[path.length], 0, 0);
+    }
+    static SingleNameReference makeSingleNameReference(String targetFieldNameInThis) {
+        return new SingleNameReference(targetFieldNameInThis.toCharArray(), 0);
     }
 
     public static void registerCallToRedirectIfNeeded(MessageSend messageSend, BlockScope scope) {
