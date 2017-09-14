@@ -751,33 +751,34 @@ public class TestabilityTest extends BaseTest {
 
         compileAndDisassemble(task);
     }
-    public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField() throws Exception {
-//TODO field referencing another field is a problem??
-        String[] task = {
-                "X.java",
-                "public class X {\n" +
-                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
-                        "}\n"
-        };
+//    public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField() throws Exception {
+////TODO field referencing another field is a problem??
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
+//                        "}\n"
+//        };
+//
+//        compileAndDisassemble(task);
+//    }
 
-        compileAndDisassemble(task);
-    }
-    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
-        //TODO Pb(75) Cannot reference a field before it is defined
-        String[] task = {
-                "X.java",
-                "public class X {\n" +
-                        "   Function1<String, String> ff = (a) -> a;" +
-                        "	void fn(){\n" +
-                        "     Function1<String, String> f = (arg) -> {ff.apply(\"\");return \"\";};\n" +
-                        "     assert f!=null;" +
-                        "   };" +
-                        "}\n"
-        };
-
-        compileAndDisassemble(task);
-
-    }
+//    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
+//        //TODO Pb(75) Cannot reference a field before it is defined
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "   Function1<String, String> ff = (a) -> a;" +
+//                        "	void fn(){\n" +
+//                        "     Function1<String, String> f = (arg) -> {ff.apply(\"\");return \"\";};\n" +
+//                        "     assert f!=null;" +
+//                        "   };" +
+//                        "}\n"
+//        };
+//
+//        compileAndDisassemble(task);
+//
+//    }
 
     public void testTestabilityInjectFunctionField_BlockRedirectionForAllocation() throws Exception {
 
