@@ -35,6 +35,8 @@ import static java.util.stream.Collectors.toList;
  */
 public class BaseTest extends TestCase {
 
+
+
     File classStoreDir = new File("target", "ecj-compiled");
     File destinationDir = new File("target", "ecj-decompiled");
 
@@ -46,7 +48,7 @@ public class BaseTest extends TestCase {
     public void testNothing() {
     }
 
-    protected Map<String, List<String>> compileAndDisassemble(String[] task) throws Exception {
+    protected Map<String, List<String>> compileAndDisassemble(String[] task, Set<InstrumentationOptions> instrumenationOptions) throws Exception {
 
         deleteDir(classStoreDir);
         classStoreDir.mkdir();
@@ -54,10 +56,10 @@ public class BaseTest extends TestCase {
         deleteDir(destinationDir);
         destinationDir.mkdir();
 
-        return disassembleBytecode(compile(task), classStoreDir, destinationDir);
+        return disassembleBytecode(compile(task, instrumenationOptions), classStoreDir, destinationDir);
     }
 
-    Map<String, byte[]> compile(String[] taskLines) throws Exception {
+    Map<String, byte[]> compile(String[] taskLines, Set<InstrumentationOptions> instrumenationOptions) throws Exception {
         Map<String, String[]> fileToLines = new HashMap<>();
         String sourceFileName = null;
 
@@ -79,10 +81,10 @@ public class BaseTest extends TestCase {
             fileToLines.put(sourceFileName, codeLines.toArray(new String[0]));
         }
 
-        return compile(fileToLines);
+        return compile(fileToLines, instrumenationOptions);
     }
 
-    Map<String, byte[]> compile(Map<String, String[]> fileNameToCodeLines) throws Exception {
+    Map<String, byte[]> compile(Map<String, String[]> fileNameToCodeLines, Set<InstrumentationOptions> instrumenationOptions) throws Exception {
 
         List<Pair<String,String>> compilationUnitDatas = fileNameToCodeLines.entrySet().stream().
                 map(entry -> new ImmutablePair<>( Stream.of(entry.getValue()).collect(joining("\n")),
@@ -90,7 +92,7 @@ public class BaseTest extends TestCase {
                 )).
                 collect(toList());
 
-        return compile(compilationUnitDatas);
+        return compile(compilationUnitDatas, instrumenationOptions);
     }
 
     Map<String, List<String>> disassembleBytecode(Map<String, byte[]> classMap, File classTempStoreDir, File destinationDir) throws IOException {
@@ -122,11 +124,15 @@ public class BaseTest extends TestCase {
 
     /**
      *
+     * @param instrumentationOptions
      * @param compilationUnitDatas list of pairs code, filename
+     * @param instrumenationOptions
      * @return
      * @throws Exception
      */
-    public HashMap<String, byte[]> compile(List<Pair<String,String>> compilationUnitDatas) throws Exception {
+    public HashMap<String, byte[]> compile(
+            List<Pair<String, String>> compilationUnitDatas,
+            Set<InstrumentationOptions> instrumenationOptions) throws Exception {
         //see http://www.mentics.com/wp/java-2/compiling-on-the-fly-with-the-eclipse-compiler.html/
 
         final HashMap<String, byte[]> classMap = new HashMap<>();
@@ -192,7 +198,12 @@ public class BaseTest extends TestCase {
 //        options.verbose = true;
 
         Compiler compiler = new Compiler(env, DefaultErrorHandlingPolicies.exitAfterAllProblems(),
-                options, requestor, new DefaultProblemFactory());
+                options, requestor, new DefaultProblemFactory()){
+            @Override
+            protected Set<InstrumentationOptions> getInstrumentationOptions() {
+                return instrumenationOptions;
+            }
+        };
 
         List<CategorizedProblem> individualProblems = new ArrayList<>();
         Exception compilerException = null;

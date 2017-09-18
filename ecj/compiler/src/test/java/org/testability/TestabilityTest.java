@@ -1,5 +1,8 @@
 package org.testability;
 
+import com.google.common.collect.ImmutableSet;
+import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
+
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -15,6 +18,10 @@ import static java.util.stream.Collectors.joining;
 //TODO feature: all object allocations go through static callback inside its class. Typically we redirect via caller, but this case is different. Allows to find and instrument objects easier if multiple creators exist. Note: handle reflective create
 
 public class TestabilityTest extends BaseTest {
+
+    public static final ImmutableSet<InstrumentationOptions> INSERT_REDIRECTORS_ONLY = ImmutableSet.of(InstrumentationOptions.INSERT_REDIRECTORS);
+    public static final ImmutableSet<InstrumentationOptions> INSERT_LISTENERS_ONLY = ImmutableSet.of(InstrumentationOptions.INSERT_LISTENERS);
+
     public TestabilityTest(String name) {
         super(name);
     }
@@ -37,6 +44,28 @@ public class TestabilityTest extends BaseTest {
 //        assertEquals(expectedOutput, stringListMap.get("a.X").stream().collect(joining("\n")));
 //    }
 
+    public void testTestabilityInjectFunctionField_ForNewOperatorCallback() throws Exception {
+//typedeclaration.methods contains several ConstructorDeclaration instances, with statements other than base constructor call
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                          //                        "	X() {dontredirect:System.out.println();}" +
+//                        "	void fn() {System.out.println();}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "	static Consumer<X> $$preCreate = (inst) -> {};\n" +
+                        "	static Consumer<X> $$postCreate = (inst) -> {};\n " +
+                        "	X() {\n" +
+                        "     X.$$preCreate.apply(this);\n" +
+                        "     System.out.println()};\n" +
+                        "     X.$$postCreate.apply(this);\n" +
+                        "   }\n" +
+                        "}\n";
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
+    }
 
     public void testTestabilityInjectFunctionField_NotExpandingInsideRedirectedFields() throws Exception {
 
@@ -51,7 +80,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput = task[1];
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
     public void testTestabilityInjectFunctionField_ForExternalCallNoArgs() throws Exception {
@@ -74,7 +103,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_ForExternalCallWithClassReceiver() throws Exception {
@@ -100,7 +129,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -134,7 +163,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -166,7 +195,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_ForExternalCallNoArgsFromStaticContentForNow() throws Exception {
@@ -181,7 +210,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput = task[1];
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_DuplicateCalls() throws Exception {
@@ -209,7 +238,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
 
@@ -242,7 +271,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
         main.invoke(null);
@@ -278,7 +307,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
         main.invoke(null);
@@ -312,7 +341,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n"+
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
         main.invoke(null);
@@ -346,7 +375,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n"+
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
         main.invoke(null);
@@ -386,7 +415,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
     public void testTestabilityInjectFunctionField_ForExternalCallPassingArgsThrough() throws Exception {
@@ -409,7 +438,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
     public void testTestabilityInjectFunctionField_ForExternalCallPassingInAConstant() throws Exception {
@@ -432,7 +461,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_ForExternalCallBaseClass() throws Exception {
@@ -457,7 +486,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
 
@@ -484,7 +513,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput = task[1];
 
-        String actual = compileAndDisassemble(task).get("X").stream().collect(joining("\n"));
+        String actual = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n"));
         assertEquals(expectedOutput, actual);
 
     }
@@ -512,7 +541,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
     public void testTestabilityInjectFunctionField_ForNewOperator() throws Exception {
@@ -533,7 +562,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
 
@@ -551,7 +580,7 @@ public class TestabilityTest extends BaseTest {
                         "}"
 
         };
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
     }
 
 
@@ -566,7 +595,7 @@ public class TestabilityTest extends BaseTest {
         };
 
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -597,7 +626,7 @@ public class TestabilityTest extends BaseTest {
                         "}"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("Y").getMethod("exec");
@@ -624,7 +653,7 @@ public class TestabilityTest extends BaseTest {
                         "}"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("Y").getMethod("exec");
@@ -662,7 +691,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -688,7 +717,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -712,7 +741,7 @@ public class TestabilityTest extends BaseTest {
                         "   }}\n"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -733,7 +762,7 @@ public class TestabilityTest extends BaseTest {
                         "   }"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -749,19 +778,20 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
     }
-//    public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField() throws Exception {
-////TODO field referencing another field is a problem??
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
-//                        "}\n"
-//        };
-//
-//        compileAndDisassemble(task);
-//    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField() throws Exception {
+//TODO field referencing another field is a problem??
+        //error reported at QualifiedNameReference#1031 this.indexOfFirstFieldBinding == 1
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
 
 //    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
 //        //TODO Pb(75) Cannot reference a field before it is defined
@@ -795,7 +825,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
@@ -833,7 +863,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
@@ -858,7 +888,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
@@ -888,7 +918,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
@@ -925,7 +955,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
@@ -963,7 +993,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        compileAndDisassemble(task);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -988,7 +1018,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorReturn() throws Exception {
 
@@ -1008,7 +1038,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
 
@@ -1038,7 +1068,7 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Method main = cl.loadClass("X").getMethod("exec");
@@ -1061,8 +1091,9 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput = task[1];
 
-        assertEquals(expectedOutput, compileAndDisassemble(task).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
+
 
 }

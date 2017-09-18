@@ -34,9 +34,8 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 import org.testability.Testability;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("rawtypes")
 public class Compiler implements ITypeRequestor, ProblemSeverities {
@@ -277,9 +276,17 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         }
         this.problemReporter = new ProblemReporter(policy, this.options, problemFactory);
         this.lookupEnvironment = new LookupEnvironment(this, this.options, this.problemReporter, environment);
+        this.lookupEnvironment.instrumentationOptions = getInstrumentationOptions();
         this.out = out == null ? new PrintWriter(System.out, true) : out;
         this.stats = new CompilerStats();
         initializeParser();
+    }
+
+    protected Set<InstrumentationOptions> getInstrumentationOptions() {
+
+        return Arrays.
+                stream(InstrumentationOptions.ALL).
+                collect(Collectors.toSet());
     }
 
     /**
@@ -420,11 +427,14 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
      */
     private void compile(ICompilationUnit[] sourceUnitsInitial, boolean lastRound) {
 
-        ICompilationUnit[] sourceUnits = Arrays.copyOf(sourceUnitsInitial, sourceUnitsInitial.length + sourceUnitsInjected.length);
-
-        for (int i = 0; i < sourceUnitsInjected.length; i++) {
-            sourceUnits[sourceUnitsInitial.length + i] = sourceUnitsInjected[i];
-        }
+//        ICompilationUnit[] sourceUnits = Arrays.copyOf(sourceUnitsInitial, sourceUnitsInitial.length + sourceUnitsInjected.length);
+//        for (int i = 0; i < sourceUnitsInjected.length; i++) {
+//            sourceUnits[sourceUnitsInitial.length + i] = sourceUnitsInjected[i];
+//        }
+        //injected units first, since they contain dependencies
+        ICompilationUnit[] sourceUnits = new ICompilationUnit[sourceUnitsInjected.length + sourceUnitsInitial.length];
+        System.arraycopy(sourceUnitsInjected, 0, sourceUnits, 0, sourceUnitsInjected.length );
+        System.arraycopy(sourceUnitsInitial, 0, sourceUnits, sourceUnitsInjected.length, sourceUnitsInitial.length);
 
         this.stats.startTime = System.currentTimeMillis();
         try {
