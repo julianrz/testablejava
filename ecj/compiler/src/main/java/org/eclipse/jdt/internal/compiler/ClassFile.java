@@ -534,9 +534,16 @@ public class ClassFile implements TypeConstants, TypeIds {
 
         TypeDeclaration typeDeclaration = this.referenceBinding.scope.referenceContext;
 
+        System.out.println("class " + String.copyValueOf(typeDeclaration.name));
+
+        List<FieldDeclaration> testabilityFieldDeclarations =
+                Testability.makeTestabilityFields(
+                        typeDeclaration,
+                        currentBinding);
+
         int fieldCount = currentBinding.fieldCount() +
                 (syntheticFields == null ? 0 : syntheticFields.length) +
-                typeDeclaration.allCallsToRedirect.size();
+                testabilityFieldDeclarations.size();
 
         // write the number of fields
         if (fieldCount > 0xFFFF) {
@@ -558,11 +565,6 @@ public class ClassFile implements TypeConstants, TypeIds {
                 addFieldInfo(syntheticFields[i]);
             }
         }
-
-        List<FieldDeclaration> testabilityFieldDeclarations =
-                Testability.makeTestabilityRedirectorFields(
-                        typeDeclaration,
-                        currentBinding);
 
         if (!testabilityFieldDeclarations.isEmpty()) {
 
@@ -591,8 +593,12 @@ public class ClassFile implements TypeConstants, TypeIds {
                             collect(toList()).
                             toArray(new FieldBinding[0]));
 
-            ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());
+            ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());//TODO fields() does sort already
+
         }
+
+        if (fieldCount!=currentBinding.fields().length + (syntheticFields == null ? 0 : syntheticFields.length))
+            throw new RuntimeException("testability internal error: field count");
     }
 
 
