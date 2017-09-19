@@ -781,7 +781,7 @@ public class TestabilityTest extends BaseTest {
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField() throws Exception {
-//TODO field referencing another field is a problem??
+
         //error reported at QualifiedNameReference#1031 this.indexOfFirstFieldBinding == 1
         String[] task = {
                 "X.java",
@@ -792,6 +792,26 @@ public class TestabilityTest extends BaseTest {
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
     }
+
+//    public void testTestabilityInjectFunctionField_ForNewOperatorInsideInitializerLambdaField_Reproduction() throws Exception {
+//        //TODO Pb(75) Cannot reference a field before it is defined
+//        //methodScope.lastVisibleFieldId = -1 when working, no check; this is 'scope' field of LambdaExpression, created in its resolveType
+//        //which is based on its methodScope -e.g fn() when good
+//        // ->initial value 0 when bad
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "   Function1<String, String> ff = (a) -> \"\";" +
+//
+//                        "   Function1<String, String> f = (arg) -> {dontredirect:return ff.apply(\"\");};\n" +
+//
+//
+//                        "}\n"
+//        };
+//
+//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//
+//    }
 
 //    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
 //        //TODO Pb(75) Cannot reference a field before it is defined

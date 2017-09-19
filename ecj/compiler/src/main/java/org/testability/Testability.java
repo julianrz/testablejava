@@ -2,6 +2,7 @@ package org.testability;
 
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -46,7 +47,6 @@ public class Testability {
 
         return classDeclaration.allCallsToRedirect.containsKey(key);
     }
-
 
     /**
      *
@@ -249,20 +249,28 @@ public class Testability {
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
-        QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
-        qualifiedNameReference.resolve(currentScope);
+        NameReference fieldNameReference = makeSingleNameReference(targetFieldNameInThis);
 
-        messageToFieldApply.receiver = qualifiedNameReference;
+        { //prevent diagnostic of invisible fields: Pb(75) Cannot reference a field before it is defined; useless here
+            int savId = currentScope.methodScope().lastVisibleFieldID;
+            currentScope.methodScope().lastVisibleFieldID = -1;
+
+            fieldNameReference.resolve(currentScope);
+
+            currentScope.methodScope().lastVisibleFieldID = savId;
+        }
+
+        messageToFieldApply.receiver = fieldNameReference;
 
         messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
-                qualifiedNameReference,
+                fieldNameReference,
                 allocationExpression.binding,
                 currentScope,
                 Optional.empty(),
                 allocationExpression);
 
         if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
+            throw new RuntimeException("internal error: unresolved field " + fieldNameReference);//TODO handle legally
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
@@ -337,6 +345,61 @@ public class Testability {
         }
     }
 
+
+    public static List<FieldDeclaration> makeTestabilityFields(
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding) {
+        ArrayList<FieldDeclaration> ret = new ArrayList<>();
+
+        ClassScope scope = typeDeclaration.scope;
+
+        Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(scope);
+
+        if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
+            !new String(typeDeclaration.binding.getFileName()).startsWith("Function")) { //TODO better check for FunctionN
+            ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
+        }
+        ret.addAll(makeTestabilityRedirectorFields(typeDeclaration, referenceBinding));
+
+        return ret.stream().
+                filter(Objects::nonNull).
+                peek(fieldDeclaration -> {
+                    fieldDeclaration.resolve(typeDeclaration.initializerScope);
+                }).
+                collect(toList());
+
+    }
+
+    static Set<InstrumentationOptions> getInstrumentationOptions(ClassScope scope) {
+        return scope.compilationUnitScope().environment.instrumentationOptions;
+    }
+
+    public static List<FieldDeclaration> makeTestabilityListenerFields(
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding) {
+
+//        FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
+//                typeDeclaration,
+//                referenceBinding,
+//                "$$preCreate");
+//        FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
+//                typeDeclaration,
+//                referenceBinding,
+//                "$$postCreate");
+
+        FieldDeclaration sampleField = makeSampleFieldDeclaration(
+                typeDeclaration,
+                referenceBinding,
+                "$$sample"
+        );
+
+        ArrayList<FieldDeclaration> ret = new ArrayList<>();
+        ret.add(sampleField);
+//        ret.add(fieldDeclarationPreCreate);
+//        ret.add(fieldDeclarationPostCreate);
+        return ret;
+    }
+
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding){
@@ -368,8 +431,7 @@ public class Testability {
                             }
                             return fieldDeclaration;
                         }).
-                filter(Objects::nonNull).
-                peek(fieldDeclaration -> fieldDeclaration.resolve(typeDeclaration.initializerScope)).
+
                 peek(fieldDeclaration -> {
                     System.out.println("injected redirector field: " + fieldDeclaration);
                 }).
@@ -709,7 +771,150 @@ public class Testability {
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
     }
+    static FieldDeclaration makeListenerFieldDeclaration(
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding,
+            String fieldName) {
 
+        FieldDeclaration fieldDeclaration = new FieldDeclaration(fieldName.toCharArray(), 0, 0);
+
+        LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
+
+        char[][] path = {
+                "java".toCharArray(),
+                "util".toCharArray(),
+                "function".toCharArray(),
+                "Consumer".toCharArray()
+        };
+
+        ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        if (genericType == null) {
+            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+        }
+
+        TypeBinding[] typeArguments //class
+                = {typeDeclaration.binding};
+
+        ParameterizedTypeBinding typeBinding =
+                lookupEnvironment.createParameterizedType(
+                        genericType,
+                        typeArguments,
+                        referenceBinding);
+
+//        TypeReference[][] typeReferences = new TypeReference[path.length][];
+//        typeReferences[path.length - 1] = Arrays.stream(typeArguments).
+//                map(type -> Testability.boxIfApplicable(type, lookupEnvironment)).
+//                map(Testability::typeReferenceFromTypeBinding).
+//                collect(toList()).
+//                toArray(new TypeReference[0]);
+
+        TypeReference[][] typeReferences = new TypeReference[path.length][];
+        typeReferences[path.length - 1] = new TypeReference[]{Testability.typeReferenceFromTypeBinding(Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment))};
+
+        ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReference = new ParameterizedQualifiedTypeReference(
+                path,
+                typeReferences,
+                0,
+                new long[path.length]);
+
+        parameterizedQualifiedTypeReference.toString();
+
+        fieldDeclaration.type = parameterizedQualifiedTypeReference;
+
+        FieldBinding fieldBinding = new
+                FieldBinding(
+                        fieldDeclaration,
+                typeBinding,
+                fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/,
+                typeDeclaration.binding);//sourceType);
+
+        fieldDeclaration.binding = fieldBinding;
+        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
+//TODO
+        LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
+        //see ReferenceExpression::generateImplicitLambda
+
+        int argc = parameterizedQualifiedTypeReference.typeArguments.length;
+        Argument[] arguments = new Argument[1];
+        TypeReference typeReference =
+                Testability.typeReferenceFromTypeBinding(
+                        Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment));
+
+        arguments[0] = new Argument((" arg" + 0).toCharArray(), 0, typeReference, 0);
+
+        lambdaExpression.setArguments(arguments);
+
+        lambdaExpression.setExpressionContext(ExpressionContext.INVOCATION_CONTEXT);//originalMessageSend.expressionContext);
+
+        lambdaExpression.setExpectedType(fieldBinding.type);//fieldDeclaration.type.resolvedType);
+
+        Block block = new Block(2);
+
+        block.statements = new Statement[]{
+        };
+
+        lambdaExpression.setBody(block);
+
+        fieldDeclaration.initialization = lambdaExpression;
+
+
+
+
+//        fieldDeclaration.initialization = new NullLiteral(0,0);
+        return fieldDeclaration;
+    }
+
+    static FieldDeclaration makeSampleFieldDeclaration(
+            TypeDeclaration typeDeclaration,
+            SourceTypeBinding referenceBinding,
+            String fieldName) {
+
+        FieldDeclaration fieldDeclaration = new FieldDeclaration(fieldName.toCharArray(), 0, 0);
+
+        LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
+
+        char[][] path = {
+                "java".toCharArray(),
+                "lang".toCharArray(),
+                "String".toCharArray()
+        };
+
+        ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        if (genericType == null) {
+            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+        }
+
+        TypeBinding[] typeArguments //class
+                = {};
+
+        TypeReference[][] typeReferences = new TypeReference[path.length][];
+        typeReferences[path.length - 1] = new TypeReference[]{Testability.typeReferenceFromTypeBinding(Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment))};
+
+        QualifiedTypeReference fieldTypeReference = new QualifiedTypeReference(
+                path,
+                new long[path.length]);
+
+        fieldTypeReference.toString();
+
+        fieldDeclaration.type = fieldTypeReference; //parameterizedQualifiedTypeReference;
+
+        TypeBinding typeBinding =
+                lookupEnvironment.askForType(path);
+
+        FieldBinding fieldBinding = new FieldBinding(
+                fieldDeclaration,
+                typeBinding,
+                fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/,
+                typeDeclaration.binding);//sourceType);
+
+        fieldDeclaration.binding = fieldBinding;
+//        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
+
+        fieldDeclaration.initialization = new NullLiteral(0,0);
+        return fieldDeclaration;
+    }
 
     /**
      * Function name reflects # of its arguments, which is # of type args - 1
