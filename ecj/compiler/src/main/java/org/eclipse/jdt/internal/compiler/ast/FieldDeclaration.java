@@ -128,6 +128,9 @@ public class FieldDeclaration extends AbstractVariableDeclaration {
             // non-static field, need receiver
             if (!isStatic)
                 codeStream.aload_0();
+            if (isStatic && this.initialization instanceof LambdaExpression) {
+                ((LambdaExpression) this.initialization).shouldCaptureInstance = false; //lambdas created in static scope cannot have 'this'
+            }
             // generate initialization value
             this.initialization.generateCode(currentScope, codeStream, true);
             // store into field
