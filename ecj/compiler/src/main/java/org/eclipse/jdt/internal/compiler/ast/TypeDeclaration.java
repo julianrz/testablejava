@@ -36,6 +36,7 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.*;
 import org.eclipse.jdt.internal.compiler.util.Util;
+import org.testability.Testability;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -573,6 +574,8 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             classFile.setForMethodInfos();
             if (this.methods != null) {
                 for (int i = 0, max = this.methods.length; i < max; i++) {
+                    if (this.methods[i] instanceof ConstructorDeclaration)
+                        Testability.addListenerCallsToConstructor((ConstructorDeclaration)this.methods[i], this);
                     this.methods[i].generateCode(this.scope, classFile);
                 }
             }

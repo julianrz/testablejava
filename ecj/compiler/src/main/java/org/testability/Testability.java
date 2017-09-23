@@ -1,11 +1,13 @@
 package org.testability;
 
 
+import com.sun.istack.internal.NotNull;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
@@ -21,6 +23,7 @@ public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
     public static final String TESTABILITYLABEL = "testabilitylabel"; //TODO can we use dontredirect: instead?
+    public static final String DONTREDIRECT = "dontredirect";
 
     /**
      *
@@ -65,7 +68,7 @@ public class Testability {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
                     System.out.println(labeledStatement);
-                    if (new String(labeledStatement.label).startsWith("dontredirect"))
+                    if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
                 }
@@ -77,7 +80,7 @@ public class Testability {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
                     System.out.println(labeledStatement);
-                    if (new String(labeledStatement.label).startsWith("dontredirect"))
+                    if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
                 }
@@ -172,7 +175,7 @@ public class Testability {
 
         messageToFieldApply.receiver = qualifiedNameReference;
 
-        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
+        messageToFieldApply.binding = makeRedirectorFieldMethodBinding( //TODO is this needed? see in addListenerCallsToConstructor, resolution sets this?
                 qualifiedNameReference,
                 messageSend.binding,
                 currentScope,
@@ -316,6 +319,13 @@ public class Testability {
 
         return new QualifiedNameReference(path, new long[path.length], 0, 0);
     }
+    static QualifiedNameReference makeQualifiedNameReference(String thisClassName, String targetFieldNameInThis) {
+        char[][] path = new char[2][];
+        path[0] = thisClassName.toCharArray();
+        path[1] = targetFieldNameInThis.toCharArray();
+
+        return new QualifiedNameReference(path, new long[path.length], 0, 0);
+    }
     static SingleNameReference makeSingleNameReference(String targetFieldNameInThis) {
         return new SingleNameReference(targetFieldNameInThis.toCharArray(), 0);
     }
@@ -370,7 +380,7 @@ public class Testability {
 
     }
 
-    static Set<InstrumentationOptions> getInstrumentationOptions(ClassScope scope) {
+    static Set<InstrumentationOptions> getInstrumentationOptions(@NotNull ClassScope scope) {
         return scope.compilationUnitScope().environment.instrumentationOptions;
     }
 
@@ -378,25 +388,19 @@ public class Testability {
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding) {
 
-//        FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
-//                typeDeclaration,
-//                referenceBinding,
-//                "$$preCreate");
-//        FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
-//                typeDeclaration,
-//                referenceBinding,
-//                "$$postCreate");
-
-        FieldDeclaration sampleField = makeSampleFieldDeclaration(
+        FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
                 typeDeclaration,
                 referenceBinding,
-                "$$sample"
-        );
+                "$$preCreate");
+        FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
+                typeDeclaration,
+                referenceBinding,
+                "$$postCreate");
 
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
-        ret.add(sampleField);
-//        ret.add(fieldDeclarationPreCreate);
-//        ret.add(fieldDeclarationPostCreate);
+
+        ret.add(fieldDeclarationPreCreate);
+        ret.add(fieldDeclarationPostCreate);
         return ret;
     }
 
@@ -802,13 +806,6 @@ public class Testability {
                         typeArguments,
                         referenceBinding);
 
-//        TypeReference[][] typeReferences = new TypeReference[path.length][];
-//        typeReferences[path.length - 1] = Arrays.stream(typeArguments).
-//                map(type -> Testability.boxIfApplicable(type, lookupEnvironment)).
-//                map(Testability::typeReferenceFromTypeBinding).
-//                collect(toList()).
-//                toArray(new TypeReference[0]);
-
         TypeReference[][] typeReferences = new TypeReference[path.length][];
         typeReferences[path.length - 1] = new TypeReference[]{Testability.typeReferenceFromTypeBinding(Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment))};
 
@@ -826,17 +823,15 @@ public class Testability {
                 FieldBinding(
                         fieldDeclaration,
                 typeBinding,
-                fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/,
-                typeDeclaration.binding);//sourceType);
+                fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic /*| ExtraCompilerModifiers.AccUnresolved*/,
+                typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
 //TODO
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
-        //see ReferenceExpression::generateImplicitLambda
 
-        int argc = parameterizedQualifiedTypeReference.typeArguments.length;
-        Argument[] arguments = new Argument[1];
+        Argument[] arguments = new Argument[1]; //TODO use this method in other make..FieldDeclaration
         TypeReference typeReference =
                 Testability.typeReferenceFromTypeBinding(
                         Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment));
@@ -847,21 +842,20 @@ public class Testability {
 
         lambdaExpression.setExpressionContext(ExpressionContext.INVOCATION_CONTEXT);//originalMessageSend.expressionContext);
 
-        lambdaExpression.setExpectedType(fieldBinding.type);//fieldDeclaration.type.resolvedType);
+        lambdaExpression.setExpectedType(fieldBinding.type);
 
-        Block block = new Block(2);
+        Block block = new Block(0);
 
+        ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
+        //note: null expression has special treatment in code gen, will generate return with no arg
         block.statements = new Statement[]{
+            returnStatement
         };
 
         lambdaExpression.setBody(block);
 
         fieldDeclaration.initialization = lambdaExpression;
 
-
-
-
-//        fieldDeclaration.initialization = new NullLiteral(0,0);
         return fieldDeclaration;
     }
 
@@ -1077,5 +1071,76 @@ public class Testability {
             return false;
         FieldReference fieldReference = (FieldReference) receiver;
         return isTestabilityRedirectorFieldName(new String(fieldReference.token));
+    }
+
+    /**
+     * modify its statements in place: insert static calls to listeners before and after
+     * @param constructorDeclaration
+     * @param typeDeclaration
+     */
+    public static void addListenerCallsToConstructor(
+            ConstructorDeclaration constructorDeclaration,
+            TypeDeclaration typeDeclaration) {
+
+        Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(constructorDeclaration.scope.classScope());
+
+        if (!instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS))
+            return;
+
+        if (constructorDeclaration.statements == null)
+            constructorDeclaration.statements = new Statement[]{};
+
+        int originalStatementsCount = constructorDeclaration.statements.length;
+
+        Statement [] newStatements = Arrays.copyOf(constructorDeclaration.statements, originalStatementsCount +2);
+        System.arraycopy(constructorDeclaration.statements, 0, newStatements, 1, originalStatementsCount);
+
+        newStatements[0] = statementForListenerCall(
+                constructorDeclaration,
+                typeDeclaration,
+                "accept",
+                "$$preCreate");
+
+        newStatements[newStatements.length - 1] = statementForListenerCall(
+                constructorDeclaration,
+                typeDeclaration,
+                "accept",
+                "$$postCreate");
+
+        constructorDeclaration.statements = newStatements;
+
+    }
+
+    static Statement statementForListenerCall(
+            ConstructorDeclaration constructorDeclaration,
+            TypeDeclaration typeDeclaration,
+            String methodNameInListenerField,
+            String targetFieldNameInThis) {
+
+        MessageSend messageToFieldApply = new MessageSend();
+
+        messageToFieldApply.selector = methodNameInListenerField.toCharArray();
+
+        NameReference fieldNameReference = makeQualifiedNameReference(
+                new String(typeDeclaration.name),
+                targetFieldNameInThis);
+
+        messageToFieldApply.receiver = fieldNameReference;
+
+        messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
+
+        messageToFieldApply.arguments = new Expression[]{new ThisReference(0,0)};
+
+        LabeledStatement labeledStatement = new LabeledStatement(
+                (DONTREDIRECT + "top" + System.nanoTime()).toCharArray(),
+                messageToFieldApply, 0, 0);
+
+        labeledStatement.targetLabel = new BranchLabel(); //normally done in analyseCode
+        labeledStatement.resolve(constructorDeclaration.scope);
+
+        if (null == messageToFieldApply.receiver.resolvedType)
+            throw new RuntimeException("internal error: unresolved field " + fieldNameReference);
+
+        return labeledStatement;
     }
 }

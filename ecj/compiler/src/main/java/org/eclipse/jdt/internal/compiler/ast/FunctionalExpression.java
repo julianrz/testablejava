@@ -46,7 +46,8 @@ public abstract class FunctionalExpression extends Expression {
     public CompilationResult compilationResult;
     public BlockScope enclosingScope;
     public int bootstrapMethodNumber = -1;
-    public boolean shouldCaptureInstance = true; //to enable testability redirection via field needs to be true// Whether the expression needs access to instance data of enclosing type
+    public boolean shouldCaptureInstance = true; // Whether the expression needs access to instance data of enclosing type
+     //to enable testability redirection via field shouldCaptureInstance needs to be true
     protected static IErrorHandlingPolicy silentErrorHandlingPolicy = DefaultErrorHandlingPolicies.ignoreAllProblems();
     private boolean hasReportedSamProblem = false;
     public boolean isSerializable;
