@@ -1,7 +1,5 @@
 package org.testability;
 
-
-import com.sun.istack.internal.NotNull;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
@@ -67,7 +65,7 @@ public class Testability {
             declaration.traverse(new ASTVisitor() {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
-                    System.out.println(labeledStatement);
+//                    System.out.println(labeledStatement);
                     if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
@@ -79,7 +77,7 @@ public class Testability {
             declaration.traverse(new ASTVisitor() {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
-                    System.out.println(labeledStatement);
+//                    System.out.println(labeledStatement);
                     if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
@@ -374,13 +372,17 @@ public class Testability {
         return ret.stream().
                 filter(Objects::nonNull).
                 peek(fieldDeclaration -> {
+                    System.out.println("injected field: " + fieldDeclaration);
+                }).
+                peek(fieldDeclaration -> {
                     fieldDeclaration.resolve(typeDeclaration.initializerScope);
                 }).
                 collect(toList());
 
     }
 
-    static Set<InstrumentationOptions> getInstrumentationOptions(@NotNull ClassScope scope) {
+    //TODO for @NotNull use javax.annotation:javax.annotation-api:1.3.1, check eclipse conflicts
+    static Set<InstrumentationOptions> getInstrumentationOptions(/*@NotNull */ ClassScope scope) {
         return scope.compilationUnitScope().environment.instrumentationOptions;
     }
 
@@ -435,10 +437,6 @@ public class Testability {
                             }
                             return fieldDeclaration;
                         }).
-
-                peek(fieldDeclaration -> {
-                    System.out.println("injected redirector field: " + fieldDeclaration);
-                }).
                 collect(toList());
     }
 
