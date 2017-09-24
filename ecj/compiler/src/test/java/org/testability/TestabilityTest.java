@@ -71,12 +71,6 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
     public void testTestabilityInjectFunctionField_ForNewOperatorCallbackWithMissingClinit() throws Exception {
-        //clinit is missing
-        //when forced by introducing another static field with initializer, decompilation problem, maybe extra this arg to lambda
-        // -> LambdaExpression.generateCode: currentScope.isStatic = true (??onFieldDeclaration.generateCode??)
-        //      should set shouldCaptureInstance=false, fixes it!
-        //    ?? can same lambda code be reused in static and non-static scope?
-        //  maybe instead of hardcoding/specialcasing, easier to call analyseCode On redirector lambdas?
         String[] task = {
                 "X.java",
                 "import java.util.function.Consumer;\n\n" +
@@ -86,10 +80,11 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import java.util.function.Consumer;\n\n" +
                 "public class X {\n" +
                         "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
                         "   };\n" +
-                        "   public static Consumer<X> $$postCreate = (inst) -> {\n" +
+                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
                         "   };\n\n" +
                         "   X() {\n" +
                         "      $$preCreate.accept(this);\n" +
@@ -98,47 +93,6 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}";
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
-    }
-    public void testTestabilityInjectFunctionField_ForNewOperatorCallback_ReproStaticField() throws Exception {
-        String[] task = {
-                "X.java",
-                "public class X {\n" +
-                        "	static java.util.function.Consumer<X> f = (x) -> {};\n" +
-                        "	X() {dontredirect:X.f.accept(this);}" +
-                        "}\n"
-        };
-
-        String expectedOutput =
-                "public class X {\n" +
-                        "	static Consumer<X> $$preCreate = (inst) -> {};\n" +
-                        "	static Consumer<X> $$postCreate = (inst) -> {};\n " +
-                        "	X() {\n" +
-                        "     X.$$preCreate.apply(this);\n" +
-                        "     System.out.println()};\n" +
-                        "     X.$$postCreate.apply(this);\n" +
-                        "   }\n" +
-                        "}\n";
-        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
-    }
-    public void testTestabilityInjectFunctionField_ForNewOperatorCallback_Reproduction() throws Exception {
-        String[] task = {
-                "X.java",
-                "public class X {\n" +
-                        "	static java.util.function.Consumer<X> $$preCreate = (inst) -> {};\n" +
-                        "}\n"
-        };
-
-        String expectedOutput =
-                "public class X {\n" +
-                        "	public static Consumer<X> $$preCreate = (inst) -> {};\n" +
-                        "	public static Consumer<X> $$postCreate = (inst) -> {};\n " +
-                        "	X() {\n" +
-                        "     X.$$preCreate.apply(this);\n" +
-                        "     System.out.println()};\n" +
-                        "     X.$$postCreate.apply(this);\n" +
-                        "   }\n" +
-                        "}\n";
-        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
     public void testTestabilityInjectFunctionField_NotExpandingInsideRedirectedFields() throws Exception {

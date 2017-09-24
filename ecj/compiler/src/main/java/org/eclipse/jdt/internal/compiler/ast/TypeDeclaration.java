@@ -841,26 +841,28 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
      * classfile creation if no bytecode was actually produced based on some optimizations/compiler settings.
      */
     public final boolean needClassInitMethod() {
-        // always need a <clinit> when assertions are present
-        if ((this.bits & ASTNode.ContainsAssertion) != 0)
-            return true;
+        return true; //for testability static field initializers
 
-        switch (kind(this.modifiers)) {
-            case TypeDeclaration.INTERFACE_DECL:
-            case TypeDeclaration.ANNOTATION_TYPE_DECL:
-                return this.fields != null; // fields are implicitly statics
-            case TypeDeclaration.ENUM_DECL:
-                return true; // even if no enum constants, need to set $VALUES array
-        }
-        if (this.fields != null) {
-            for (int i = this.fields.length; --i >= 0; ) {
-                FieldDeclaration field = this.fields[i];
-                //need to test the modifier directly while there is no binding yet
-                if ((field.modifiers & ClassFileConstants.AccStatic) != 0)
-                    return true; // TODO (philippe) shouldn't it check whether field is initializer or has some initial value ?
-            }
-        }
-        return false;
+//        // always need a <clinit> when assertions are present
+//        if ((this.bits & ASTNode.ContainsAssertion) != 0)
+//            return true;
+//
+//        switch (kind(this.modifiers)) {
+//            case TypeDeclaration.INTERFACE_DECL:
+//            case TypeDeclaration.ANNOTATION_TYPE_DECL:
+//                return this.fields != null; // fields are implicitly statics
+//            case TypeDeclaration.ENUM_DECL:
+//                return true; // even if no enum constants, need to set $VALUES array
+//        }
+//        if (this.fields != null) {
+//            for (int i = this.fields.length; --i >= 0; ) {
+//                FieldDeclaration field = this.fields[i];
+//                //need to test the modifier directly while there is no binding yet
+//                if ((field.modifiers & ClassFileConstants.AccStatic) != 0)
+//                    return true; // TODO (philippe) shouldn't it check whether field is initializer or has some initial value ?
+//            }
+//        }
+//        return false;
     }
 
     public void parseMethods(Parser parser, CompilationUnitDeclaration unit) {
