@@ -226,6 +226,146 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithArgsCast() throws Exception {
+
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	public int fn(){int i1 = Integer.MAX_VALUE; long l2 = 2L; return Long.compare(i1, l2);}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function2<Long, Long, Integer> $$java$lang$Long$compare = (var1, var2) -> {\n" +
+                        "      return Integer.valueOf(Long.compare(var1.longValue(), var2.longValue()));\n" +
+                        "   };\n\n" +
+                        "   public int fn() {\n" +
+                        "      int var1 = " + Integer.MAX_VALUE +";\n" +
+                        "      long var2 = 2L;\n" +
+                        "      return ((Integer)this.$$java$lang$Long$compare.apply(Long.valueOf((long)var1), Long.valueOf(var2))).intValue();\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Class<?> clazz = cl.loadClass("X");
+        Method main = clazz.getDeclaredMethod("fn");
+        main.setAccessible(true);
+        assertEquals(1, main.invoke(clazz.newInstance()));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorWithArgsCast() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	public Long fn(){int i1 = Integer.MAX_VALUE; return Long.valueOf(i1);}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function1<Long, Long> $$java$lang$Long$valueOf = (var1) -> {\n" +
+                        "      return Long.valueOf(var1.longValue());\n" +
+                        "   };\n\n" +
+                        "   public Long fn() {\n" +
+                        "      int var1 = " + Integer.MAX_VALUE + ";\n" +
+                        "      return (Long)this.$$java$lang$Long$valueOf.apply(Long.valueOf((long)var1));\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Class<?> clazz = cl.loadClass("X");
+        Method main = clazz.getDeclaredMethod("fn");
+        main.setAccessible(true);
+        assertEquals((long)Integer.MAX_VALUE, main.invoke(clazz.newInstance()));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+    public void testTestabilityInjectFunctionField_ForExternalCallWithArgsCastToIntToChar() throws Exception {
+
+//here for some reason in the original call an int cast is done,
+// resulting in java.lang.ClassCastException: java.lang.Integer cannot be cast to java.lang.Character
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	public int fn(){char c1 = '1', c2 = '2'; return Character.compare(c1, c2);}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function2<Character, Character, Integer> $$java$lang$Character$compare = (var1, var2, var3) -> {\n" +
+                        "      return Character.compare(var1, var2);\n" +
+                        "   }\n\n" +
+                        "   public int fn() {\n" +
+                        "      char c1 = '1';\n" +
+                        "      char c2 = '2';\n" +
+                        "      return this.$$java$lang$Character$compare.apply(i1, l2);\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Class<?> clazz = cl.loadClass("X");
+        Method main = clazz.getDeclaredMethod("fn");
+        main.setAccessible(true);
+        assertEquals(-1, main.invoke(clazz.newInstance()));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+    public void testTestabilityInjectFunctionField_ForNewOperatorWithArgsCastToIntToChar() throws Exception {
+
+
+//here for some reason in the original call an int cast is done,
+// resulting in java.lang.ClassCastException: java.lang.Integer cannot be cast to java.lang.Character
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "	public char c;" +
+                        "	public Y(char c){this.c = c;}" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "	public char fn(){char c1 = '1'; return new Y(c1).c;}" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "public class X {\n" +
+                        "   Function2<Character, Character, Integer> $$Y$new = (var1) -> {\n" +
+                        "      return new Y(var1);\n" +
+                        "   }\n\n" +
+                        "   public char fn() {\n" +
+                        "      char c1 = '1';\n" +
+                        "      return this.$$Y$new.apply(c1).c;\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Class<?> clazz = cl.loadClass("X");
+        Method main = clazz.getDeclaredMethod("fn");
+        main.setAccessible(true);
+        assertEquals(-1, main.invoke(clazz.newInstance()));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+
     public void testTestabilityInjectFunctionField_ForExternalCallNoArgsFromStaticContentForNow() throws Exception {
 
         String[] task = {

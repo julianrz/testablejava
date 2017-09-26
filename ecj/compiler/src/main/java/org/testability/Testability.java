@@ -194,8 +194,23 @@ public class Testability {
         int originalArgCount = messageSend.arguments == null ? 0 : messageSend.arguments.length;
         Expression[] argsWithReceiver = new Expression[parameterShift + originalArgCount];
         for (int iArg = 0; iArg< originalArgCount; iArg++) {
-            argsWithReceiver[iArg + parameterShift] = messageSend.arguments[iArg];
-            addBoxingIfNeeded(argsWithReceiver[iArg + parameterShift]);
+            Expression arg = messageSend.arguments[iArg];
+            TypeBinding argType = arg.resolvedType;
+            TypeBinding targetParamType = messageSend.binding.parameters[iArg];
+
+            //TODO same for Allocation?
+            //TODO reuse existing implicit conversion unless target is char?? in char there is a conversion to int for some reason
+            if ((argType instanceof BaseTypeBinding) &&
+                    !argType.equals(targetParamType)) {
+
+                addImplicitBoxingIfNeeded(arg, targetParamType);
+            }
+            else {
+                addImplicitBoxingIfNeeded(arg);
+            }
+
+            argsWithReceiver[iArg + parameterShift] = arg;
+
         }
         if (receiverPrecedes)
             argsWithReceiver[0] = messageSend.receiver;
@@ -211,7 +226,7 @@ public class Testability {
                     messageSend.resolvedType,
                     currentScope.environment());
             if (messageSend.resolvedType instanceof BaseTypeBinding){
-                addUnBoxing(messageToFieldApply, messageSend.resolvedType);
+                addImplicitUnBoxing(messageToFieldApply, messageSend.resolvedType);
             }
         }
 
@@ -280,7 +295,7 @@ public class Testability {
         else {
             messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
             for (Expression arg : messageToFieldApply.arguments) {
-                addBoxingIfNeeded(arg);
+                addImplicitBoxingIfNeeded(arg);
             }
         }
 
@@ -290,26 +305,29 @@ public class Testability {
         return messageToFieldApply;
     }
 
-    static void addBoxingIfNeeded(Expression expression) {
+    static void addImplicitBoxingIfNeeded(Expression expression) {
+        addImplicitBoxingIfNeeded(expression, expression.resolvedType);
+    }
+
+    static void addImplicitBoxingIfNeeded(Expression expression, TypeBinding targetType) {
         if (expression.resolvedType instanceof BaseTypeBinding) //Function.apply always takes boxed types
-            addBoxing(expression, expression.resolvedType);
+            addImplicitBoxing(expression, targetType);
     }
 
     /**
      *
      * @param expression to set boxing request in its implicitConversion
-     * @param resolvedType to use to determine type of conversion
+     * @param targetType to use to determine type of conversion
      */
-    static void addBoxing(Expression expression, TypeBinding resolvedType) {
-        expression.implicitConversion =
-                TypeIds.BOXING |
-                        (resolvedType.id<<4); //in case it is primitive type
+    static void addImplicitBoxing(Expression expression, TypeBinding targetType) {
+        expression.implicitConversion |=
+                (TypeIds.BOXING |
+                        (targetType.id<<4));
     }
-    static void addUnBoxing(Expression expression, TypeBinding resolvedType) {
-        expression.implicitConversion =
-                TypeIds.UNBOXING | resolvedType.id; //in case it is primitive type
+    static void addImplicitUnBoxing(Expression expression, TypeBinding targetType) {
+        expression.implicitConversion |=
+                (TypeIds.UNBOXING | targetType.id);
     }
-
 
     static QualifiedNameReference makeQualifiedNameReference(String targetFieldNameInThis) {
         char[][] path = new char[1][];
@@ -603,7 +621,7 @@ public class Testability {
 
         //TODO needed?
         if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
-            addBoxing(messageSendInLambdaBody, originalMessageSend.resolvedType);
+            addImplicitBoxing(messageSendInLambdaBody, originalMessageSend.resolvedType);
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
