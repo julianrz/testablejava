@@ -250,15 +250,13 @@ public class TestabilityTest extends BaseTest {
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
-        Class<?> clazz = cl.loadClass("X");
-        Method main = clazz.getDeclaredMethod("fn");
-        main.setAccessible(true);
-        assertEquals(1, main.invoke(clazz.newInstance()));
+        Object actual = invokeCompiledMethod("X","fn");
+        assertEquals(1, actual);
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
+
     public void testTestabilityInjectFunctionField_ForNewOperatorWithArgsCast() throws Exception {
 
         String[] task = {
@@ -281,11 +279,9 @@ public class TestabilityTest extends BaseTest {
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
-        Class<?> clazz = cl.loadClass("X");
-        Method main = clazz.getDeclaredMethod("fn");
-        main.setAccessible(true);
-        assertEquals((long)Integer.MAX_VALUE, main.invoke(clazz.newInstance()));
+        Object actual = invokeCompiledMethod("X", "fn");
+
+        assertEquals((long)Integer.MAX_VALUE, actual);
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
@@ -316,11 +312,9 @@ public class TestabilityTest extends BaseTest {
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
-        Class<?> clazz = cl.loadClass("X");
-        Method main = clazz.getDeclaredMethod("fn");
-        main.setAccessible(true);
-        assertEquals(-1, main.invoke(clazz.newInstance()));
+        Object actual = invokeCompiledMethod("X", "fn");
+
+        assertEquals(-1, actual);
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 

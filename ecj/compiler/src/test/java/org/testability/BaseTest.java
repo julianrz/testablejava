@@ -22,6 +22,9 @@ import org.junit.Test;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
@@ -321,6 +324,14 @@ public class BaseTest extends TestCase {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    Object invokeCompiledMethod(String className, String methodName) throws Exception {
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Class<?> clazz = cl.loadClass(className);
+        Method main = clazz.getDeclaredMethod(methodName);
+        main.setAccessible(true);
+        return main.invoke(clazz.newInstance());
     }
 }
 
