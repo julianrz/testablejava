@@ -12,6 +12,7 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.joining;
@@ -435,7 +436,8 @@ public class Testability {
                             if (originalCall instanceof MessageSend) {
                                 MessageSend originalMessageSend = (MessageSend) originalCall;
                                 char[] invokedMethodName = originalMessageSend.selector;
-                                String invokedClassName = fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
+                                String invokedClassName = //fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
+                                        new String(originalMessageSend.binding.declaringClass.readableName());
                                 String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
 
                                 fieldDeclaration = makeRedirectorFieldDeclaration(
@@ -985,19 +987,53 @@ public class Testability {
     }
 
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
-        if (typeBinding.dimensions() == 0){
+        int dim = typeBinding.dimensions();
+        if (dim == 0){
             if (typeBinding instanceof BinaryTypeBinding) {
                 BinaryTypeBinding binaryTypeBinding = (BinaryTypeBinding) typeBinding;
-                return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
+                if (!typeBinding.isParameterizedType()) {
+                    return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
+                } else {
+                    ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
+                    TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
+
+                    Arrays.stream(parameterizedTypeBinding.arguments).
+                            map(Testability::typeReferenceFromTypeBinding).
+                            collect(Collectors.toList()).toArray(typeArguments);
+
+                    return new ParameterizedQualifiedTypeReference(
+                            binaryTypeBinding.compoundName,
+                            new TypeReference[][]{typeArguments},
+                            dim,
+                            new long[binaryTypeBinding.compoundName.length]
+                    );
+                }
             }
-            return new SingleTypeReference(
-                    typeBinding.sourceName(), 0
-            );
+            if (!typeBinding.isParameterizedType()) {
+                return new SingleTypeReference(
+                        typeBinding.sourceName(), 0
+                );
+            } else {
+                ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
+
+                TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
+
+                Arrays.stream(parameterizedTypeBinding.arguments).
+                        map(Testability::typeReferenceFromTypeBinding).
+                        collect(Collectors.toList()).toArray(typeArguments);
+
+                return new ParameterizedSingleTypeReference(
+                        typeBinding.sourceName(),
+                        typeArguments,
+                        dim,
+                        0
+                );
+            }
 
         } else {
             return new ArrayTypeReference(
                     typeBinding.sourceName(),
-                    typeBinding.dimensions() - 1,
+                    dim - 1,
                     typeBinding.id
             );
         }
@@ -1041,7 +1077,14 @@ public class Testability {
     }
 
     static public String testabilityFieldNameForExternalAccess(String methodClassName, char[] calledMethodName) {
-        return testabilityFieldNamePrefix + methodClassName.replace('.','$') + "$" + new String(calledMethodName);
+        return testabilityFieldNamePrefix +
+                methodClassName.
+                        replace("<","_").
+                        replace(">","_").
+                        replace('.','$') +
+                "$" +
+                new String(calledMethodName);
+
     }
     static public String testabilityFieldNameForNewOperator(String className) {
         return testabilityFieldNamePrefix + className.replace('.','$') + "$new";

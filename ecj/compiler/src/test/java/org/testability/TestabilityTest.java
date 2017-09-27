@@ -999,22 +999,22 @@ public class TestabilityTest extends BaseTest {
 //
 //    }
 
-//    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
-//        //TODO Pb(75) Cannot reference a field before it is defined
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "   Function1<String, String> ff = (a) -> a;" +
-//                        "	void fn(){\n" +
-//                        "     Function1<String, String> f = (arg) -> {ff.apply(\"\");return \"\";};\n" +
-//                        "     assert f!=null;" +
-//                        "   };" +
-//                        "}\n"
-//        };
-//
-//        compileAndDisassemble(task);
-//
-//    }
+    public void testTestabilityInjectFunctionField_ForApply() throws Exception {
+        //TODO Pb(75) Cannot reference a field before it is defined
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   Function1<String, String> ff = (a) -> a;" +
+                        "	void fn(){\n" +
+                        "     Function1<String, String> f = (arg) -> {ff.apply(\"\");return \"\";};\n" +
+                        "     assert f!=null;" +
+                        "   };" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+    }
 
     public void testTestabilityInjectFunctionField_BlockRedirectionForAllocation() throws Exception {
 
