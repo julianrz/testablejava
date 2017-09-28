@@ -659,8 +659,8 @@ public class Testability {
     }
 
     static boolean receiverPrecedesParameters(MessageSend messageSend) {
-        if (!(messageSend.actualReceiverType instanceof BinaryTypeBinding))
-            return true;
+//        if (!(messageSend.actualReceiverType instanceof BinaryTypeBinding))
+//            return true;
         if (messageSend.binding.isStatic()) //receiver is hardcoded in lambda implementation
             return false;
         return true;
@@ -1032,8 +1032,8 @@ public class Testability {
 
         } else {
             return new ArrayTypeReference(
-                    typeBinding.sourceName(),
-                    dim - 1,
+                    typeBinding.leafComponentType().sourceName(),//typeBinding.sourceName(),
+                    dim, //- 1,
                     typeBinding.id
             );
         }

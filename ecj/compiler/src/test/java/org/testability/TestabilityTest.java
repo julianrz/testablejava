@@ -1000,7 +1000,7 @@ public class TestabilityTest extends BaseTest {
 //    }
 
     public void testTestabilityInjectFunctionField_ForApply() throws Exception {
-        //TODO Pb(75) Cannot reference a field before it is defined
+
         String[] task = {
                 "X.java",
                 "public class X {\n" +
@@ -1013,6 +1013,41 @@ public class TestabilityTest extends BaseTest {
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+    }
+    public void testTestabilityInjectFunctionField_ForExternalCallArrayArg() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                "     public static int arrayArg(int[] ar){ return ar.length;}\n" +
+                "}",
+                "X.java",
+                "public class X {\n" +
+                        "	public int fn(){\n" +
+                        "     int [] ar = {1, 2};\n" +
+                        "     return Y.arrayArg(ar);\n" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        String expectedOutput = "public class X {\n" +
+                "   Function1<int[], Integer> $$Y$arrayArg = (var1) -> {\n" +
+                "      return Integer.valueOf(Y.arrayArg(var1));\n" +
+                "   };\n" +
+                "\n" +
+                "   public int fn() {\n" +
+                "      int[] var1 = new int[]{1, 2};\n" +
+                "      return ((Integer)this.$$Y$arrayArg.apply(var1)).intValue();\n" +
+                "   }\n" +
+                "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+        Object actual = invokeCompiledMethod("X","fn");
+        assertEquals(2, actual);
 
     }
 
