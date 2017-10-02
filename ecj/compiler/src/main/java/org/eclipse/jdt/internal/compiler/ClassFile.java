@@ -539,7 +539,7 @@ public class ClassFile implements TypeConstants, TypeIds {
         List<FieldDeclaration> testabilityFieldDeclarations =
                 Testability.makeTestabilityFields(
                         typeDeclaration,
-                        currentBinding);
+                        currentBinding, e -> typeDeclaration.callExpressionToRedirectorField.putAll(e));
 
         int fieldCount = currentBinding.fieldCount() +
                 (syntheticFields == null ? 0 : syntheticFields.length) +

@@ -1,5 +1,6 @@
 package org.testability;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
@@ -12,11 +13,14 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
@@ -45,9 +49,7 @@ public class Testability {
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
             return false;
 
-        String key = toUniqueMethodDescriptor(expressionToBeReplaced);
-
-        return classDeclaration.allCallsToRedirect.containsKey(key);
+        return classDeclaration.callExpressionToRedirectorField.containsKey(expressionToBeReplaced);
     }
 
     /**
@@ -159,11 +161,12 @@ public class Testability {
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
 
+        TypeDeclaration typeDeclaration = currentScope.classScope().referenceContext;
+        FieldDeclaration redirectorFieldDeclaration = typeDeclaration.callExpressionToRedirectorField.get(messageSend);
+
         MessageSend messageToFieldApply = new MessageSend();
 
-        String methodClassName = new String(messageSend.binding.declaringClass.readableName());
-
-        String targetFieldNameInThis = testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
+        String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
@@ -256,13 +259,14 @@ public class Testability {
         if (!needsCodeReplace(currentScope, allocationExpression))
             return null;
 
-        //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
+        //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing
+
+        TypeDeclaration typeDeclaration = currentScope.classScope().referenceContext;
+        FieldDeclaration redirectorFieldDeclaration = typeDeclaration.callExpressionToRedirectorField.get(allocationExpression);
 
         MessageSend messageToFieldApply = new MessageSend();
 
-        String methodClassName = new String(allocationExpression.binding.declaringClass.readableName());
-
-        String targetFieldNameInThis = testabilityFieldNameForNewOperator(methodClassName);
+        String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForNewOperator(methodClassName);
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
 
@@ -359,7 +363,7 @@ public class Testability {
                 ) //it calls the testability field apply method
 
         {
-            classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorMessageSend(messageSend), messageSend);
+            classReferenceContext.allCallsToRedirect.add(messageSend);
         }
     }
     public static void registerCallToRedirectIfNeeded(AllocationExpression allocationExpression, BlockScope scope) {
@@ -368,14 +372,16 @@ public class Testability {
                 !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression) &&
             (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
            ) {//it calls original code
-            classReferenceContext.allCallsToRedirect.put(toUniqueMethodDescriptorAllocationExpression(allocationExpression), allocationExpression);
+            classReferenceContext.allCallsToRedirect.add(allocationExpression);
         }
     }
 
 
     public static List<FieldDeclaration> makeTestabilityFields(
             TypeDeclaration typeDeclaration,
-            SourceTypeBinding referenceBinding) {
+            SourceTypeBinding referenceBinding,
+            Consumer<Map<Expression, FieldDeclaration>> expressionToRedirectorField) {
+
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
 
         ClassScope scope = typeDeclaration.scope;
@@ -386,7 +392,12 @@ public class Testability {
             !new String(typeDeclaration.binding.getFileName()).startsWith("Function")) { //TODO better check for FunctionN
             ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
         }
-        ret.addAll(makeTestabilityRedirectorFields(typeDeclaration, referenceBinding));
+        List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
+                typeDeclaration,
+                referenceBinding,
+                expressionToRedirectorField);
+
+        ret.addAll(redirectorFields);
 
         return ret.stream().
                 filter(Objects::nonNull).
@@ -425,38 +436,106 @@ public class Testability {
         return ret;
     }
 
+    /**
+     *
+     * @param typeDeclaration
+     * @param referenceBinding
+     * @param originalCallToField
+     * @return unique field instances
+     */
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
             TypeDeclaration typeDeclaration,
-            SourceTypeBinding referenceBinding){
+            SourceTypeBinding referenceBinding,
+            Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer){
 
-        return typeDeclaration.allCallsToRedirect.values().stream().
-                map(originalCall -> {
-                            FieldDeclaration fieldDeclaration = null;
+        //eliminate duplicates (by toUniqueMethodDescriptor - long version of the description)
+        Map<String, List<Expression>> longFieldNameToExpression = typeDeclaration.allCallsToRedirect.stream().
+                collect(Collectors.groupingBy(Testability::toUniqueMethodDescriptor));
 
-                            if (originalCall instanceof MessageSend) {
-                                MessageSend originalMessageSend = (MessageSend) originalCall;
-                                char[] invokedMethodName = originalMessageSend.selector;
-                                String invokedClassName = //fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
-                                        new String(originalMessageSend.binding.declaringClass.readableName());
-                                String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
+        List<Expression> distinctFields = longFieldNameToExpression.values().stream().
+                map(expressionList -> expressionList.get(0)).
+                collect(toList()); //take 1st value of each list (where items have same toUniqueMethodDescriptor()
 
-                                fieldDeclaration = makeRedirectorFieldDeclaration(
-                                        originalMessageSend, typeDeclaration,
-                                        referenceBinding,
-                                        fieldName);
-                            } else if (originalCall instanceof AllocationExpression) {
-                                AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
+        List<String> shortFieldNames = distinctFields.stream().
+                map(originalExpression -> testabilityFieldName(originalExpression, true)).
+                collect(toList());
 
-                                String invokedClassName = fullyQualifiedFromCompoundName(originalAllocationExpression.binding.declaringClass.compoundName);
-                                String fieldName = testabilityFieldNameForNewOperator(invokedClassName);
+        List<Boolean> useLong = hasDuplicates(shortFieldNames);
 
-                                fieldDeclaration = makeRedirectorFieldDeclaration(
-                                        originalAllocationExpression, typeDeclaration,
-                                        referenceBinding,
-                                        fieldName);
-                            }
-                            return fieldDeclaration;
+        List<FieldDeclaration> ret = IntStream.range(0, useLong.size()).
+
+                mapToObj(pos -> {
+                    Expression originalCall = distinctFields.get(pos);
+                    Boolean useLongNameForCall = useLong.get(pos);
+                    String fieldName = testabilityFieldName(originalCall, !useLongNameForCall);
+
+                    FieldDeclaration fieldDeclaration = null;
+
+                    if (originalCall instanceof MessageSend) {
+                        MessageSend originalMessageSend = (MessageSend) originalCall;
+//                        char[] invokedMethodName = originalMessageSend.selector;
+//                        String invokedClassName = //fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
+//                                new String(originalMessageSend.binding.declaringClass.readableName());
+//                        String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
+
+                        fieldDeclaration = makeRedirectorFieldDeclaration(
+                                originalMessageSend, typeDeclaration,
+                                referenceBinding,
+                                fieldName);
+                    } else if (originalCall instanceof AllocationExpression) {
+                        AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
+
+//                        String invokedClassName = fullyQualifiedFromCompoundName(originalAllocationExpression.binding.declaringClass.compoundName);
+//                        String fieldName = testabilityFieldNameForNewOperator(invokedClassName);
+
+                        fieldDeclaration = makeRedirectorFieldDeclaration(
+                                originalAllocationExpression, typeDeclaration,
+                                referenceBinding,
+                                fieldName);
+                    }
+                    return fieldDeclaration;
+
+                }).
+                collect(toList());
+
+
+        //ret is in the order of longFieldNameToExpression.values: 1st element of each list was used to make a field
+        List<List<Expression>> longFieldNameToExpressionValues = new ArrayList<>(
+            longFieldNameToExpression.values()
+        );
+
+        IdentityHashMap<Expression, FieldDeclaration> originalCallToField =
+                IntStream.range(0, longFieldNameToExpression.size()).
+                        mapToObj(i -> {
+
+                            List<Expression> list = longFieldNameToExpressionValues.get(i);
+                            FieldDeclaration field = ret.get(i);
+                            return new AbstractMap.SimpleEntry<>(field, list);
                         }).
+                        flatMap(e -> { //form stream by individual expression
+                            return e.getValue().stream().
+                                    map(ex -> new AbstractMap.SimpleEntry<>(e.getKey(), ex));
+                        }).
+                        collect(toMap(
+                                e -> e.getValue(),
+                                e -> e.getKey(),
+                                (k,v) -> k, //not null
+                                () -> new IdentityHashMap<>()
+                        ));
+
+        originalCallToFieldProducer.accept(originalCallToField);
+        return ret;
+    }
+
+    /**
+     * when descriptor in current position has duplicates, return true for it
+     * @param shortDescriptors
+     * @return [useShort]
+     */
+    static List<Boolean> hasDuplicates(List<String> shortDescriptors) {
+        Map<String, List<String>> occurrences = shortDescriptors.stream().collect(Collectors.groupingBy(Function.identity()));
+        return shortDescriptors.stream().
+                map(shortDescriptor -> occurrences.get(shortDescriptor).size() > 1).
                 collect(toList());
     }
 
@@ -1074,6 +1153,63 @@ public class Testability {
             return false;
         LabeledStatement labeledStatement = (LabeledStatement) block.statements[0];
         return new String(labeledStatement.label).equals("testabilitylabel");
+    }
+
+    static public String testabilityFieldName(Expression originalCall, boolean shortClassName) {
+        if (!(originalCall instanceof Invocation))
+            throw new RuntimeException("domain error on argument, must be instance of Invocatiom");
+
+        MethodBinding binding = ((Invocation) originalCall).binding();
+
+        String invokedClassName = new String(readableName(binding.declaringClass, shortClassName));
+
+        if (originalCall instanceof MessageSend) {
+            MessageSend originalMessageSend = (MessageSend) originalCall;
+            char[] invokedMethodName = originalMessageSend.selector;
+
+            return testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
+        }
+        else if (originalCall instanceof AllocationExpression) {
+
+            return testabilityFieldNameForNewOperator(invokedClassName);
+        }
+        else
+            throw new RuntimeException("domain error on argument");
+    }
+
+    static char [] readableName(ReferenceBinding binding, boolean shortClassName) { //see ReferenceBinding::readableName
+        StringBuffer nameBuffer = new StringBuffer(10);
+
+        if (binding.isMemberType())
+            nameBuffer.append(CharOperation.concat(binding.enclosingType().readableName(), binding.sourceName, '.'));
+        else {
+            char[][] compoundName;
+            if (binding instanceof ParameterizedTypeBinding) {
+                ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) binding;
+
+                compoundName = parameterizedTypeBinding.actualType().compoundName;
+
+            } else {
+                compoundName = binding.compoundName;
+            }
+            nameBuffer.append(CharOperation.concatWith(compoundName, '.'));
+        }
+        if (!shortClassName && binding instanceof ParameterizedTypeBinding) {
+            TypeBinding[] arguments = ((ParameterizedTypeBinding) binding).arguments;
+            if (arguments != null &&
+                    arguments.length > 0) { // empty arguments array happens when PTB has been created just to capture type annotations
+                nameBuffer.append('_');
+                for (int i = 0, length = arguments.length; i < length; i++) {
+                    if (i > 0) nameBuffer.append('_');
+                    nameBuffer.append(arguments[i].readableName()); //TODO several TypeBinding subclass implementations
+                }
+                nameBuffer.append('_');
+            }
+        }
+        int nameLength = nameBuffer.length();
+        char[] readableName = new char[nameLength];
+        nameBuffer.getChars(0, nameLength, readableName, 0);
+        return readableName;
     }
 
     static public String testabilityFieldNameForExternalAccess(String methodClassName, char[] calledMethodName) {

@@ -38,8 +38,7 @@ import org.eclipse.jdt.internal.compiler.problem.*;
 import org.eclipse.jdt.internal.compiler.util.Util;
 import org.testability.Testability;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class TypeDeclaration extends Statement implements ProblemSeverities, ReferenceContext {
     // Type decl kinds
@@ -78,10 +77,13 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     public FieldBinding enumValuesSyntheticfield;    // for enum
     public int enumConstantsCounter;
 
-    public Map<String, Expression> allCallsToRedirect = new HashMap<>();
+    // testability
+    public List<Expression> allCallsToRedirect = new ArrayList<>();
+    public Map<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
 
     // 1.5 support
     public TypeParameter[] typeParameters;
+
 
     public TypeDeclaration(CompilationResult compilationResult) {
         this.compilationResult = compilationResult;
