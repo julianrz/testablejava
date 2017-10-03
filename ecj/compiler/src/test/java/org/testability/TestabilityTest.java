@@ -25,6 +25,11 @@ public class TestabilityTest extends BaseTest {
     public TestabilityTest(String name) {
         super(name);
     }
+
+    public void testShortenNames(){
+        //List<Expression>
+
+    }
 //TODO reen/fix
 //    public void testPackageCollideWithType() throws Exception {
 //
@@ -300,13 +305,13 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Character, Character, Integer> $$java$lang$Character$compare = (var1, var2, var3) -> {\n" +
-                        "      return Character.compare(var1, var2);\n" +
-                        "   }\n\n" +
+                        "   Function2<Character, Character, Integer> $$java$lang$Character$compare = (var1, var2) -> {\n" +
+                        "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
+                        "   };\n\n" +
                         "   public int fn() {\n" +
-                        "      char c1 = '1';\n" +
-                        "      char c2 = '2';\n" +
-                        "      return this.$$java$lang$Character$compare.apply(i1, l2);\n" +
+                        "      char var1 = 49;\n" +
+                        "      char var2 = 50;\n" +
+                        "      return ((Integer)this.$$java$lang$Character$compare.apply(Character.valueOf(var1), Character.valueOf(var2))).intValue();\n" +
                         "   }\n" +
                         "}";
 
@@ -339,12 +344,12 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Character, Character, Integer> $$Y$new = (var1) -> {\n" +
-                        "      return new Y(var1);\n" +
-                        "   }\n\n" +
+                        "   Function1<Character, Y> $$Y$new = (var1) -> {\n" +
+                        "      return new Y(var1.charValue());\n" +
+                        "   };\n\n" +
                         "   public char fn() {\n" +
-                        "      char c1 = '1';\n" +
-                        "      return this.$$Y$new.apply(c1).c;\n" +
+                        "      char var1 = 49;\n" +
+                        "      return ((Y)this.$$Y$new.apply(Character.valueOf(var1))).c;\n" +
                         "   }\n" +
                         "}";
 
@@ -354,7 +359,7 @@ public class TestabilityTest extends BaseTest {
         Class<?> clazz = cl.loadClass("X");
         Method main = clazz.getDeclaredMethod("fn");
         main.setAccessible(true);
-        assertEquals(-1, main.invoke(clazz.newInstance()));
+        assertEquals('1', main.invoke(clazz.newInstance()));
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 

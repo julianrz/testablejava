@@ -21,6 +21,7 @@ import java.util.stream.IntStream;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
 
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
@@ -68,7 +69,6 @@ public class Testability {
             declaration.traverse(new ASTVisitor() {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
-//                    System.out.println(labeledStatement);
                     if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
@@ -80,7 +80,6 @@ public class Testability {
             declaration.traverse(new ASTVisitor() {
                 @Override
                 public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
-//                    System.out.println(labeledStatement);
                     if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
                         labelledStatementsDontRedirect.add(labeledStatement);
                     super.endVisit(labeledStatement, scope);
@@ -199,19 +198,9 @@ public class Testability {
         Expression[] argsWithReceiver = new Expression[parameterShift + originalArgCount];
         for (int iArg = 0; iArg< originalArgCount; iArg++) {
             Expression arg = messageSend.arguments[iArg];
-            TypeBinding argType = arg.resolvedType;
             TypeBinding targetParamType = messageSend.binding.parameters[iArg];
 
-            //TODO same for Allocation?
-            //TODO reuse existing implicit conversion unless target is char?? in char there is a conversion to int for some reason
-            if ((argType instanceof BaseTypeBinding) &&
-                    !argType.equals(targetParamType)) {
-
-                addImplicitBoxingIfNeeded(arg, targetParamType);
-            }
-            else {
-                addImplicitBoxingIfNeeded(arg);
-            }
+            ensureImplicitConversion(arg, targetParamType);
 
             argsWithReceiver[iArg + parameterShift] = arg;
 
@@ -237,6 +226,13 @@ public class Testability {
         diagnoseBinding(messageToFieldApply, currentScope);
         return messageToFieldApply;
     }
+
+    static void ensureImplicitConversion(Expression arg, TypeBinding targetParamType) {
+        removeCharToIntImplicitConversionIfNeeded(arg);
+
+        addImplicitBoxingIfNeeded(arg, arg.resolvedType.equals(targetParamType)? arg.resolvedType : targetParamType);
+    }
+
 
     static void diagnoseBinding(MessageSend messageSend, BlockScope currentScope) {
         MethodBinding binding = messageSend.binding;
@@ -299,8 +295,10 @@ public class Testability {
             messageToFieldApply.arguments = null;
         else {
             messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
-            for (Expression arg : messageToFieldApply.arguments) {
-                addImplicitBoxingIfNeeded(arg);
+            for (int iArg=0; iArg<messageToFieldApply.arguments.length; iArg++){
+                Expression arg = messageToFieldApply.arguments[iArg];
+                TypeBinding targetParamType = allocationExpression.binding.parameters[iArg];
+                ensureImplicitConversion(arg, targetParamType);
             }
         }
 
@@ -308,10 +306,6 @@ public class Testability {
             messageToFieldApply.valueCast = allocationExpression.resolvedType;
 
         return messageToFieldApply;
-    }
-
-    static void addImplicitBoxingIfNeeded(Expression expression) {
-        addImplicitBoxingIfNeeded(expression, expression.resolvedType);
     }
 
     static void addImplicitBoxingIfNeeded(Expression expression, TypeBinding targetType) {
@@ -332,6 +326,24 @@ public class Testability {
     static void addImplicitUnBoxing(Expression expression, TypeBinding targetType) {
         expression.implicitConversion |=
                 (TypeIds.UNBOXING | targetType.id);
+    }
+
+    /**
+     * if an explicit conversion char->int is specified for arg, remove it
+     * @param arg
+     */
+    static void removeCharToIntImplicitConversionIfNeeded(Expression arg) {
+        TypeBinding argType = arg.resolvedType;
+        if (!(argType instanceof BaseTypeBinding))
+            return;
+        if (argType.id == TypeIds.T_char) {
+            //somehow there can be an implicit conversion char->int in original call. This will not box to Character!
+            int targetType = (arg.implicitConversion & IMPLICIT_CONVERSION_MASK) >> 4;
+            if (targetType == TypeIds.T_int) {
+                arg.implicitConversion ^= (TypeIds.T_int  << 4);
+                arg.implicitConversion |= (TypeIds.T_char << 4);
+            }
+        }
     }
 
     static QualifiedNameReference makeQualifiedNameReference(String targetFieldNameInThis) {
@@ -375,7 +387,6 @@ public class Testability {
             classReferenceContext.allCallsToRedirect.add(allocationExpression);
         }
     }
-
 
     public static List<FieldDeclaration> makeTestabilityFields(
             TypeDeclaration typeDeclaration,
@@ -738,13 +749,11 @@ public class Testability {
     }
 
     static boolean receiverPrecedesParameters(MessageSend messageSend) {
-//        if (!(messageSend.actualReceiverType instanceof BinaryTypeBinding))
-//            return true;
+
         if (messageSend.binding.isStatic()) //receiver is hardcoded in lambda implementation
             return false;
         return true;
     }
-
 
     static FieldDeclaration makeRedirectorFieldDeclaration(
             AllocationExpression originalMessageSend,
@@ -1020,18 +1029,6 @@ public class Testability {
     static String functionNameForArgs(Expression [] arguments, int parameterShift) {
         int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
         return "Function" + functionArgCount;
-    }
-
-//    static boolean receiverPrecedesParameters(Expression messageSendReceiver) {
-//        boolean ret = true;
-//        if (messageSendReceiver instanceof NameReference && ((NameReference) messageSendReceiver).binding instanceof BinaryTypeBinding)
-//            ret = false; //this is type reference line "Integer."
-//        return ret;
-//    }
-
-
-    public static String fullyQualifiedFromCompoundName(char[][] compoundName) {
-        return Arrays.stream(compoundName).map(pathEl -> new String(pathEl)).collect(joining("."));
     }
 
     public static String[] nArgFunctionsCode(int n) {
