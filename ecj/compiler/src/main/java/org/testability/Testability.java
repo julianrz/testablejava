@@ -23,6 +23,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
 
+//TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
+
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
@@ -1177,19 +1179,24 @@ public class Testability {
     static char [] readableName(ReferenceBinding binding, boolean shortClassName) { //see ReferenceBinding::readableName
         StringBuffer nameBuffer = new StringBuffer(10);
 
-        if (binding.isMemberType())
-            nameBuffer.append(CharOperation.concat(binding.enclosingType().readableName(), binding.sourceName, '.'));
+        if (shortClassName)
+            nameBuffer.append(binding.sourceName);
         else {
-            char[][] compoundName;
-            if (binding instanceof ParameterizedTypeBinding) {
-                ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) binding;
-
-                compoundName = parameterizedTypeBinding.actualType().compoundName;
-
+            if (binding.isMemberType()) {
+                nameBuffer.append(CharOperation.concat(binding.enclosingType().readableName(), binding.sourceName, '.'));
             } else {
-                compoundName = binding.compoundName;
+                char[][] compoundName;
+                if (binding instanceof ParameterizedTypeBinding) {
+                    ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) binding;
+
+                    compoundName = parameterizedTypeBinding.actualType().compoundName;
+
+                } else {
+                    compoundName = binding.compoundName;
+                }
+
+                nameBuffer.append(CharOperation.concatWith(compoundName, '.'));
             }
-            nameBuffer.append(CharOperation.concatWith(compoundName, '.'));
         }
         if (!shortClassName && binding instanceof ParameterizedTypeBinding) {
             TypeBinding[] arguments = ((ParameterizedTypeBinding) binding).arguments;

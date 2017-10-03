@@ -127,12 +127,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function1<PrintStream, Void> $$java$io$PrintStream$println = (var1) -> {\n" +
+                        "   Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$io$PrintStream$println.apply(System.out);\n" +
+                        "      this.$$PrintStream$println.apply(System.out);\n" +
                         "   }\n" +
                         "}";
 
@@ -151,11 +151,11 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var1) -> {\n" +
+                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2));\n" +
+                        "      this.$$Integer$valueOf.apply(Integer.valueOf(2));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -185,11 +185,11 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var1) -> {\n" +
+                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2));\n" +
+                        "      this.$$Integer$valueOf.apply(Integer.valueOf(2));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -217,14 +217,14 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function2<String, Integer, Integer> $$java$lang$Integer$getInteger = (var1, var2) -> {\n" +
+                        "   Function2<String, Integer, Integer> $$Integer$getInteger = (var1, var2) -> {\n" +
                         "      return Integer.getInteger(var1, var2);\n" +
                         "   };\n" +
-                        "   Function1<Integer, Integer> $$java$lang$Integer$valueOf = (var1) -> {\n" +
+                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$lang$Integer$getInteger.apply(\"1\", (Integer)this.$$java$lang$Integer$valueOf.apply(Integer.valueOf(2)));\n" +
+                        "      this.$$Integer$getInteger.apply(\"1\", (Integer)this.$$Integer$valueOf.apply(Integer.valueOf(2)));\n" +
                         "   }\n" +
                         "}";
 
@@ -243,13 +243,13 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Long, Long, Integer> $$java$lang$Long$compare = (var1, var2) -> {\n" +
+                        "   Function2<Long, Long, Integer> $$Long$compare = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Long.compare(var1.longValue(), var2.longValue()));\n" +
                         "   };\n\n" +
                         "   public int fn() {\n" +
                         "      int var1 = " + Integer.MAX_VALUE +";\n" +
                         "      long var2 = 2L;\n" +
-                        "      return ((Integer)this.$$java$lang$Long$compare.apply(Long.valueOf((long)var1), Long.valueOf(var2))).intValue();\n" +
+                        "      return ((Integer)this.$$Long$compare.apply(Long.valueOf((long)var1), Long.valueOf(var2))).intValue();\n" +
                         "   }\n" +
                         "}";
 
@@ -273,12 +273,12 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<Long, Long> $$java$lang$Long$valueOf = (var1) -> {\n" +
+                        "   Function1<Long, Long> $$Long$valueOf = (var1) -> {\n" +
                         "      return Long.valueOf(var1.longValue());\n" +
                         "   };\n\n" +
                         "   public Long fn() {\n" +
                         "      int var1 = " + Integer.MAX_VALUE + ";\n" +
-                        "      return (Long)this.$$java$lang$Long$valueOf.apply(Long.valueOf((long)var1));\n" +
+                        "      return (Long)this.$$Long$valueOf.apply(Long.valueOf((long)var1));\n" +
                         "   }\n" +
                         "}";
 
@@ -305,13 +305,13 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Character, Character, Integer> $$java$lang$Character$compare = (var1, var2) -> {\n" +
+                        "   Function2<Character, Character, Integer> $$Character$compare = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
                         "   };\n\n" +
                         "   public int fn() {\n" +
                         "      char var1 = 49;\n" +
                         "      char var2 = 50;\n" +
-                        "      return ((Integer)this.$$java$lang$Character$compare.apply(Character.valueOf(var1), Character.valueOf(var2))).intValue();\n" +
+                        "      return ((Integer)this.$$Character$compare.apply(Character.valueOf(var1), Character.valueOf(var2))).intValue();\n" +
                         "   }\n" +
                         "}";
 
@@ -393,15 +393,15 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function1<PrintStream, Void> $$java$io$PrintStream$println = (var1) -> {\n" +
+                        "   Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn1() {\n" +
-                        "      this.$$java$io$PrintStream$println.apply(System.out);\n" +
+                        "      this.$$PrintStream$println.apply(System.out);\n" +
                         "   }\n\n" +
                         "   void fn2() {\n" +
-                        "      this.$$java$io$PrintStream$println.apply(System.out);\n" +
+                        "      this.$$PrintStream$println.apply(System.out);\n" +
                         "   }\n" +
                         "}";
 
@@ -425,13 +425,13 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
                         "      int var1 = 434242342;\n" +
-                        "      this.$$java$io$PrintStream$write.apply(System.out, Integer.valueOf(var1));\n" +
+                        "      this.$$PrintStream$write.apply(System.out, Integer.valueOf(var1));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -462,12 +462,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.math.BigDecimal;\n\n" +
                         "public class X {\n" +
-                        "   Function1<Integer, BigDecimal> $$java$math$BigDecimal$new = (var1) -> {\n" +
+                        "   Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
                         "      return new BigDecimal(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
                         "      int var1 = 434242342;\n" +
-                        "      this.$$java$math$BigDecimal$new.apply(Integer.valueOf(var1));\n" +
+                        "      this.$$BigDecimal$new.apply(Integer.valueOf(var1));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -496,12 +496,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
-                        "      this.$$java$io$PrintStream$write.apply(System.out, Integer.valueOf(434242342));\n" +
+                        "      this.$$PrintStream$write.apply(System.out, Integer.valueOf(434242342));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -531,11 +531,11 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.math.BigDecimal;\n\n" +
                         "public class X {\n" +
-                        "   Function1<Integer, BigDecimal> $$java$math$BigDecimal$new = (var1) -> {\n" +
+                        "   Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
                         "      return new BigDecimal(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
-                        "      this.$$java$math$BigDecimal$new.apply(Integer.valueOf(434242342));\n" +
+                        "      this.$$BigDecimal$new.apply(Integer.valueOf(434242342));\n" +
                         "   }\n\n" +
                         "   public static void exec() throws Exception {\n" +
                         "      (new X()).fn();\n" +
@@ -566,19 +566,19 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$java$io$PrintStream$write = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n" +
-                        "   Function1<PrintStream, Void> $$java$io$PrintStream$close = (var1) -> {\n" +
+                        "   Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
                         "      var1.close();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
                         "      PrintStream var1 = System.out;\n" +
                         "      Integer var2 = Integer.valueOf(0);\n"+
-                        "      this.$$java$io$PrintStream$write.apply(var1, var2.intValue());\n" +
-                        "      this.$$java$io$PrintStream$close.apply(var1);\n" +
+                        "      this.$$PrintStream$write.apply(var1, var2.intValue());\n" +
+                        "      this.$$PrintStream$close.apply(var1);\n" +
                         "   }\n" +
                         "}";
 
@@ -596,12 +596,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function2<PrintStream, String, Void> $$java$io$PrintStream$println = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
                         "      var1.println(var2);\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn(String var1) {\n" +
-                        "      this.$$java$io$PrintStream$println.apply(System.out, var1);\n" +
+                        "      this.$$PrintStream$println.apply(System.out, var1);\n" +
                         "   }\n" +
                         "}";
 
@@ -619,12 +619,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function2<PrintStream, String, Void> $$java$io$PrintStream$println = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
                         "      var1.println(var2);\n" +
                         "      return null;\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$io$PrintStream$println.apply(System.out, \"x\");\n" +
+                        "      this.$$PrintStream$println.apply(System.out, \"x\");\n" +
                         "   }\n" +
                         "}";
 
@@ -644,12 +644,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function1<PrintStream, String> $$java$lang$Object$toString = (var1) -> {\n" +
+                        "   Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
                         "      return var1.toString();\n" +
                         "   };\n" +
                         "\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$lang$Object$toString.apply(System.out);\n" +
+                        "      this.$$Object$toString.apply(System.out);\n" +
                         "   }\n" +
                         "}";
 
@@ -698,13 +698,13 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Void> $$java$lang$Object$notify = (var1) -> {\n" +
+                        "   Function1<String, Void> $$Object$notify = (var1) -> {\n" +
                         "      var1.notify();\n" +
                         "      return null;\n"+
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      String var1 = \"\";\n" +
-                        "      this.$$java$lang$Object$notify.apply(var1);\n" +
+                        "      this.$$Object$notify.apply(var1);\n" +
                         "   }\n" +
                         "}";
 
@@ -721,11 +721,11 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function0<String> $$java$lang$String$new = () -> {\n" +
+                        "   Function0<String> $$String$new = () -> {\n" +
                         "      return new String();\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
-                        "      this.$$java$lang$String$new.apply();\n" +
+                        "      this.$$String$new.apply();\n" +
                         "   }\n" +
                         "}";
 
@@ -784,7 +784,7 @@ public class TestabilityTest extends BaseTest {
                 "public class Y {\n" +
                         "	String exec2(){" +
                         "     X x = new X();\n" +
-                        "     x.$$java$lang$String$new = (arg) -> {dontredirect:return new String(\"redirected\");};" +
+                        "     x.$$String$new = (arg) -> {dontredirect:return new String(\"redirected\");};" +
                         "     return x.fn();" +
                         "   }" +
                         "   public static String exec(){\n" +
@@ -811,7 +811,7 @@ public class TestabilityTest extends BaseTest {
                 "public class Y {\n" +
                         "	String exec2(){" +
                         "     X x = new X();\n" +
-                        "     x.$$java$lang$String$new = (arg) -> {return new String(\"redirected\");};" +
+                        "     x.$$String$new = (arg) -> {return new String(\"redirected\");};" +
                         "     return x.fn();" +
                         "   }" +
                         "   public static String exec(){\n" +
@@ -1075,7 +1075,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, String> $$java$lang$String$new = (var1) -> {\n" +
+                        "   Function1<String, String> $$String$new = (var1) -> {\n" +
                         "      return new String(var1);\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -1090,7 +1090,7 @@ public class TestabilityTest extends BaseTest {
                         "      }\n" +
                         "\n" +
                         "      new String(\"c\");\n" +
-                        "      this.$$java$lang$String$new.apply(\"d\");\n" +
+                        "      this.$$String$new.apply(\"d\");\n" +
                         "   }\n" +
                         "}";
 
@@ -1138,12 +1138,12 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Integer> $$java$lang$Integer$parseInt = (var1) -> {\n" +
+                        "   Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      Integer.parseInt(\"0\");\n" +
-                        "      this.$$java$lang$Integer$parseInt.apply(\"1\");\n" +
+                        "      this.$$Integer$parseInt.apply(\"1\");\n" +
                         "   }\n" +
                         "}";
 
@@ -1168,11 +1168,11 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Integer> $$java$lang$Integer$parseInt = (var1) -> {\n" +
+                        "   Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
                         "   };\n\n" +
                         "   int fn() {\n" +
-                        "      return ((Integer)this.$$java$lang$Integer$parseInt.apply(\"1\")).intValue();\n" +
+                        "      return ((Integer)this.$$Integer$parseInt.apply(\"1\")).intValue();\n" +
                         "   }\n\n"+
                         "   public static int exec() {\n" +
                         "      return (new X()).fn();\n" +
@@ -1205,13 +1205,13 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                "   Function1<String, String> $$java$lang$String$new = (var1) -> {\n" +
+                "   Function1<String, String> $$String$new = (var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n" +
                 "\n" +
                 "   void fn() {\n" +
                 "      Function1 var1 = (var1) -> {\n" +
-                "         return (String)this.$$java$lang$String$new.apply(\"x\");\n" +
+                "         return (String)this.$$String$new.apply(\"x\");\n" +
                 "      };\n" +
                 "\n" +
                 "      assert var1 != null;\n" +
@@ -1256,11 +1256,11 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function1<StringBuilder, String> $$java$lang$String$new = (var1) -> {\n" +
+                        "   Function1<StringBuilder, String> $$String$new = (var1) -> {\n" +
                         "      return new String(var1);\n" +
                         "   };\n\n" +
                         "   void fn(StringBuilder var1) {\n" +
-                        "      this.$$java$lang$String$new.apply(var1);\n" +
+                        "      this.$$String$new.apply(var1);\n" +
                         "   }\n" +
                         "}";
 
@@ -1276,11 +1276,11 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function0<String> $$java$lang$String$new = () -> {\n" +
+                        "   Function0<String> $$String$new = () -> {\n" +
                         "      return new String();\n" +
                         "   };\n\n" +
                         "   String fn() {\n" +
-                        "      return (String)this.$$java$lang$String$new.apply();\n" +
+                        "      return (String)this.$$String$new.apply();\n" +
                         "   }\n" +
                         "}";
 
@@ -1303,11 +1303,11 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Character, PrintStream> $$java$io$PrintStream$append = (var1, var2) -> {\n" +
+                        "   Function2<PrintStream, Character, PrintStream> $$PrintStream$append = (var1, var2) -> {\n" +
                         "      return var1.append(var2.charValue());\n" +
                         "   };\n\n" +
                         "   PrintStream fn() {\n" +
-                        "      return (PrintStream)this.$$java$io$PrintStream$append.apply(System.out, Character.valueOf('c'));\n" +
+                        "      return (PrintStream)this.$$PrintStream$append.apply(System.out, Character.valueOf('c'));\n" +
                         "   }\n\n" +
                         "   public static PrintStream exec() {\n" +
                         "      return (new X()).fn();\n" +
