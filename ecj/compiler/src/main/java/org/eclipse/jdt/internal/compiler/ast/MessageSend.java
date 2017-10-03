@@ -414,6 +414,9 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
                     this, currentScope, valueRequired);
 
             if (messageGetField != null) {
+                System.out.println(
+                        "instrumenting call for " + this + " in " + currentScope.methodScope().referenceContext +
+                                " with call " + messageGetField);
 
                 messageGetField.generateCode(currentScope, codeStream, valueRequired);
 
