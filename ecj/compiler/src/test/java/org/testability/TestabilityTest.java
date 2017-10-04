@@ -216,12 +216,13 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+
                         "public class X {\n" +
-                        "   Function2<String, Integer, Integer> $$Integer$getInteger = (var1, var2) -> {\n" +
-                        "      return Integer.getInteger(var1, var2);\n" +
-                        "   };\n" +
                         "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
+                        "   };\n" +
+                        "   Function2<String, Integer, Integer> $$Integer$getInteger = (var1, var2) -> {\n" +
+                        "      return Integer.getInteger(var1, var2);\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      this.$$Integer$getInteger.apply(\"1\", (Integer)this.$$Integer$valueOf.apply(Integer.valueOf(2)));\n" +

@@ -11,15 +11,15 @@ public class XTest {
 //        String ret = x.fnUsingNew();
 //        assertEquals(ret,"redirected");
 //    }
-//    //TODO compilation problem
-//    @Test
-//    public void replaceExternalStaticCallInClass() throws Exception {
-//
-//        X x = new X();
-//        x.$$java$lang$Integer$parseInt = (arg) -> {dontredirect: return 2;};
-//        int ret = x.fnUsingExternalCall("1");
-//        assertEquals(ret,2);
-//    }
+    //TODO compilation problem
+    @Test
+    public void replaceExternalStaticCallInClass() throws Exception {
+
+        X x = new X();
+        x.$$Integer$parseInt = (arg) -> {dontredirect: return 2;};
+        int ret = x.fnUsingExternalCall("1");
+        assertEquals(ret,2);
+    }
 
     @Test
     public void instantiationListener() throws Exception {
@@ -33,7 +33,7 @@ public class XTest {
         //set up listener
         X.$$postCreate = (X x) -> {
             //instrument X instance
-            x.$$java$lang$String$new = (arg) -> {dontredirect: return new String("redirected");};
+            x.$$String$new = (arg) -> {dontredirect: return new String("redirected");};
         };
         dontredirect:
         {
