@@ -585,6 +585,95 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
+    public void testTestabilityInjectFunctionField_ExternalCall_NameWithPackage() throws Exception {
+
+        String[] task = {
+                "a/Y.java",
+                "package a;\n" +
+                        "public class Y {\n" +
+                        "	public void fn() {}" +
+                        "}",
+                "X.java",
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "        a.Y ya;\n" +
+                        "        dontredirect:  ya = new a.Y();\n" +
+                        "        ya.fn();\n" +
+                        "   }" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import a.Y;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
+                        "      var1.fn();\n" +
+                        "      return null;\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      Y var1 = new Y();\n" +
+                        "      this.$$Y$fn.apply(var1);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+    }
+
+
+    public void testTestabilityInjectFunctionField_ShortAndLongFieldNames() throws Exception {
+
+        String[] task = {
+                "a/Y.java",
+                "package a;\n" +
+                "public class Y {\n" +
+                        "	public void fn() {}" +
+                        "}",
+                "b/Y.java",
+                "package b;\n" +
+                "public class Y {\n" +
+                        "	public void fn() {}" +
+                        "}",
+                "X.java",
+                "public class X {\n" +
+                        "	void fn() throws Exception {" +
+                        "        a.Y ya = new a.Y();\n" +
+                        "        b.Y yb = new b.Y();\n" +
+                        "        ya.fn();\n" +
+                        "        yb.fn();\n" +
+                        "   }" +
+                        "}\n"
+        };
+        String expectedOutput =
+                        "import b.Y;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   Function0<Y> $$b$Y$new = () -> {\n" +
+                        "      return new Y();\n" +
+                        "   };\n" +
+                        "   Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
+                        "      var1.fn();\n" +
+                        "      return null;\n" +
+                        "   };\n" +
+                        "   Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
+                        "      var1.fn();\n" +
+                        "      return null;\n" +
+                        "   };\n" +
+                        "   Function0<a.Y> $$a$Y$new = () -> {\n" +
+                        "      return new a.Y();\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   void fn() throws Exception {\n" +
+                        "      a.Y var1 = (a.Y)this.$$a$Y$new.apply();\n" +
+                        "      Y var2 = (Y)this.$$b$Y$new.apply();\n" +
+                        "      this.$$a$Y$fn.apply(var1);\n" +
+                        "      this.$$b$Y$fn.apply(var2);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+    }
+
     public void testTestabilityInjectFunctionField_ForExternalCallPassingArgsThrough() throws Exception {
 
         String[] task = {

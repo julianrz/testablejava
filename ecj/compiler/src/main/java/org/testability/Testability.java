@@ -463,7 +463,7 @@ public class Testability {
 
         //eliminate duplicates (by toUniqueMethodDescriptor - long version of the description)
         Map<String, List<Expression>> longFieldNameToExpression = typeDeclaration.allCallsToRedirect.stream().
-                collect(Collectors.groupingBy(Testability::toUniqueMethodDescriptor));
+                collect(Collectors.groupingBy(originalCall->testabilityFieldName(originalCall, false)));
 
         List<Expression> distinctFields = longFieldNameToExpression.values().stream().
                 map(expressionList -> expressionList.get(0)).
@@ -486,10 +486,6 @@ public class Testability {
 
                     if (originalCall instanceof MessageSend) {
                         MessageSend originalMessageSend = (MessageSend) originalCall;
-//                        char[] invokedMethodName = originalMessageSend.selector;
-//                        String invokedClassName = //fullyQualifiedFromCompoundName(originalMessageSend.binding.declaringClass.compoundName);
-//                                new String(originalMessageSend.binding.declaringClass.readableName());
-//                        String fieldName = testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
 
                         fieldDeclaration = makeRedirectorFieldDeclaration(
                                 originalMessageSend, typeDeclaration,
@@ -497,9 +493,6 @@ public class Testability {
                                 fieldName);
                     } else if (originalCall instanceof AllocationExpression) {
                         AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
-
-//                        String invokedClassName = fullyQualifiedFromCompoundName(originalAllocationExpression.binding.declaringClass.compoundName);
-//                        String fieldName = testabilityFieldNameForNewOperator(invokedClassName);
 
                         fieldDeclaration = makeRedirectorFieldDeclaration(
                                 originalAllocationExpression, typeDeclaration,
@@ -550,20 +543,6 @@ public class Testability {
         return shortDescriptors.stream().
                 map(shortDescriptor -> occurrences.get(shortDescriptor).size() > 1).
                 collect(toList());
-    }
-
-    static String toUniqueMethodDescriptorMessageSend(MessageSend m) {
-        return m.receiver.toString() + "." + m.binding.toString();
-    }
-    static String toUniqueMethodDescriptorAllocationExpression(AllocationExpression m) {
-        return  "new" + m.binding.toString();
-    }
-    static String toUniqueMethodDescriptor(Expression m) {
-        if (m instanceof MessageSend)
-            return toUniqueMethodDescriptorMessageSend((MessageSend) m);
-        else if (m instanceof AllocationExpression)
-            return toUniqueMethodDescriptorAllocationExpression((AllocationExpression) m);
-        else return "";
     }
 
     static LambdaExpression makeLambdaExpression(
@@ -1067,8 +1046,8 @@ public class Testability {
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
         int dim = typeBinding.dimensions();
         if (dim == 0){
-            if (typeBinding instanceof BinaryTypeBinding) {
-                BinaryTypeBinding binaryTypeBinding = (BinaryTypeBinding) typeBinding;
+            if (typeBinding instanceof ReferenceBinding) {
+                ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;
                 if (!typeBinding.isParameterizedType()) {
                     return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
                 } else {
@@ -1086,26 +1065,27 @@ public class Testability {
                             new long[binaryTypeBinding.compoundName.length]
                     );
                 }
-            }
-            if (!typeBinding.isParameterizedType()) {
-                return new SingleTypeReference(
-                        typeBinding.sourceName(), 0
-                );
-            } else {
-                ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
+            } else { //TODO will this ever happen?
+                if (!typeBinding.isParameterizedType()) {
+                    return new SingleTypeReference(
+                            typeBinding.sourceName(), 0
+                    );
+                } else {
+                    ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
 
-                TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
+                    TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
 
-                Arrays.stream(parameterizedTypeBinding.arguments).
-                        map(Testability::typeReferenceFromTypeBinding).
-                        collect(Collectors.toList()).toArray(typeArguments);
+                    Arrays.stream(parameterizedTypeBinding.arguments).
+                            map(Testability::typeReferenceFromTypeBinding).
+                            collect(Collectors.toList()).toArray(typeArguments);
 
-                return new ParameterizedSingleTypeReference(
-                        typeBinding.sourceName(),
-                        typeArguments,
-                        dim,
-                        0
-                );
+                    return new ParameterizedSingleTypeReference(
+                            typeBinding.sourceName(),
+                            typeArguments,
+                            dim,
+                            0
+                    );
+                }
             }
 
         } else {
