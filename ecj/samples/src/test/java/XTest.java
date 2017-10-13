@@ -3,14 +3,14 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class XTest {
-//    @Test
-//    public void replaceNewOperatorInClass() throws Exception {
-//
-//        X x = new X();
-//        x.$$java$lang$String$new = (arg) -> {dontredirect: return new String("redirected");};
-//        String ret = x.fnUsingNew();
-//        assertEquals(ret,"redirected");
-//    }
+    @Test
+    public void replaceNewOperatorInClass() throws Exception {
+
+        X x = new X();
+        x.$$String$new = (arg) -> {dontredirect: return new String("redirected");};
+        String ret = x.fnUsingNew("orig");
+        assertEquals(ret,"redirected");
+    }
     //TODO compilation problem
     @Test
     public void replaceExternalStaticCallInClass() throws Exception {
