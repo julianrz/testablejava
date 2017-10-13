@@ -10,8 +10,8 @@
 
     <parent>
         <groupId>org.eclipse.jdt.core.compiler</groupId>
-        <artifactId>parent</artifactId>
-        <version>4.6.1-TESTABILITY</version>
+        <artifactId>testablejava-parent</artifactId>
+        <version>0.1-4.6.1</version>
     </parent>
 
     <profiles>
@@ -23,8 +23,7 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <version>3.6.2</version>
                         <configuration>
-                            <compilerId>eclipse</compilerId>
-                            <compilerId>eclipse</compilerId>
+                            <compilerId>testablejava</compilerId>
                             <source>1.8</source>
                             <target>1.8</target>
                             <optimize>true</optimize>
@@ -32,10 +31,16 @@
                         <dependencies>
                             <dependency>
                                 <groupId>org.eclipse.jdt.core.compiler</groupId>
-                                <artifactId>ecj</artifactId>
-                                <version>4.6.1-TESTABILITY</version>
+                                <artifactId>testablejava</artifactId>
+                                <version>0.1-4.6.1</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.codehaus.plexus</groupId>
+                                <artifactId>plexus-compiler-testablejava</artifactId>
+                                <version>2.8.1</version>
                             </dependency>
 
+<!--
                             <dependency>
                                 <groupId>org.codehaus.plexus</groupId>
                                 <artifactId>plexus-compiler-eclipse</artifactId>
@@ -48,6 +53,7 @@
                                     </exclusion>
                                 </exclusions>
                             </dependency>
+-->
                         </dependencies>
                     </plugin>
                 </plugins>
@@ -58,9 +64,8 @@
     <dependencies>
         <dependency>
             <groupId>org.eclipse.jdt.core.compiler</groupId>
-            <artifactId>ecj</artifactId>
-            <version>4.6.1-TESTABILITY</version>
-            <scope>test</scope>
+            <artifactId>testablejava</artifactId>
+            <version>0.1-4.6.1</version>
         </dependency>
 
         <dependency>
