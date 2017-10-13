@@ -403,14 +403,18 @@ public class Testability {
 
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
             !new String(typeDeclaration.binding.getFileName()).startsWith("Function")) { //TODO better check for FunctionN
+
             ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
         }
-        List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
-                typeDeclaration,
-                referenceBinding,
-                expressionToRedirectorField);
 
-        ret.addAll(redirectorFields);
+        if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
+            List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
+                    typeDeclaration,
+                    referenceBinding,
+                    expressionToRedirectorField);
+
+            ret.addAll(redirectorFields);
+        }
 
         return ret.stream().
                 filter(Objects::nonNull).

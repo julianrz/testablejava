@@ -277,6 +277,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         this.problemReporter = new ProblemReporter(policy, this.options, problemFactory);
         this.lookupEnvironment = new LookupEnvironment(this, this.options, this.problemReporter, environment);
         this.lookupEnvironment.instrumentationOptions = getInstrumentationOptions();
+        System.out.println("testablejava instrumentation options: " + this.lookupEnvironment.instrumentationOptions);
         this.out = out == null ? new PrintWriter(System.out, true) : out;
         this.stats = new CompilerStats();
         initializeParser();
@@ -284,6 +285,10 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 
     protected Set<InstrumentationOptions> getInstrumentationOptions() {
 
+        return Compiler.getDefaultInstrumentationOptions();
+    }
+
+    static public Set<InstrumentationOptions> getDefaultInstrumentationOptions() {
         return Arrays.
                 stream(InstrumentationOptions.ALL).
                 collect(Collectors.toSet());
@@ -432,9 +437,15 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 //            sourceUnits[sourceUnitsInitial.length + i] = sourceUnitsInjected[i];
 //        }
         //injected units first, since they contain dependencies
-        ICompilationUnit[] sourceUnits = new ICompilationUnit[sourceUnitsInjected.length + sourceUnitsInitial.length];
-        System.arraycopy(sourceUnitsInjected, 0, sourceUnits, 0, sourceUnitsInjected.length );
-        System.arraycopy(sourceUnitsInitial, 0, sourceUnits, sourceUnitsInjected.length, sourceUnitsInitial.length);
+        ICompilationUnit[] sourceUnits;
+        if (this.lookupEnvironment.instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) { //assuming only redirectors need FunctionN
+            sourceUnits = new ICompilationUnit[sourceUnitsInjected.length + sourceUnitsInitial.length];
+            System.arraycopy(sourceUnitsInjected, 0, sourceUnits, 0, sourceUnitsInjected.length);
+            System.arraycopy(sourceUnitsInitial, 0, sourceUnits, sourceUnitsInjected.length, sourceUnitsInitial.length);
+        } else {
+            sourceUnits = new ICompilationUnit[sourceUnitsInitial.length];
+            System.arraycopy(sourceUnitsInitial, 0, sourceUnits, 0, sourceUnitsInitial.length);
+        }
 
         this.stats.startTime = System.currentTimeMillis();
         try {
