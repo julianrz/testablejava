@@ -7,14 +7,17 @@ import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.*;
 import org.eclipse.jdt.internal.compiler.Compiler;
+import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblem;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
+import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
 import org.junit.Test;
@@ -32,6 +35,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Created by julianrozentur1 on 6/25/17.
@@ -63,6 +67,12 @@ public class BaseTest extends TestCase {
     }
 
     Map<String, byte[]> compile(String[] taskLines, Set<InstrumentationOptions> instrumenationOptions) throws Exception {
+        Map<String, String[]> fileToLines = taskLinesToFileMap(taskLines);
+
+        return compile(fileToLines, instrumenationOptions);
+    }
+
+    Map<String, String[]> taskLinesToFileMap(String[] taskLines) {
         Map<String, String[]> fileToLines = new HashMap<>();
         String sourceFileName = null;
 
@@ -83,8 +93,7 @@ public class BaseTest extends TestCase {
         if (!codeLines.isEmpty()) {
             fileToLines.put(sourceFileName, codeLines.toArray(new String[0]));
         }
-
-        return compile(fileToLines, instrumenationOptions);
+        return fileToLines;
     }
 
     Map<String, byte[]> compile(Map<String, String[]> fileNameToCodeLines, Set<InstrumentationOptions> instrumenationOptions) throws Exception {
@@ -249,6 +258,62 @@ public class BaseTest extends TestCase {
 
 
         return classMap;
+    }
+
+    public HashMap<String, CompilationUnitDeclaration> parse(String[] taskLines) {
+        List<Pair<String,String>> unitDatas = taskLinesToFileMap(taskLines).entrySet().stream().
+                map(entry -> new ImmutablePair<>( Stream.of(entry.getValue()).collect(joining("\n")),
+                        entry.getKey()
+                )).
+                collect(toList());
+        return parse(unitDatas);
+    }
+
+    public HashMap<String, CompilationUnitDeclaration> parse(List<Pair<String, String>> compilationUnitDatas){
+
+        CompilerOptions options = new CompilerOptions();
+        options.complianceLevel = ClassFileConstants.JDK1_8;
+        options.originalSourceLevel = ClassFileConstants.JDK1_8;
+        options.sourceLevel = ClassFileConstants.JDK1_8;
+        options.targetJDK = ClassFileConstants.JDK1_8;
+
+        DefaultProblemFactory problemFactory = new DefaultProblemFactory();
+
+        ProblemReporter problemReporter = new ProblemReporter(
+                DefaultErrorHandlingPolicies.exitAfterAllProblems(), options, problemFactory);
+
+        Parser parser = new Parser(problemReporter, options.parseLiteralExpressionsAsConstants);
+
+        List<Pair<String, ICompilationUnit>> nameAndUnit =
+                compilationUnitDatas.stream().
+                    map( (Pair<String,String> t) -> {
+                        String code = t.getLeft();
+                        String filename = t.getRight();
+                        ICompilationUnit unit = new CompilationUnit(
+                            code.toCharArray(),
+                            filename,
+                            null
+                        );
+                        return new ImmutablePair<>(filename, unit);
+                    }
+                ).collect(toList());
+
+        return nameAndUnit.stream().
+                collect(toMap(
+                        (Pair<String, ICompilationUnit> nu) -> nu.getLeft(),
+                        (Pair<String, ICompilationUnit> nu) -> {
+                            ICompilationUnit sourceUnit = nu.getRight();
+                            CompilationResult fullParseUnitResult =
+                                    new CompilationResult(sourceUnit, 0, 1, options.maxProblemsPerUnit);
+
+                            CompilationUnitDeclaration fullParsedUnit = parser.parse(sourceUnit, fullParseUnitResult);
+                            return fullParsedUnit;
+                        },
+                        (x, y) -> x,
+                        () -> new HashMap<>()
+                        )
+                );
+
     }
     /**
      * disassemble given class file and place resulting java file into destinationDir
