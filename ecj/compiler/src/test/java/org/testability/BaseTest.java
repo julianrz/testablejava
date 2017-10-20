@@ -63,7 +63,9 @@ public class BaseTest extends TestCase {
         deleteDir(destinationDir);
         destinationDir.mkdir();
 
-        return disassembleBytecode(compile(task, instrumenationOptions), classStoreDir, destinationDir);
+        Map<String, byte[]> compilationResult = compile(task, instrumenationOptions);
+
+        return disassembleBytecode(compilationResult, classStoreDir, destinationDir);
     }
 
     Map<String, byte[]> compile(String[] taskLines, Set<InstrumentationOptions> instrumenationOptions) throws Exception {

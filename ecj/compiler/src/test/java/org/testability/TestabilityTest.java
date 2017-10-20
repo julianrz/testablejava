@@ -1461,19 +1461,36 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
 
                         "public class X {\n" +
-                        "	public int fieldCount(){return this.getClass().getDeclaredFields().length;}" +
-                        "}\n"
+                        "	public void fn(){getClass();}" +
+                        "}\n" //.getDeclaredFields().length;
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_ALL);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        Object actual = invokeCompiledMethod("X","fields");
+        Object actual = invokeCompiledMethod("X","fn");
 
-        assertEquals(1, actual);
+        assertEquals(null, actual);
 
 
 
     }
+    public void testErrorPropagation() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	public void fn(){someerror}" +
+                        "}\n"
+        };
+
+        try {
+            compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+            fail("should except on error");
+        } catch (Exception ex){
+
+        }
+    }
+
     public void testTestabilityInjectFunctionField_reproduceLambdaExpressionsParameterType() throws Exception {
 // File X.java has ERROR:	Pb(657) Lambda expression's parameter  arg0 is expected to be of type Function0<String>
 // File X.java has ERROR:	Pb(657) Lambda expression's parameter  arg0 is expected to be of type Function0<String>

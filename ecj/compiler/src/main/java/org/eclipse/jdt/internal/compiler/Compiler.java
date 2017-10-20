@@ -823,13 +823,14 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 
         IdentityHashMap<ICompilationUnit, Boolean> toBeInstrumented = new IdentityHashMap<>();
         {
+            Parser previewParser = new Parser(this.problemReporter, this.options.parseLiteralExpressionsAsConstants);
             //sort sourceUnits so that tests appear last. This way they can reference testability fields that will exist by the time test code is evaluated
             Map<Boolean, List<ICompilationUnit>> partitions = Arrays.stream(sourceUnits).
                     collect(Collectors.partitioningBy(sourceUnit -> {
                         CompilationResult fullParseUnitResult =
                                 new CompilationResult(sourceUnit, 0, maxUnits, this.options.maxProblemsPerUnit);
 
-                        CompilationUnitDeclaration fullParsedUnit = this.parser.parse(sourceUnit, fullParseUnitResult);
+                        CompilationUnitDeclaration fullParsedUnit = previewParser.parse(sourceUnit, fullParseUnitResult);
                         return Testability.codeContainsTestabilityFieldAccessExpression(fullParsedUnit);
                     }));
             ArrayList<ICompilationUnit> sortedTestLast = new ArrayList<>();
