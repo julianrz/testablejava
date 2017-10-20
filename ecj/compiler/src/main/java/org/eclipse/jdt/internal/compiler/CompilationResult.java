@@ -72,6 +72,7 @@ public class CompilationResult {
     public boolean checkSecondaryTypes = false; // check for secondary types which were created after the initial buildTypeBindings call
     private int numberOfErrors;
     private boolean hasMandatoryErrors;
+    public boolean instrumentForTestability = false;
 
     private static final int[] EMPTY_LINE_ENDS = Util.EMPTY_INT_ARRAY;
     private static final Comparator PROBLEM_COMPARATOR = new Comparator() {

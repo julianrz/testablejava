@@ -277,6 +277,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         this.problemReporter = new ProblemReporter(policy, this.options, problemFactory);
         this.lookupEnvironment = new LookupEnvironment(this, this.options, this.problemReporter, environment);
         this.lookupEnvironment.instrumentationOptions = getInstrumentationOptions();
+
         System.out.println("testablejava instrumentation options: " + this.lookupEnvironment.instrumentationOptions);
         this.out = out == null ? new PrintWriter(System.out, true) : out;
         this.stats = new CompilerStats();
@@ -820,6 +821,30 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         if (!this.useSingleThread && maxUnits >= ReadManager.THRESHOLD)
             this.parser.readManager = new ReadManager(sourceUnits, maxUnits);
 
+        IdentityHashMap<ICompilationUnit, Boolean> toBeInstrumented = new IdentityHashMap<>();
+        {
+            //sort sourceUnits so that tests appear last. This way they can reference testability fields that will exist by the time test code is evaluated
+            Map<Boolean, List<ICompilationUnit>> partitions = Arrays.stream(sourceUnits).
+                    collect(Collectors.partitioningBy(sourceUnit -> {
+                        CompilationResult fullParseUnitResult =
+                                new CompilationResult(sourceUnit, 0, maxUnits, this.options.maxProblemsPerUnit);
+
+                        CompilationUnitDeclaration fullParsedUnit = this.parser.parse(sourceUnit, fullParseUnitResult);
+                        return Testability.codeContainsTestabilityFieldAccessExpression(fullParsedUnit);
+                    }));
+            ArrayList<ICompilationUnit> sortedTestLast = new ArrayList<>();
+
+            List<ICompilationUnit> unitsToInstrument = partitions.get(false);
+            List<ICompilationUnit> unitsNotToInstrument = partitions.get(true);
+
+            sortedTestLast.addAll(unitsToInstrument);
+            sortedTestLast.addAll(unitsNotToInstrument); //e.g. test code
+
+            sortedTestLast.toArray(sourceUnits);
+
+            unitsToInstrument.forEach(u -> toBeInstrumented.put(u, true));
+        }
+
         // Switch the current policy and compilation result for this unit to the requested one.
         for (int i = 0; i < maxUnits; i++) {
             CompilationResult unitResult = null;
@@ -836,6 +861,9 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
                 // diet parsing for large collection of units
                 CompilationUnitDeclaration parsedUnit;
                 unitResult = new CompilationResult(sourceUnits[i], i, maxUnits, this.options.maxProblemsPerUnit);
+
+                unitResult.instrumentForTestability = toBeInstrumented.getOrDefault(sourceUnits[i], false);
+
                 long parseStart = System.currentTimeMillis();
                 if (this.totalUnits < this.parseThreshold) {
                     parsedUnit = this.parser.parse(sourceUnits[i], unitResult);

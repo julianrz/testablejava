@@ -1,11 +1,15 @@
 package org.testability;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
+import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +25,7 @@ public class TestabilityTest extends BaseTest {
 
     public static final ImmutableSet<InstrumentationOptions> INSERT_REDIRECTORS_ONLY = ImmutableSet.of(InstrumentationOptions.INSERT_REDIRECTORS);
     public static final ImmutableSet<InstrumentationOptions> INSERT_LISTENERS_ONLY = ImmutableSet.of(InstrumentationOptions.INSERT_LISTENERS);
+    public static final ImmutableSet<InstrumentationOptions> INSERT_ALL = ImmutableSet.of(InstrumentationOptions.INSERT_REDIRECTORS, InstrumentationOptions.INSERT_LISTENERS);
 
     public TestabilityTest(String name) {
         super(name);
@@ -127,7 +132,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
+                        "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -151,7 +156,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
+                        "   public Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -185,7 +190,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
+                        "   public Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -218,10 +223,10 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
 
                         "public class X {\n" +
-                        "   Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
+                        "   public Function1<Integer, Integer> $$Integer$valueOf = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n" +
-                        "   Function2<String, Integer, Integer> $$Integer$getInteger = (var1, var2) -> {\n" +
+                        "   public Function2<String, Integer, Integer> $$Integer$getInteger = (var1, var2) -> {\n" +
                         "      return Integer.getInteger(var1, var2);\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -244,7 +249,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Long, Long, Integer> $$Long$compare = (var1, var2) -> {\n" +
+                        "   public Function2<Long, Long, Integer> $$Long$compare = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Long.compare(var1.longValue(), var2.longValue()));\n" +
                         "   };\n\n" +
                         "   public int fn() {\n" +
@@ -274,7 +279,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<Long, Long> $$Long$valueOf = (var1) -> {\n" +
+                        "   public Function1<Long, Long> $$Long$valueOf = (var1) -> {\n" +
                         "      return Long.valueOf(var1.longValue());\n" +
                         "   };\n\n" +
                         "   public Long fn() {\n" +
@@ -306,7 +311,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function2<Character, Character, Integer> $$Character$compare = (var1, var2) -> {\n" +
+                        "   public Function2<Character, Character, Integer> $$Character$compare = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
                         "   };\n\n" +
                         "   public int fn() {\n" +
@@ -345,7 +350,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<Character, Y> $$Y$new = (var1) -> {\n" +
+                        "   public Function1<Character, Y> $$Y$new = (var1) -> {\n" +
                         "      return new Y(var1.charValue());\n" +
                         "   };\n\n" +
                         "   public char fn() {\n" +
@@ -394,7 +399,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
+                        "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -426,7 +431,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -463,7 +468,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.math.BigDecimal;\n\n" +
                         "public class X {\n" +
-                        "   Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
+                        "   public Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
                         "      return new BigDecimal(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
@@ -497,7 +502,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -532,7 +537,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.math.BigDecimal;\n\n" +
                         "public class X {\n" +
-                        "   Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
+                        "   public Function1<Integer, BigDecimal> $$BigDecimal$new = (var1) -> {\n" +
                         "      return new BigDecimal(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() throws Exception {\n" +
@@ -567,11 +572,11 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write = (var1, var2) -> {\n" +
                         "      var1.write(var2.intValue());\n" +
                         "      return null;\n" +
                         "   };\n" +
-                        "   Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
+                        "   public Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
                         "      var1.close();\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -607,7 +612,7 @@ public class TestabilityTest extends BaseTest {
                 "import a.Y;\n" +
                         "\n" +
                         "public class X {\n" +
-                        "   Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
+                        "   public Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
                         "      var1.fn();\n" +
                         "      return null;\n" +
                         "   };\n" +
@@ -649,18 +654,18 @@ public class TestabilityTest extends BaseTest {
                         "import b.Y;\n" +
                         "\n" +
                         "public class X {\n" +
-                        "   Function0<Y> $$b$Y$new = () -> {\n" +
+                        "   public Function0<Y> $$b$Y$new = () -> {\n" +
                         "      return new Y();\n" +
                         "   };\n" +
-                        "   Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
+                        "   public Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
                         "      var1.fn();\n" +
                         "      return null;\n" +
                         "   };\n" +
-                        "   Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
+                        "   public Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
                         "      var1.fn();\n" +
                         "      return null;\n" +
                         "   };\n" +
-                        "   Function0<a.Y> $$a$Y$new = () -> {\n" +
+                        "   public Function0<a.Y> $$a$Y$new = () -> {\n" +
                         "      return new a.Y();\n" +
                         "   };\n" +
                         "\n" +
@@ -686,7 +691,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
                         "      var1.println(var2);\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -709,7 +714,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, String, Void> $$PrintStream$println = (var1, var2) -> {\n" +
                         "      var1.println(var2);\n" +
                         "      return null;\n" +
                         "   };\n\n" +
@@ -734,7 +739,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
+                        "   public Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
                         "      return var1.toString();\n" +
                         "   };\n" +
                         "\n" +
@@ -788,7 +793,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Void> $$Object$notify = (var1) -> {\n" +
+                        "   public Function1<String, Void> $$Object$notify = (var1) -> {\n" +
                         "      var1.notify();\n" +
                         "      return null;\n"+
                         "   };\n\n" +
@@ -811,7 +816,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function0<String> $$String$new = () -> {\n" +
+                        "   public Function0<String> $$String$new = () -> {\n" +
                         "      return new String();\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -890,6 +895,24 @@ public class TestabilityTest extends BaseTest {
         Object ret = main.invoke(null);
         assertEquals("redirected", (String)ret);
     }
+    public void testTestabilityInjectFunctionField_ForNewOperator_compilationOrder() throws Exception {
+
+        //here you cannot compile X, then Y, since X needs Y to have instrumentation
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "	String fn(){return new String(\"x\");}" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "	public void fn(){" +
+                        "      dontredirect: new Y().$$String$new.apply(\"new\");\n" +
+                        "   }\n" +
+                        "}"
+        };
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+    }
     public void testTestabilityInjectFunctionField_ReplaceAllocation() throws Exception {
 
         String[] task = {
@@ -937,7 +960,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.function.Function;" +
                 "public class X {\n" +
 
-                        "Function<String, String> f = (x)->\"\";" +
+                        "public Function<String, String> f = (x)->\"\";" +
                         "	String exec2(){" +
                         "     Function<String, String> x = (String arg111)->{return String.valueOf(arg111);};"+
                         "    dontredirect: return x.apply(\"value\");" +
@@ -1129,7 +1152,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput = "public class X {\n" +
-                "   Function1<int[], Integer> $$Y$arrayArg = (var1) -> {\n" +
+                "   public Function1<int[], Integer> $$Y$arrayArg = (var1) -> {\n" +
                 "      return Integer.valueOf(Y.arrayArg(var1));\n" +
                 "   };\n" +
                 "\n" +
@@ -1165,7 +1188,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, String> $$String$new = (var1) -> {\n" +
+                        "   public Function1<String, String> $$String$new = (var1) -> {\n" +
                         "      return new String(var1);\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -1228,7 +1251,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
+                        "   public Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -1258,7 +1281,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
+                        "   public Function1<String, Integer> $$Integer$parseInt = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
                         "   };\n\n" +
                         "   int fn() {\n" +
@@ -1295,7 +1318,7 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "public class X {\n" +
-                "   Function1<String, String> $$String$new = (var1) -> {\n" +
+                "   public Function1<String, String> $$String$new = (var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n" +
                 "\n" +
@@ -1346,7 +1369,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                         "public class X {\n" +
-                        "   Function1<StringBuilder, String> $$String$new = (var1) -> {\n" +
+                        "   public Function1<StringBuilder, String> $$String$new = (var1) -> {\n" +
                         "      return new String(var1);\n" +
                         "   };\n\n" +
                         "   void fn(StringBuilder var1) {\n" +
@@ -1366,7 +1389,7 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "public class X {\n" +
-                        "   Function0<String> $$String$new = () -> {\n" +
+                        "   public Function0<String> $$String$new = () -> {\n" +
                         "      return new String();\n" +
                         "   };\n\n" +
                         "   String fn() {\n" +
@@ -1393,7 +1416,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   Function2<PrintStream, Character, PrintStream> $$PrintStream$append = (var1, var2) -> {\n" +
+                        "   public Function2<PrintStream, Character, PrintStream> $$PrintStream$append = (var1, var2) -> {\n" +
                         "      return var1.append(var2.charValue());\n" +
                         "   };\n\n" +
                         "   PrintStream fn() {\n" +
@@ -1428,6 +1451,201 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput = task[1];
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+
+    }
+
+    public void testTestabilityInjectFunctionField_reproduction_typeargs() throws Exception {
+//TODO handle CaptureBinding where in typeReferenceFromTypeBinding, coumpoundName is null
+
+        String[] task = {
+                "X.java",
+
+                        "public class X {\n" +
+                        "	public int fieldCount(){return this.getClass().getDeclaredFields().length;}" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_ALL);
+
+        Object actual = invokeCompiledMethod("X","fields");
+
+        assertEquals(1, actual);
+
+
+
+    }
+    public void testTestabilityInjectFunctionField_reproduceLambdaExpressionsParameterType() throws Exception {
+// File X.java has ERROR:	Pb(657) Lambda expression's parameter  arg0 is expected to be of type Function0<String>
+// File X.java has ERROR:	Pb(657) Lambda expression's parameter  arg0 is expected to be of type Function0<String>
+// File X.java has ERROR:	Pb(657) Lambda expression's parameter  arg0 is expected to be of type Consumer<X>
+// is it reference to:
+//  injected field: Function1<Function0<java.lang.String>, java.lang.String> $$Function0$apply = (Function0<java.lang.String>  arg0) -> {
+//        testabilitylabel: ;
+//        return  arg0.apply();
+//    };
+// in y.$$String$new.apply() in passing field value (instance) before empty args?
+// -> no, in field decl. TypeBinding.notEquals(argumentType, expectedParameterType). ids are different, although they look same: 179, 177
+        //is it because we do not store/retrieve type from cache, see TypeSystem?
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "	public void f() {new String();}" +
+                        "}\n",
+                "X.java",
+                        "public class X {\n" +
+                        "	public void withRedirectorReferences(){" +
+                        "      Y y;" +
+                        "      dontredirect: y = new Y();" +
+                        "      y.$$String$new.apply();" +
+                        "   }" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_ALL);
+    }
+    public void testTestabilityInjectFunctionField_skipsTestCode_invokingRedirector() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "import java.lang.reflect.*;\n" +
+                "import java.util.Arrays;\n" +
+                "import java.util.List;\n" +
+                "import java.util.stream.Collectors;\n" +
+                "\n" +
+                "public class Y {\n" +
+                        "	public void f() {new String();}" +
+                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                        "}\n",
+                "X.java",
+                "import java.lang.reflect.*;\n" +
+                "import java.util.Arrays;\n" +
+                "import java.util.List;\n" +
+                "import java.util.stream.Collectors;\n" +
+                "\n" +
+                "public class X {\n" +
+                        "	public void withRedirectorReferences(){Y y = new Y();y.$$String$new.apply();}" +
+                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                        "}\n"
+        };
+
+        //here X appears to be a test class since it references redirector field from Y
+
+        compileAndDisassemble(task, INSERT_ALL);
+
+        Object actualX = invokeCompiledMethod("X","fieldNames");
+
+        assertEquals(Collections.emptyList(), actualX);
+
+        Object actualY = invokeCompiledMethod("Y","fieldNames");
+
+        assertEquals(Arrays.asList("$$preCreate", "$$postCreate", "$$String$new"), actualY);
+
+    }
+    public void testTestabilityInjectFunctionField_skipsTestCode_reassigningRedirector() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "import java.lang.reflect.*;\n" +
+                        "import java.util.Arrays;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.stream.Collectors;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "	public void f() {new String();}" +
+                        "}\n",
+                "X.java",
+                "import java.lang.reflect.*;\n" +
+                        "import java.util.Arrays;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.stream.Collectors;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "	public void withRedirectorReferences(){Y y = new Y();y.$$String$new = ()->\"new\";}" +
+                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                        "}\n"
+        };
+
+        //here X appears to be a test class since it references redirector field from Y
+
+        compileAndDisassemble(task, INSERT_ALL);
+
+        Object actualX = invokeCompiledMethod("X","fieldNames");
+
+        assertEquals(Collections.emptyList(), actualX);
+    }
+    public void testTestabilityInjectFunctionField_skipsTestCode_withStaticReference() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                             "}\n",
+                "X.java",
+                "import java.lang.reflect.*;\n" +
+                        "import java.util.Arrays;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.stream.Collectors;\n" +
+                        "public class X {\n" +
+                        "	public void withRefirectorReferences(){Y.$$postCreate = null;}" +
+                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                        "}\n"
+        };
+
+        //here X appears to be a test class since it references redirector field from Y
+
+        compileAndDisassemble(task, INSERT_ALL);
+
+        Object actual = invokeCompiledMethod("X","fieldNames");
+
+        assertEquals(Collections.emptyList(), actual);
+    }
+
+    public void testCodeContainsForTestabilityFieldAccessExpression() throws Exception {
+
+        List<String[]> withInstrumentationCalls = ImmutableList.of(
+                new String[]{
+                        "WithRedirectorAssignment.java",
+                        "public class WithRedirectorAssignment {\n" +
+                        "	public void fn(){Y.$$postCreate = null;}\n" +
+                        "}\n"
+                },
+                new String[]{
+                        "WithRedirectorAssignmentInInstance.java",
+                        "public class WithRedirectorAssignmentInInstance {\n" +
+                        "	public void fn(){new Y().$$String$new = null;}\n" +
+                        "}\n"
+                },
+                new String[]{
+                        "WithRedirectorCallInInstance.java",
+                        "public class WithRedirectorCallInInstance {\n" +
+                        "	public void fn(){new Y().$$String$new.apply();}\n" +
+                        "}\n"
+                },
+                new String[]{
+                        "WithRedirectorCall.java",
+                        "public class WithRedirectorCall {\n" +
+                        "	public void fn(){Y.$$postCreate.apply();}\n" +
+                        "}\n"
+                },
+                new String[]{
+                        "WithRedirectorArg.java",
+                        "public class WithRedirectorArg {\n" +
+                        "	public void fn2(Object o){}\n" +
+                        "	public void fn(){fn2(Y.$$postCreate);}\n" +
+                        "}\n"
+                },
+                new String[]{
+                        "WithRedirectorInExpression.java",
+                        "public class WithRedirectorInExpression {\n" +
+                        "	public void fn(){boolean x = Y.$$postCreate==null?true:false;}\n" +
+                        "}\n"
+        }
+
+                );
+        withInstrumentationCalls.stream().forEach(task -> {
+            CompilationUnitDeclaration fullParsedUnit = parse(task).entrySet().stream().findFirst().get().getValue();
+            assertTrue(Arrays.toString(task), Testability.codeContainsTestabilityFieldAccessExpression(fullParsedUnit));
+        });
+
 
     }
 

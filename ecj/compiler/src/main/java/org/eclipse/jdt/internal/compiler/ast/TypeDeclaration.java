@@ -84,7 +84,6 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     // 1.5 support
     public TypeParameter[] typeParameters;
 
-
     public TypeDeclaration(CompilationResult compilationResult) {
         this.compilationResult = compilationResult;
     }
@@ -563,7 +562,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             }
 
             // generate all fiels
-            classFile.addFieldInfos();
+            classFile.addFieldInfos(false);
 
             if (this.memberTypes != null) {
                 for (int i = 0, max = this.memberTypes.length; i < max; i++) {
@@ -576,7 +575,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             classFile.setForMethodInfos();
             if (this.methods != null) {
                 for (int i = 0, max = this.methods.length; i < max; i++) {
-                    if (this.methods[i] instanceof ConstructorDeclaration)
+                    if (this.methods[i] instanceof ConstructorDeclaration && compilationResult.instrumentForTestability)
                         Testability.addListenerCallsToConstructor((ConstructorDeclaration)this.methods[i], this);
                     this.methods[i].generateCode(this.scope, classFile);
                 }

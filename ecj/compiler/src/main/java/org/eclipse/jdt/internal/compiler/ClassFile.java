@@ -147,7 +147,7 @@ public class ClassFile implements TypeConstants, TypeIds {
         // add its fields
         FieldBinding[] fields = typeBinding.fields();
         if ((fields != null) && (fields != Binding.NO_FIELDS)) {
-            classFile.addFieldInfos();
+            classFile.addFieldInfos(true);
         } else {
             // we have to set the number of fields to be equals to 0
             classFile.contents[classFile.contentsOffset++] = 0;
@@ -527,19 +527,32 @@ public class ClassFile implements TypeConstants, TypeIds {
      * This includes:
      * - a field info for each defined field of that class
      * - a field info for each synthetic field (e.g. this$0)
+     * @param forProblemType
      */
-    public void addFieldInfos() {
+    public void addFieldInfos(boolean forProblemType) {
         SourceTypeBinding currentBinding = this.referenceBinding;
         FieldBinding[] syntheticFields = currentBinding.syntheticFields();
 
         TypeDeclaration typeDeclaration = this.referenceBinding.scope.referenceContext;
 
-        System.out.println("class " + String.copyValueOf(typeDeclaration.name));
 
-        List<FieldDeclaration> testabilityFieldDeclarations =
+        if (!typeDeclaration.compilationResult.instrumentForTestability) {
+            System.out.println("not instrumenting class " + String.copyValueOf(typeDeclaration.name));
+        } else {
+            System.out.println("instrumenting class " + String.copyValueOf(typeDeclaration.name));
+        }
+
+        List<FieldDeclaration> testabilityFieldDeclarations;
+
+        if (forProblemType || !typeDeclaration.compilationResult.instrumentForTestability)
+            testabilityFieldDeclarations = Collections.emptyList();
+        else
+            testabilityFieldDeclarations =
                 Testability.makeTestabilityFields(
-                        typeDeclaration,
-                        currentBinding, e -> typeDeclaration.callExpressionToRedirectorField.putAll(e));
+                    typeDeclaration,
+                    currentBinding,
+                    typeDeclaration.scope.compilationUnitScope().environment,
+                    e -> typeDeclaration.callExpressionToRedirectorField.putAll(e));
 
         int fieldCount = currentBinding.fieldCount() +
                 (syntheticFields == null ? 0 : syntheticFields.length) +

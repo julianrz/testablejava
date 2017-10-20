@@ -18,13 +18,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.*;
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
 
 //TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
-
+//TODO how to test recursive functions?
 public class Testability {
     public static final String testabilityFieldNamePrefix = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
@@ -393,16 +391,15 @@ public class Testability {
     public static List<FieldDeclaration> makeTestabilityFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
+            LookupEnvironment lookupEnvironment,
             Consumer<Map<Expression, FieldDeclaration>> expressionToRedirectorField) {
 
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
 
-        ClassScope scope = typeDeclaration.scope;
-
-        Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(scope);
+        Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(lookupEnvironment);
 
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
-            !new String(typeDeclaration.binding.getFileName()).startsWith("Function")) { //TODO better check for FunctionN
+                !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
 
             ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
         }
@@ -428,9 +425,57 @@ public class Testability {
 
     }
 
+    static RuntimeException exceptionVisitorInterrupted = new RuntimeException();
+
+    public static boolean codeContainsTestabilityFieldAccessExpression(CompilationUnitDeclaration unitDeclaration){
+
+        ArrayList<Object> calls = new ArrayList<>();
+
+        Consumer<Expression> checkIsFieldAccessExpression = (Expression ex) -> {
+
+            if (calls.isEmpty() && Testability.isTestabilityFieldAccess(ex)) {
+                calls.add(ex);
+                System.out.println("found " + ex);
+                throw exceptionVisitorInterrupted;
+            }
+        };
+
+        try {
+            unitDeclaration.traverse(new ASTVisitor() {
+
+                @Override
+                public boolean visit(MessageSend messageSend, BlockScope scope) {
+                    System.out.println("visiting " + messageSend);
+                    checkIsFieldAccessExpression.accept(messageSend);
+                    return super.visit(messageSend, scope);
+                }
+                @Override
+                public boolean visit(QualifiedNameReference qnr, BlockScope scope) {
+                    System.out.println("visiting qnr " + qnr);
+                    checkIsFieldAccessExpression.accept(qnr);
+                    return super.visit(qnr, scope);
+                }
+                @Override
+                public boolean visit(FieldReference fr, BlockScope scope) {
+                    System.out.println("visiting field " + fr);
+                    checkIsFieldAccessExpression.accept(fr);
+                    return super.visit(fr, scope);
+                }
+            }, (CompilationUnitScope) null);
+        } catch (RuntimeException ex) {
+          if (ex!=exceptionVisitorInterrupted) throw ex;
+        }
+
+        return !calls.isEmpty();
+    }
+
+
     //TODO for @NotNull use javax.annotation:javax.annotation-api:1.3.1, check eclipse conflicts
     static Set<InstrumentationOptions> getInstrumentationOptions(/*@NotNull */ ClassScope scope) {
         return scope.compilationUnitScope().environment.instrumentationOptions;
+    }
+    static Set<InstrumentationOptions> getInstrumentationOptions(LookupEnvironment environment) {
+        return environment.instrumentationOptions;
     }
 
     public static List<FieldDeclaration> makeTestabilityListenerFields(
@@ -480,7 +525,6 @@ public class Testability {
         List<Boolean> useLong = hasDuplicates(shortFieldNames);
 
         List<FieldDeclaration> ret = IntStream.range(0, useLong.size()).
-
                 mapToObj(pos -> {
                     Expression originalCall = distinctFields.get(pos);
                     Boolean useLongNameForCall = useLong.get(pos);
@@ -504,10 +548,8 @@ public class Testability {
                                 fieldName);
                     }
                     return fieldDeclaration;
-
                 }).
                 collect(toList());
-
 
         //ret is in the order of longFieldNameToExpression.values: 1st element of each list was used to make a field
         List<List<Expression>> longFieldNameToExpressionValues = new ArrayList<>(
@@ -646,9 +688,11 @@ public class Testability {
 
         fieldDeclaration.type = parameterizedQualifiedTypeReferenceForFunction;
 
-        FieldBinding fieldBinding = new
-                FieldBinding(
-                fieldDeclaration, typeBindingForFunction, fieldDeclaration.modifiers /*| ClassFilConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
+        FieldBinding fieldBinding = new FieldBinding(
+                fieldDeclaration,
+                typeBindingForFunction,
+                fieldDeclaration.modifiers | ClassFileConstants.AccPublic,
+                typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
@@ -802,9 +846,11 @@ public class Testability {
 
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
-        FieldBinding fieldBinding = new
-                FieldBinding(
-                fieldDeclaration, typeBinding, fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/, typeDeclaration.binding);//sourceType);
+        FieldBinding fieldBinding = new FieldBinding(
+                fieldDeclaration,
+                typeBinding,
+                fieldDeclaration.modifiers | ClassFileConstants.AccPublic,
+                typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
@@ -910,11 +956,10 @@ public class Testability {
 
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
-        FieldBinding fieldBinding = new
-                FieldBinding(
-                        fieldDeclaration,
+        FieldBinding fieldBinding = new FieldBinding(
+                fieldDeclaration,
                 typeBinding,
-                fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic /*| ExtraCompilerModifiers.AccUnresolved*/,
+                fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic,
                 typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
@@ -1062,9 +1107,11 @@ public class Testability {
                             map(Testability::typeReferenceFromTypeBinding).
                             collect(Collectors.toList()).toArray(typeArguments);
 
+                    TypeReference[][] typeArgumentsCompound = new TypeReference[binaryTypeBinding.compoundName.length][];//{typeArguments};
+                    typeArgumentsCompound[typeArgumentsCompound.length - 1] = typeArguments;
                     return new ParameterizedQualifiedTypeReference(
                             binaryTypeBinding.compoundName,
-                            new TypeReference[][]{typeArguments},
+                            typeArgumentsCompound,
                             dim,
                             new long[binaryTypeBinding.compoundName.length]
                     );
@@ -1250,10 +1297,19 @@ public class Testability {
     }
 
     public static boolean isTestabilityFieldAccess(Expression receiver) {
-        if (! (receiver instanceof FieldReference))
-            return false;
-        FieldReference fieldReference = (FieldReference) receiver;
-        return isTestabilityRedirectorFieldName(new String(fieldReference.token));
+        String fieldName = "";
+        if (receiver instanceof FieldReference) {
+
+            FieldReference fieldReference = (FieldReference) receiver;
+            fieldName = new String(fieldReference.token);
+        } else if (receiver instanceof MessageSend) { //e.g. when it is not known yet to be field access
+            MessageSend messageSend = (MessageSend) receiver;
+            isTestabilityFieldAccess(messageSend.receiver);
+        } else if (receiver instanceof QualifiedNameReference){
+            char[][] tokens = ((QualifiedNameReference) receiver).tokens;
+            fieldName = tokens.length>0? new String(tokens[tokens.length - 1]) : "";
+        }
+        return isTestabilityRedirectorFieldName(fieldName);
     }
 
     /**
