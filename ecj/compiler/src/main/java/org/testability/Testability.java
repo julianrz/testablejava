@@ -190,7 +190,6 @@ public class Testability {
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
-
         int parameterShift = receiverPrecedes ? 1 : 0;
 
         //shift/insert receiver at pos 0
@@ -738,7 +737,8 @@ public class Testability {
             argv[i] = singleNameReference;
         }
 
-        messageSendInLambdaBody.arguments = argv;
+        if (argv.length != 0)
+            messageSendInLambdaBody.arguments = argv; //otherwise stays 0, resolution logic depends on it
 
         //TODO needed?
         if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
@@ -1097,6 +1097,11 @@ public class Testability {
         if (dim == 0){
             if (typeBinding instanceof ReferenceBinding) {
                 ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;
+                if (typeBinding instanceof WildcardBinding){
+                    Wildcard wildcard = new Wildcard(((WildcardBinding) typeBinding).boundKind);
+                    wildcard.bound = typeReferenceFromTypeBinding(((WildcardBinding) typeBinding).bound);
+                    return wildcard;
+                }
                 if (!typeBinding.isParameterizedType()) {
                     return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
                 } else {

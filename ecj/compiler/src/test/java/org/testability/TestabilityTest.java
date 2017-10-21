@@ -1454,25 +1454,21 @@ public class TestabilityTest extends BaseTest {
 
     }
 
-    public void testTestabilityInjectFunctionField_reproduction_typeargs() throws Exception {
-//TODO handle CaptureBinding where in typeReferenceFromTypeBinding, coumpoundName is null
+    public void testTestabilityInjectFunctionField_getClass() throws Exception {
+        //incompatible CaptionBinding generated. getClass is specialcased, should not be bypassed
 
         String[] task = {
                 "X.java",
-
-                        "public class X {\n" +
-                        "	public void fn(){getClass();}" +
-                        "}\n" //.getDeclaredFields().length;
+                "public class X {\n" +
+                        "	public void fn(){X x = this;x.getClass();}" +
+                        "}\n"
         };
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         Object actual = invokeCompiledMethod("X","fn");
 
         assertEquals(null, actual);
-
-
-
     }
     public void testErrorPropagation() throws Exception {
 
