@@ -28,6 +28,7 @@ import org.codehaus.plexus.compiler.AbstractCompilerTest;
 import org.codehaus.plexus.compiler.Compiler;
 import org.codehaus.plexus.compiler.CompilerConfiguration;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -127,7 +128,24 @@ public class EclipseCompilerTest
             assertEquals( "Properties file not exist", e.getMessage() );
         }
     }
+    public void testSourceCodeLocatorCaseSensitiveFileExists()
+            throws Exception
+    {
+        File f = File.createTempFile("prefix", "SUFFIX");//this makes name case-sensitive
+        f.delete();
+        assertFalse(SourceCodeLocator.caseSensitiveFileExists(f));
+        f.createNewFile();
+        assertTrue(SourceCodeLocator.caseSensitiveFileExists(f));
 
+        String name = f.getName();
+
+        String nameLower = name.toLowerCase();
+        File fLower = new File(f.getParentFile(), nameLower);
+
+        if (fLower.exists()) { //ensure fs is case-insensitive
+            assertFalse(SourceCodeLocator.caseSensitiveFileExists(fLower));
+        }
+    }
     private CompilerConfiguration createMinimalCompilerConfig()
     {
         CompilerConfiguration compilerConfig = new CompilerConfiguration();

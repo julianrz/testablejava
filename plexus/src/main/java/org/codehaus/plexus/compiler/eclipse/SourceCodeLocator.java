@@ -24,6 +24,7 @@ package org.codehaus.plexus.compiler.eclipse;
  * SOFTWARE.
  */
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -71,12 +72,27 @@ public class SourceCodeLocator
         {
             File f = new File( root, s );
 
-            if ( f.exists() )
+            if (caseSensitiveFileExists(f))
             {
                 return f;
             }
         }
 
         return null;
+    }
+
+    /**
+     * file exists and name matches case
+     * @param f
+     * @return
+     */
+    static boolean caseSensitiveFileExists(File f) {
+        if (!f.exists())
+            return false;
+        try {
+            return f.getCanonicalFile().getName().equals(f.getName());
+        } catch (IOException e) {
+            return false;
+        }
     }
 }
