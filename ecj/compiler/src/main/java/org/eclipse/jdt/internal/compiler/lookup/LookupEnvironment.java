@@ -81,7 +81,16 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
     // step 1 : build the reference binding
     // step 2 : conect the hierarchy (connect bindings)
     // step 3 : build fields and method bindings.
+    // step 4 : resolve testability fields
     private int stepCompleted;
+
+    public void setStepResolveTestabilityFields() {
+        stepCompleted = RESOLVE_TESTABILITY_FIELDS;
+    }
+    public int getStepCompleted() {
+        return stepCompleted;
+    }
+
     public ITypeRequestor typeRequestor;
 
     private SimpleLookupTable uniqueParameterizedGenericMethodBindings;
@@ -120,6 +129,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
     final static int BUILD_TYPE_HIERARCHY = 1;
     final static int CHECK_AND_SET_IMPORTS = 2;
     final static int CONNECT_TYPE_HIERARCHY = 3;
+    final static int RESOLVE_TESTABILITY_FIELDS = 4;
 
     static final ProblemPackageBinding TheNotFoundPackage = new ProblemPackageBinding(CharOperation.NO_CHAR, NotFound);
     static final ProblemReferenceBinding TheNotFoundType = new ProblemReferenceBinding(CharOperation.NO_CHAR_CHAR, null, NotFound);
