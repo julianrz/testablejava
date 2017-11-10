@@ -1,6 +1,5 @@
 package org.testability;
 
-import junit.framework.TestCase;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
@@ -33,23 +32,21 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.*;
 
 /**
  * Created by julianrozentur1 on 6/25/17.
  */
-public class BaseTest extends TestCase {
+public class BaseTest {//extends TestCase {
 
 
 
     File classStoreDir = new File("target", "ecj-compiled");
     File destinationDir = new File("target", "ecj-decompiled");
 
-    public BaseTest(String name) {
-        super(name);
-    }
+//    public BaseTest(String name) {
+//        super(name);
+//    }
 
     @Test
     public void testNothing() {
