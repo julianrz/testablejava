@@ -1,50 +1,60 @@
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
-    <id>full</id>
+    <id>0.1-4.6.1-full</id>
+    <baseDirectory>/</baseDirectory>
     <formats>
         <format>jar</format>
     </formats>
-    <moduleSets>
-        <moduleSet>
 
-            <!-- Enable access to all projects in the current multimodule build! -->
-            <!--<useAllReactorProjects>true</useAllReactorProjects>-->
-
-            <!-- Now, select which projects to include in this module-set. -->
-            <includes>
-                <include>org.eclipse.jdt.core.compiler:ecj</include>
-            </includes>
-            <!--<binaries>-->
-                <!--<outputDirectory>modules/maven-assembly-plugin</outputDirectory>-->
-                <!--<unpack>false</unpack>--> <!-- puts actual ecj-..TESTABILITY.jar into resulting package-->
-            <!--</binaries>-->
-        </moduleSet>
-    </moduleSets>
-
-    <fileSets>
-        <fileSet>
-            <directory>${project.basedir}</directory>
-            <includes>
-                <include>README*</include>
-                <include>LICENSE*</include>
-                <include>NOTICE*</include>
-                <include>pom.xml</include>
-            </includes>
-            <useDefaultExcludes>true</useDefaultExcludes>
-        </fileSet>
-    </fileSets>
     <dependencySets>
         <dependencySet>
             <outputDirectory>/</outputDirectory>
             <useProjectArtifact>true</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <includes>
-                <include>org.eclipse.jdt.core.compiler:ecj</include><!-- only uses base for resolution, confuses and adds existin TESTABILITY jar-->
+                <include>org.eclipse.jdt.core.compiler:ecj</include>
             </includes>
             <outputFileNameMapping/>
             <unpack>true</unpack>
+
             <scope>runtime</scope>
         </dependencySet>
     </dependencySets>
+
+    <moduleSets>
+        <moduleSet>
+
+            <!-- Enable access to all projects in the current multimodule build! -->
+            <useAllReactorProjects>true</useAllReactorProjects>
+
+             <!--Now, select which projects to include in this module-set. -->
+            <includes>
+                <include>org.eclipse.jdt.core.compiler:testablejava</include>
+            </includes>
+
+            <binaries>
+                <unpack>true</unpack>
+                <unpackOptions>
+                    <excludes>
+                        <exclude>META-INF/MANIFEST.MF</exclude>
+                    </excludes>
+                </unpackOptions>
+            </binaries>
+        </moduleSet>
+    </moduleSets>
+
+    <!--<fileSets>-->
+        <!--<fileSet>-->
+            <!--<directory>${project.basedir}</directory>-->
+            <!--<includes>-->
+                <!--<include>README*</include>-->
+                <!--<include>LICENSE*</include>-->
+                <!--<include>NOTICE*</include>-->
+                <!--<include>pom.xml</include>-->
+            <!--</includes>-->
+            <!--<useDefaultExcludes>true</useDefaultExcludes>-->
+        <!--</fileSet>-->
+    <!--</fileSets>-->
+
 </assembly>
