@@ -14,7 +14,6 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -24,7 +23,8 @@ import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSI
 //TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
 //TODO how to test recursive functions?
 public class Testability {
-    public static final String testabilityFieldNamePrefix = "$$";
+    public static final String TESTABILITY_FIELD_NAME_PREFIX = "$$";
+    public static final String TESTABILITY_ARG_LIST_SEPARATOR = "$$";
     public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
     public static final String TESTABILITYLABEL = "testabilitylabel"; //TODO can we use dontredirect: instead?
     public static final String DONTREDIRECT = "dontredirect";
@@ -318,9 +318,20 @@ public class Testability {
      * @param targetType to use to determine type of conversion
      */
     static void addImplicitBoxing(Expression expression, TypeBinding targetType) {
+
+        expression.implicitConversion &= (-1 << 8 | 0xf); //clear conversion target type, ...FFFF0F
+
+        int targetTypeId;
+        if (targetType instanceof BaseTypeBinding)
+            targetTypeId = targetType.id; //originally a conversion, we will add boxing
+        else if ((expression.implicitConversion & 0xf) != 0)
+            targetTypeId = expression.implicitConversion & 0xf; //boxing to make lambda argument
+        else
+            targetTypeId = targetType.id;
+
         expression.implicitConversion |=
-                (TypeIds.BOXING |
-                        (targetType.id<<4));
+                (TypeIds.BOXING | (targetTypeId << 4));
+
     }
     static void addImplicitUnBoxing(Expression expression, TypeBinding targetType) {
         expression.implicitConversion |=
@@ -404,13 +415,19 @@ public class Testability {
         }
 
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
-            List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
-                    typeDeclaration,
-                    referenceBinding,
-                    expressionToRedirectorField);
 
-            ret.addAll(redirectorFields);
+            try {
+                List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
+                        typeDeclaration,
+                        referenceBinding,
+                        expressionToRedirectorField);
+                ret.addAll(redirectorFields);
+            } catch (Exception e) {
+                throw new RuntimeException(e); //TODO optionally log and continue
+            }
         }
+
+        lookupEnvironment.setStepResolveTestabilityFields();
 
         return ret.stream().
                 filter(Objects::nonNull).
@@ -507,27 +524,52 @@ public class Testability {
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
-            Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer){
+            Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
 
-        //eliminate duplicates (by toUniqueMethodDescriptor - long version of the description)
-        Map<String, List<Expression>> longFieldNameToExpression = typeDeclaration.allCallsToRedirect.stream().
-                collect(Collectors.groupingBy(originalCall->testabilityFieldName(originalCall, false)));
+        //eliminate duplicates, since multiple call of the same method possible
+        Map<String, List<Expression>> uniqueFieldToExpression = typeDeclaration.allCallsToRedirect.stream().
+                collect(
+                        Collectors.groupingBy(
+                                Testability::testabilityFieldDescriptorUniqueInOverload));
 
-        List<Expression> distinctFields = longFieldNameToExpression.values().stream().
+        List<Expression> distinctCalls = uniqueFieldToExpression.values().stream().
                 map(expressionList -> expressionList.get(0)).
                 collect(toList()); //take 1st value of each list (where items have same toUniqueMethodDescriptor()
 
-        List<String> shortFieldNames = distinctFields.stream().
+        List<List<String>> shortNames = distinctCalls.stream().
                 map(originalExpression -> testabilityFieldName(originalExpression, true)).
                 collect(toList());
 
-        List<Boolean> useLong = hasDuplicates(shortFieldNames);
+        int maxRowSize = shortNames.stream().
+                map(List::size).
+                max(Comparator.comparingInt(Integer::intValue)).
+                orElse(0).
+                intValue();
 
-        List<FieldDeclaration> ret = IntStream.range(0, useLong.size()).
+        shortNames = Util.cloneAndEqualizeMatrix(shortNames, maxRowSize, "");
+
+        List<List<String>> longNames = Util.cloneAndEqualizeMatrix(distinctCalls.stream().
+                map(originalExpression -> testabilityFieldName(originalExpression, false)).
+                collect(toList()), maxRowSize, "");
+
+        if (!Util.uniqueMatrix(
+                shortNames,
+                longNames,
+                maxRowSize,
+                0,
+                IntStream.range(0, shortNames.size()).mapToObj(i->i).collect(toList())
+        )){
+            throw new Exception("could not make field names unique"); //TODO handle better, maybe assign sequential numbers?
+        }
+
+        List<List<String>> uniqueFieldNames = shortNames;
+
+        List<FieldDeclaration> ret = IntStream.range(0, uniqueFieldNames.size()).
                 mapToObj(pos -> {
-                    Expression originalCall = distinctFields.get(pos);
-                    Boolean useLongNameForCall = useLong.get(pos);
-                    String fieldName = testabilityFieldName(originalCall, !useLongNameForCall);
+                    Expression originalCall = distinctCalls.get(pos);
+                    List<String> fieldNameParts = uniqueFieldNames.get(pos);
+
+                    String fieldName = TESTABILITY_FIELD_NAME_PREFIX + fieldNameParts.stream().collect(joining(""));
 
                     FieldDeclaration fieldDeclaration = null;
 
@@ -552,11 +594,11 @@ public class Testability {
 
         //ret is in the order of longFieldNameToExpression.values: 1st element of each list was used to make a field
         List<List<Expression>> longFieldNameToExpressionValues = new ArrayList<>(
-            longFieldNameToExpression.values()
+            uniqueFieldToExpression.values()
         );
 
         IdentityHashMap<Expression, FieldDeclaration> originalCallToField =
-                IntStream.range(0, longFieldNameToExpression.size()).
+                IntStream.range(0, uniqueFieldToExpression.size()).
                         mapToObj(i -> {
 
                             List<Expression> list = longFieldNameToExpressionValues.get(i);
@@ -576,18 +618,6 @@ public class Testability {
 
         originalCallToFieldProducer.accept(originalCallToField);
         return ret;
-    }
-
-    /**
-     * when descriptor in current position has duplicates, return true for it
-     * @param shortDescriptors
-     * @return [useShort]
-     */
-    static List<Boolean> hasDuplicates(List<String> shortDescriptors) {
-        Map<String, List<String>> occurrences = shortDescriptors.stream().collect(Collectors.groupingBy(Function.identity()));
-        return shortDescriptors.stream().
-                map(shortDescriptor -> occurrences.get(shortDescriptor).size() > 1).
-                collect(toList());
     }
 
     static LambdaExpression makeLambdaExpression(
@@ -952,8 +982,6 @@ public class Testability {
                 0,
                 new long[path.length]);
 
-        parameterizedQualifiedTypeReference.toString();
-
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
         FieldBinding fieldBinding = new FieldBinding(
@@ -964,7 +992,7 @@ public class Testability {
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
-//TODO
+
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
 
         Argument[] arguments = new Argument[1]; //TODO use this method in other make..FieldDeclaration
@@ -1085,7 +1113,7 @@ public class Testability {
     }
 
     public static ICompilationUnit[] makeFunctionNCompilationUnits() {
-        return IntStream.range(0, 5).//255). //TODO reen, make fast!
+        return IntStream.range(0, 10).//255). //TODO reen, make fast!
                 mapToObj(Testability::nArgFunctionsCode).
                 map(codeAndFile -> new CompilationUnit(codeAndFile[0].toCharArray(), codeAndFile[1], null)).
                 collect(toList()).
@@ -1190,26 +1218,77 @@ public class Testability {
         return new String(labeledStatement.label).equals("testabilitylabel");
     }
 
-    static public String testabilityFieldName(Expression originalCall, boolean shortClassName) {
+    static public List<String> testabilityFieldName(Expression originalCall, boolean shortClassName) {
         if (!(originalCall instanceof Invocation))
-            throw new RuntimeException("domain error on argument, must be instance of Invocatiom");
+            throw new RuntimeException("domain error on argument, must be instance of Invocation");
 
         MethodBinding binding = ((Invocation) originalCall).binding();
 
         String invokedClassName = new String(readableName(binding.declaringClass, shortClassName));
 
+        List<String> ret = new ArrayList<>();
+
         if (originalCall instanceof MessageSend) {
             MessageSend originalMessageSend = (MessageSend) originalCall;
-            char[] invokedMethodName = originalMessageSend.selector;
+            String invokedMethodName = new String(originalMessageSend.selector);
 
-            return testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName);
+            ret.addAll(testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName));
+
+            List<String> argTypes = Arrays.stream(originalMessageSend.argumentTypes).
+                    map(argType -> {
+                        String longName =
+                                new String(argType.constantPoolName()).
+                                        replace('/','.').
+                                        replace('[', '\u24b6'); //array symbol Ⓐ
+                        return escapeClassName(shortClassName? Util.lastChunk(longName, "."):longName);
+                    }).
+                    collect(toList());
+
+            if (!argTypes.isEmpty()) ret.add(TESTABILITY_ARG_LIST_SEPARATOR);
+
+            ret.add(argTypes.stream().collect(joining("$")));
+
+            return ret;
         }
         else if (originalCall instanceof AllocationExpression) {
 
-            return testabilityFieldNameForNewOperator(invokedClassName);
+            ret.addAll(testabilityFieldNameForNewOperator(invokedClassName));
+
+            List<String> argTypes = Arrays.stream(((AllocationExpression) originalCall).argumentTypes).
+                    map(argType -> {
+                        String longName = new String(argType.constantPoolName()).replace('/','.');;
+                        return escapeClassName(shortClassName? Util.lastChunk(longName, "."):longName);
+                    }).
+                    collect(toList());
+
+            if (!argTypes.isEmpty()) ret.add(TESTABILITY_ARG_LIST_SEPARATOR);
+
+            ret.addAll(argTypes);
+
+            return ret;
         }
         else
             throw new RuntimeException("domain error on argument");
+    }
+
+    static String escapeClassName(String className) {
+        return className.
+                replace("<","_").
+                replace(">","_").
+                replace('.','$');
+    }
+
+    /**
+     * make a uniqe string from field name and arg types
+     * @param originalCall
+     * @return
+     */
+    static public String testabilityFieldDescriptorUniqueInOverload(Expression originalCall) {
+        if (!(originalCall instanceof Invocation))
+            throw new RuntimeException("domain error on argument, must be instance of Invocation");
+
+        MethodBinding binding = ((Invocation) originalCall).binding();
+        return testabilityFieldName(originalCall, false) + new String(binding.signature());
     }
 
     static char [] readableName(ReferenceBinding binding, boolean shortClassName) { //see ReferenceBinding::readableName
@@ -1252,22 +1331,22 @@ public class Testability {
         return readableName;
     }
 
-    static public String testabilityFieldNameForExternalAccess(String methodClassName, char[] calledMethodName) {
-        return testabilityFieldNamePrefix +
-                methodClassName.
-                        replace("<","_").
-                        replace(">","_").
-                        replace('.','$') +
-                "$" +
-                new String(calledMethodName);
-
+    static public List<String> testabilityFieldNameForExternalAccess(String methodClassName, String calledMethodName) {
+        List<String> ret = new ArrayList<>();
+        ret.add(escapeClassName(methodClassName));
+        ret.add("$" + calledMethodName);
+        return ret;
     }
-    static public String testabilityFieldNameForNewOperator(String className) {
-        return testabilityFieldNamePrefix + className.replace('.','$') + "$new";
+
+    static public List<String> testabilityFieldNameForNewOperator(String className) {
+        List<String> ret = new ArrayList<>();
+        ret.add(className.replace('.','$'));
+        ret.add("$new");
+        return ret;
     }
 
     static public boolean isTestabilityRedirectorFieldName(String fieldName) {
-        return fieldName.startsWith(testabilityFieldNamePrefix);
+        return fieldName.startsWith(TESTABILITY_FIELD_NAME_PREFIX);
     }
 
     /**
