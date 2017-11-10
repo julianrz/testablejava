@@ -7,7 +7,7 @@ public class XTest {
     public void replaceNewOperatorInClass() throws Exception {
 
         X x = new X();
-        x.$$String$new = (arg) -> {dontredirect: return new String("redirected");};
+        x.$$String$new$$String = (arg) -> {dontredirect: return new String("redirected");};
         String ret = x.fnUsingNew("orig");
         assertEquals(ret,"redirected");
     }
@@ -16,7 +16,7 @@ public class XTest {
     public void replaceExternalStaticCallInClass() throws Exception {
 
         X x = new X();
-        x.$$Integer$parseInt = (arg) -> {dontredirect: return 2;};
+        x.$$Integer$parseInt$$String = (arg) -> {dontredirect: return 2;};
         int ret = x.fnUsingExternalCall("1");
         assertEquals(ret,2);
     }
@@ -33,7 +33,7 @@ public class XTest {
         //set up listener
         X.$$postCreate = (X x) -> {
             //instrument X instance
-            x.$$String$new = (arg) -> {dontredirect: return new String("redirected");};
+            x.$$String$new$$String = (arg) -> {dontredirect: return new String("redirected");};
         };
         dontredirect:
         {
@@ -45,10 +45,10 @@ public class XTest {
             assertEquals(ret, "redirected"); //but here returns the mock value
         }
     }
-
-    public static void main(String[] args) throws Exception {
-//        new XTest().replaceNewOperatorInClass();
-//        new XTest().replaceExternalStaticCallInClass();
-    }
+//
+//    public static void main(String[] args) throws Exception {
+////        new XTest().replaceNewOperatorInClass();
+////        new XTest().replaceExternalStaticCallInClass();
+//    }
 
 }
