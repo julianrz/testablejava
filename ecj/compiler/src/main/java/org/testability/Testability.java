@@ -1064,7 +1064,7 @@ public class Testability {
         FieldBinding fieldBinding = new FieldBinding(
                 fieldDeclaration,
                 typeBinding,
-                fieldDeclaration.modifiers /*| ClassFileConstants.AccStatic*/ /*| ExtraCompilerModifiers.AccUnresolved*/,
+                fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic  /*| ExtraCompilerModifiers.AccUnresolved*/,
                 typeDeclaration.binding);//sourceType);
 
         fieldDeclaration.binding = fieldBinding;
