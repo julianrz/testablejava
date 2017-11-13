@@ -734,6 +734,12 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             FlowInfo constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(outerInfo);
             for (int i = 0, count = this.methods.length; i < count; i++) {
                 AbstractMethodDeclaration method = this.methods[i];
+                if (
+                        method.binding != null &&
+                        new String(method.binding.declaringClass.sourceName()).equals("Testability") &&
+                        new String(method.binding.selector).equals("uncheckedThrow")) {
+                    continue;
+                }
                 if (method.ignoreFurtherInvestigation)
                     continue;
                 if (method.isInitializationMethod()) {

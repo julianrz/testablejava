@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
@@ -1104,6 +1105,17 @@ public class Testability {
 
         return new String[]{code, fileName};
     }
+    public static String[] testabilityObjectCode() {
+        String code = String.format(
+                        "public class Testability {\n" +
+                        "    public static void uncheckedThrow(Exception ex){\n" +
+                                " throw ex;" +
+                                "}\n" +
+                        "}");
+        String fileName = "Testability.java";
+
+        return new String[]{code, fileName};
+    }
     static String toTTypeAndVar(int n) {
         return "T" + n + " t" + n;
     }
@@ -1115,6 +1127,13 @@ public class Testability {
     public static ICompilationUnit[] makeFunctionNCompilationUnits() {
         return IntStream.range(0, 10).//255). //TODO reen, make fast!
                 mapToObj(Testability::nArgFunctionsCode).
+                map(codeAndFile -> new CompilationUnit(codeAndFile[0].toCharArray(), codeAndFile[1], null)).
+                collect(toList()).
+                toArray(new ICompilationUnit[0]);
+    }
+    public static ICompilationUnit[] makeMiscCompilationUnits() {
+        Stream<String[]> codesAndFiles = Stream.<String[]>of(testabilityObjectCode());
+        return codesAndFiles.
                 map(codeAndFile -> new CompilationUnit(codeAndFile[0].toCharArray(), codeAndFile[1], null)).
                 collect(toList()).
                 toArray(new ICompilationUnit[0]);
@@ -1465,5 +1484,14 @@ public class Testability {
             throw new RuntimeException("internal error: unresolved field " + fieldNameReference);
 
         return labeledStatement;
+    }
+
+    public static ICompilationUnit[] makeInjectedCompilationUnits() {
+        return Stream.concat(
+                Arrays.stream(makeFunctionNCompilationUnits()),
+                Arrays.stream(makeMiscCompilationUnits())
+                ).
+                collect(toList()).
+                toArray(new ICompilationUnit[0]);
     }
 }

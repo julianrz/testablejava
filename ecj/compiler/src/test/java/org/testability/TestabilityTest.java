@@ -6,6 +6,8 @@ import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -2111,39 +2113,39 @@ public class TestabilityTest extends BaseTest {
 
 
     }
-//    @Test
-//    public void testTestabilityInjectFunctionField_ThrowingFromLambda() throws Exception {
-//
-//        String[] task = {
-//                "X.java",
-//                "import java.io.PrintStream;\n" +
-//                        "public class X {\n" +
-//                        "	PrintStream fn(){return System.out.append('c');}" +
-//                        "   public static PrintStream exec(){return new X().fn();}\n" +
-//                        "}\n",
-//                "Y.java",
-//                "import java.io.PrintStream;\n" +
-//                        "public class Y {\n" +
-//                        "   public static void exec(){" +
-//                        "      X x = new X(); " +
-//                        "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
-//                        "        Testability.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
-//                        "        return ps;\n" +
-//                        "      };" +
-//                        "      x.fn();" +
-//                        "}\n" +
-//                        "}\n"
-//        };
-//
-//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-//
-//        try {
-//            invokeCompiledMethod("Y", "exec");
-//            fail("should have thrown");
-//        } catch (InvocationTargetException ex){
-//            Throwable exOriginal = ex.getCause();
-//            assertTrue(exOriginal instanceof IOException);
-//            assertEquals("from lambda",exOriginal.getMessage());
-//        }
-//    }
+    @Test
+    public void testTestabilityInjectFunctionField_ThrowingFromLambda() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.io.PrintStream;\n" +
+                        "public class X {\n" +
+                        "	PrintStream fn(){return System.out.append('c');}" +
+                        "   public static PrintStream exec(){return new X().fn();}\n" +
+                        "}\n",
+                "Y.java",
+                "import java.io.PrintStream;\n" +
+                        "public class Y {\n" +
+                        "   public static void exec(){" +
+                        "      X x = new X(); " +
+                        "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
+                        "        Testability.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
+                        "        return ps;\n" +
+                        "      };" +
+                        "      x.fn();" +
+                        "}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        try {
+            invokeCompiledMethod("Y", "exec");
+            fail("should have thrown");
+        } catch (InvocationTargetException ex){
+            Throwable exOriginal = ex.getCause();
+            assertTrue(exOriginal instanceof IOException);
+            assertEquals("from lambda",exOriginal.getMessage());
+        }
+    }
 }

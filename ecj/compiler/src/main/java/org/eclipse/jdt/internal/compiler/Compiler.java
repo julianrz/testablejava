@@ -424,7 +424,8 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         compile(sourceUnits, false);
     }
 
-    ICompilationUnit[] sourceUnitsInjected = Testability.makeFunctionNCompilationUnits();
+    ICompilationUnit[] sourceUnitsInjected = Testability.makeInjectedCompilationUnits();
+
 
     /**
      * General API
