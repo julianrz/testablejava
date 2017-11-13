@@ -218,6 +218,13 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
         this.scope = new MethodScope(blockScope, this, methodScope.isStatic, methodScope.lastVisibleFieldID);
         this.scope.isConstructorCall = methodScope.isConstructorCall;
 
+        if (!methodScope.isStatic) {
+            this.shouldCaptureInstance = true;
+             //when lambda is created in non-static context, it needs access to 'this' to be able to substitute using field references inside lambda code
+             //but when it is created in static context, it only needs access to static fields, for which it needs no this
+            //initially all lambdas have shouldCaptureInstance = false, which may change in code analysis
+        }
+
         super.resolveType(blockScope, skipKosherCheck); // compute & capture interface function descriptor.
 
         final boolean haveDescriptor = this.descriptor != null;

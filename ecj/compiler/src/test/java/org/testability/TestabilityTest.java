@@ -13,9 +13,7 @@ import java.util.*;
 
 import static java.util.stream.Collectors.joining;
 import static junit.framework.TestCase.fail;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.unitils.reflectionassert.ReflectionAssert.assertReflectionEquals;
 
 
@@ -358,7 +356,7 @@ public class TestabilityTest extends BaseTest {
     }
     @Test
     public void testHasUniqueMatrix() throws Exception {
-
+//TODO move to Util test
         String[][][][] inputShortLongExpectedCombos = {
                 {//short descr in col1,2 is unique, col1,2,3
                         {
@@ -1377,6 +1375,60 @@ public class TestabilityTest extends BaseTest {
         Object ret = main.invoke(null);
         assertEquals("value", (String)ret);
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ReplaceRedirectorWithLambdaDefinedInStaticScope() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.io.PrintStream;\n" +
+                        "public class X {\n" +
+                        "	PrintStream fn(){return System.out.append('c');}" +
+                        "}\n",
+                "Y.java",
+                "import java.io.PrintStream;\n" +
+                        "public class Y {\n" +
+                        "   public static void exec(){" +
+                        "      X x = new X(); " +
+                        "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
+                        "        return null;\n" +
+                        "      };" +
+                        "      x.fn();" +
+                        "}   \n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertNull(invokeCompiledMethod("Y", "exec"));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ReplaceRedirectorWithLambdaDefinedInDynamicScope() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.io.PrintStream;\n" +
+                        "public class X {\n" +
+                        "   Function2<java.io.PrintStream, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
+                        "     (ps, c)-> {return null;};\n" +
+                        "	PrintStream fn(){return System.out.append('c');}" +
+                        "}\n",
+                "Y.java",
+                "import java.io.PrintStream;\n" +
+                        "public class Y {\n" +
+                        "   public static void exec(){" +
+                        "      X x = new X(); " +
+                        "      x.$$PrintStream$append$$C = x.newRedirector; \n" +
+                        "      x.fn();" +
+                        "}   \n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertNull(invokeCompiledMethod("Y", "exec"));
+    }
+
     @Test
     public void testTestabilityInjectFunctionField_RedirectAllocationInsideLambda() throws Exception {
 
@@ -2059,4 +2111,39 @@ public class TestabilityTest extends BaseTest {
 
 
     }
+//    @Test
+//    public void testTestabilityInjectFunctionField_ThrowingFromLambda() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "import java.io.PrintStream;\n" +
+//                        "public class X {\n" +
+//                        "	PrintStream fn(){return System.out.append('c');}" +
+//                        "   public static PrintStream exec(){return new X().fn();}\n" +
+//                        "}\n",
+//                "Y.java",
+//                "import java.io.PrintStream;\n" +
+//                        "public class Y {\n" +
+//                        "   public static void exec(){" +
+//                        "      X x = new X(); " +
+//                        "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
+//                        "        Testability.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
+//                        "        return ps;\n" +
+//                        "      };" +
+//                        "      x.fn();" +
+//                        "}\n" +
+//                        "}\n"
+//        };
+//
+//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//
+//        try {
+//            invokeCompiledMethod("Y", "exec");
+//            fail("should have thrown");
+//        } catch (InvocationTargetException ex){
+//            Throwable exOriginal = ex.getCause();
+//            assertTrue(exOriginal instanceof IOException);
+//            assertEquals("from lambda",exOriginal.getMessage());
+//        }
+//    }
 }
