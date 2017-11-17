@@ -4,7 +4,7 @@
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.eclipse.jdt.core.compiler</groupId>
-    <artifactId>testablejava</artifactId>
+    <artifactId>testablejava-compiler</artifactId>
     <version>0.1-4.6.1</version>
 
     <packaging>jar</packaging>
@@ -23,6 +23,14 @@
             <groupId>org.eclipse.jdt.core.compiler</groupId>
             <artifactId>ecj</artifactId>
             <version>${ecj-version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jdt.core.compiler</groupId>
+            <artifactId>testablejava-helpers</artifactId>
+            <version>${ecj-version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../helpers/target/testablejava-helpers.jar</systemPath>
         </dependency>
 
         <dependency>
