@@ -37,16 +37,10 @@ import static java.util.stream.Collectors.*;
 /**
  * Created by julianrozentur1 on 6/25/17.
  */
-public class BaseTest {//extends TestCase {
-
-
+public class BaseTest {
 
     File classStoreDir = new File("target", "ecj-compiled");
     File destinationDir = new File("target", "ecj-decompiled");
-
-//    public BaseTest(String name) {
-//        super(name);
-//    }
 
     @Test
     public void testNothing() {
@@ -153,8 +147,11 @@ public class BaseTest {//extends TestCase {
         ArrayList<FileSystem.Classpath> cp = new ArrayList<>();
         org.eclipse.jdt.internal.compiler.util.Util.collectRunningVMBootclasspath(cp);
 
-//        cp.add(FileSystem.getClasspath("target/classes", null, false,
-//        null, null, Collections.emptyMap()));
+        System.out.println("adding Helpers to test compiler classpath: " +
+                new File("../helpers/target/classes").getAbsolutePath());
+
+        cp.add(FileSystem.getClasspath("../helpers/target/classes", null, false,
+        null, null, Collections.emptyMap()));
 
         INameEnvironment env =
                 new FileSystem(
