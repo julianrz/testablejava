@@ -125,14 +125,25 @@ public class HelpersInstrumenter {
         if (new File(targetDir +"/" + name.replace(".","/") + ".class").exists())
             return;
 
-        DynamicType.Builder.TypeVariableDefinition<?> soFar = new ByteBuddy()
+
+        DynamicType.Builder<?> builder = new ByteBuddy()
                 .makeInterface()
                 .name(name)
-                .annotateType(AnnotationDescription.Builder.ofType(FunctionalInterface.class).build())
-                .typeVariable("R");
+                .annotateType(AnnotationDescription.Builder.ofType(FunctionalInterface.class).build());
 
-        for (int iArg = 0; iArg < iFunction; iArg++) {
-            soFar = soFar.typeVariable("T" + (1 + iArg));
+        DynamicType.Builder.TypeVariableDefinition<?> soFar;
+        if (iFunction == 0) {
+            soFar = builder
+                    .typeVariable("R");
+        } else {
+            soFar = builder
+                    .typeVariable("T1");
+
+            for (int iArg = 1; iArg < iFunction; iArg++) {
+                soFar = soFar.typeVariable("T" + (1 + iArg));
+            }
+
+            soFar = soFar.typeVariable("R");
         }
 
         TypeDescription.Generic[] parameters =
