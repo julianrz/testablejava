@@ -16,6 +16,7 @@
     </organization>
 
     <modules>
+        <module>helpers</module>
         <module>compiler</module>
         <module>samples</module>
     </modules>

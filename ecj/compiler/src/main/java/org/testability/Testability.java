@@ -670,6 +670,7 @@ public class Testability {
         int parameterShift = receiverPrecedesParameters(originalMessageSend) ? 1 : 0;
 
         char[][] path = {
+            "helpers".toCharArray(),
             functionNameForArgs(originalMessageSend, originalMessageSend.arguments).toCharArray()
         };
 
@@ -834,6 +835,7 @@ public class Testability {
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
 
         char[][] path = {
+            "helpers".toCharArray(),
             functionNameForArgs(originalMessageSend.arguments, 0).toCharArray()
         };
 
@@ -1088,55 +1090,6 @@ public class Testability {
     static String functionNameForArgs(Expression [] arguments, int parameterShift) {
         int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
         return "Function" + functionArgCount;
-    }
-
-    public static String[] nArgFunctionsCode(int n) {
-        String types = IntStream.range(0, n).mapToObj(Testability::toTType).collect(joining(","));
-        String typesAndVars = IntStream.range(0, n).mapToObj(Testability::toTTypeAndVar).collect(joining(","));
-        String code = String.format(
-                "@FunctionalInterface\n" +
-                        "public interface Function%d<%sR> {\n" +
-                        "    R apply(%s);\n" +
-                        "}",
-                n,
-                n == 0 ? "" : types + ",",
-                typesAndVars);
-        String fileName = "Function" + n + ".java";
-
-        return new String[]{code, fileName};
-    }
-    public static String[] testabilityObjectCode() {
-        String code = String.format(
-                        "public class Testability {\n" +
-                        "    public static void uncheckedThrow(Exception ex){\n" +
-                                " throw ex;" +
-                                "}\n" +
-                        "}");
-        String fileName = "Testability.java";
-
-        return new String[]{code, fileName};
-    }
-    static String toTTypeAndVar(int n) {
-        return "T" + n + " t" + n;
-    }
-
-    static String toTType(int n) {
-        return "T" + n;
-    }
-
-    public static ICompilationUnit[] makeFunctionNCompilationUnits() {
-        return IntStream.range(0, 10).//255). //TODO reen, make fast!
-                mapToObj(Testability::nArgFunctionsCode).
-                map(codeAndFile -> new CompilationUnit(codeAndFile[0].toCharArray(), codeAndFile[1], null)).
-                collect(toList()).
-                toArray(new ICompilationUnit[0]);
-    }
-    public static ICompilationUnit[] makeMiscCompilationUnits() {
-        Stream<String[]> codesAndFiles = Stream.<String[]>of(testabilityObjectCode());
-        return codesAndFiles.
-                map(codeAndFile -> new CompilationUnit(codeAndFile[0].toCharArray(), codeAndFile[1], null)).
-                collect(toList()).
-                toArray(new ICompilationUnit[0]);
     }
 
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
@@ -1486,12 +1439,5 @@ public class Testability {
         return labeledStatement;
     }
 
-    public static ICompilationUnit[] makeInjectedCompilationUnits() {
-        return Stream.concat(
-                Arrays.stream(makeFunctionNCompilationUnits()),
-                Arrays.stream(makeMiscCompilationUnits())
-                ).
-                collect(toList()).
-                toArray(new ICompilationUnit[0]);
-    }
+
 }

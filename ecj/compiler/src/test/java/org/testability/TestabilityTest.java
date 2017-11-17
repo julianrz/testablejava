@@ -118,6 +118,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function0;\n\n" +
                 "public class X {\n" +
                         "   Function0<Void> $$java$io$PrintStream$println = () -> {\n" +
                         "      System.out.println();\n" +
@@ -139,16 +140,17 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function1;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
-                        "      var1.println();\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      this.$$PrintStream$println.apply(System.out);\n" +
-                        "   }\n" +
-                        "}";
+                "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
+                "      var1.println();\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      this.$$PrintStream$println.apply(System.out);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -165,6 +167,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                        "import helpers.Function1;\n\n" +
                         "public class X {\n" +
                         "   public Function1<Integer, Integer> $$Integer$valueOf$$I = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
@@ -200,6 +203,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<Integer, Integer> $$Integer$valueOf$$I = (var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
@@ -232,7 +236,8 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-
+                "import helpers.Function1;\n" +
+                "import helpers.Function2;\n\n" +
                         "public class X {\n" +
                         "   public Function2<String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var1, var2) -> {\n" +
                         "      return Integer.getInteger(var1, var2);\n" +
@@ -266,7 +271,9 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-
+                "import helpers.Function0;\n" +
+                "import helpers.Function1;\n" +
+                "import helpers.Function2;\n\n" +
                 "public class X {\n" +
                         "   public Function2<StringBuffer, Integer, StringBuffer> $$StringBuffer$append$$I = (var1, var2) -> {\n" +
                         "      return var1.append(var2);\n" +
@@ -312,6 +319,9 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function0;\n" +
+                "import helpers.Function1;\n" +
+                "import helpers.Function2;\n" +
                 "import java.util.ArrayList;\n" +
                 "import java.util.Collection;\n" +
                 "import java.util.List;\n\n" +
@@ -597,6 +607,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function2;\n\n" +
                 "public class X {\n" +
                         "   public Function2<Long, Long, Integer> $$Long$compare$$I$J = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Long.compare(var1.longValue(), var2.longValue()));\n" +
@@ -627,6 +638,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<Long, Long> $$Long$valueOf$$I = (var1) -> {\n" +
                         "      return Long.valueOf(var1.longValue());\n" +
@@ -660,6 +672,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function2;\n\n" +
                 "public class X {\n" +
                         "   public Function2<Character, Character, Integer> $$Character$compare$$C$C = (var1, var2) -> {\n" +
                         "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
@@ -699,6 +712,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<Character, Y> $$Y$new$$C = (var1) -> {\n" +
                         "      return new Y(var1.charValue());\n" +
@@ -748,7 +762,8 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import java.io.PrintStream;\n\n" +
+                        "import helpers.Function1;\n" +
+                        "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
                         "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
@@ -771,29 +786,30 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "     int i = 434242342;" +
-                        "     System.out.write(i);" +
-                        "   }" +
-                        "   static public void exec() throws Exception {new X().fn();}\n" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "     int i = 434242342;" +
+                "     System.out.write(i);" +
+                "   }" +
+                "   static public void exec() throws Exception {new X().fn();}\n" +
+                "}\n"
         };
 
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
-                        "public class X {\n" +
-                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
-                        "      var1.write(var2.intValue());\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      int var1 = 434242342;\n" +
-                        "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(var1));\n" +
-                        "   }\n\n" +
-                        "   public static void exec() throws Exception {\n" +
-                        "      (new X()).fn();\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
+                "      var1.write(var2.intValue());\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      int var1 = 434242342;\n" +
+                "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(var1));\n" +
+                "   }\n\n" +
+                "   public static void exec() throws Exception {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
@@ -820,6 +836,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.util.ArrayList;\n" +
                 "import java.util.List;\n\n" +
                 "public class X {\n" +
@@ -859,19 +876,20 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function1;\n" +
                 "import java.math.BigDecimal;\n\n" +
-                        "public class X {\n" +
-                        "   public Function1<Integer, BigDecimal> $$BigDecimal$new$$I = (var1) -> {\n" +
-                        "      return new BigDecimal(var1.intValue());\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      int var1 = 434242342;\n" +
-                        "      this.$$BigDecimal$new$$I.apply(Integer.valueOf(var1));\n" +
-                        "   }\n\n" +
-                        "   public static void exec() throws Exception {\n" +
-                        "      (new X()).fn();\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public Function1<Integer, BigDecimal> $$BigDecimal$new$$I = (var1) -> {\n" +
+                "      return new BigDecimal(var1.intValue());\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      int var1 = 434242342;\n" +
+                "      this.$$BigDecimal$new$$I.apply(Integer.valueOf(var1));\n" +
+                "   }\n\n" +
+                "   public static void exec() throws Exception {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
@@ -894,19 +912,20 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
-                        "public class X {\n" +
-                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
-                        "      var1.write(var2.intValue());\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(434242342));\n" +
-                        "   }\n\n" +
-                        "   public static void exec() throws Exception {\n" +
-                        "      (new X()).fn();\n" +
-                        "   }\n"+
-                        "}";
+                "public class X {\n" +
+                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
+                "      var1.write(var2.intValue());\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(434242342));\n" +
+                "   }\n\n" +
+                "   public static void exec() throws Exception {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n"+
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
@@ -930,18 +949,19 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function1;\n" +
                 "import java.math.BigDecimal;\n\n" +
-                        "public class X {\n" +
-                        "   public Function1<Integer, BigDecimal> $$BigDecimal$new$$I = (var1) -> {\n" +
-                        "      return new BigDecimal(var1.intValue());\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      this.$$BigDecimal$new$$I.apply(Integer.valueOf(434242342));\n" +
-                        "   }\n\n" +
-                        "   public static void exec() throws Exception {\n" +
-                        "      (new X()).fn();\n" +
-                        "   }\n"+
-                        "}";
+                "public class X {\n" +
+                "   public Function1<Integer, BigDecimal> $$BigDecimal$new$$I = (var1) -> {\n" +
+                "      return new BigDecimal(var1.intValue());\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      this.$$BigDecimal$new$$I.apply(Integer.valueOf(434242342));\n" +
+                "   }\n\n" +
+                "   public static void exec() throws Exception {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n"+
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
@@ -965,23 +985,25 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function1;\n" +
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
-                        "public class X {\n" +
-                        "   public Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
-                        "      var1.close();\n" +
-                        "      return null;\n" +
-                        "   };\n" +
-                        "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$Integer = (var1, var2) -> {\n" +
-                        "      var1.write(var2.intValue());\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      PrintStream var1 = System.out;\n" +
-                        "      Integer var2 = Integer.valueOf(0);\n"+
-                        "      this.$$PrintStream$write$$Integer.apply(var1, var2.intValue());\n" +
-                        "      this.$$PrintStream$close.apply(var1);\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
+                "      var1.close();\n" +
+                "      return null;\n" +
+                "   };\n" +
+                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$Integer = (var1, var2) -> {\n" +
+                "      var1.write(var2.intValue());\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      PrintStream var1 = System.out;\n" +
+                "      Integer var2 = Integer.valueOf(0);\n"+
+                "      this.$$PrintStream$write$$Integer.apply(var1, var2.intValue());\n" +
+                "      this.$$PrintStream$close.apply(var1);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
@@ -1005,18 +1027,18 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "import a.Y;\n" +
-                        "\n" +
-                        "public class X {\n" +
-                        "   public Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
-                        "      var1.fn();\n" +
-                        "      return null;\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      Y var1 = new Y();\n" +
-                        "      this.$$Y$fn.apply(var1);\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Function1;\n\n" +
+                "public class X {\n" +
+                "   public Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
+                "      var1.fn();\n" +
+                "      return null;\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() throws Exception {\n" +
+                "      Y var1 = new Y();\n" +
+                "      this.$$Y$fn.apply(var1);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
@@ -1036,40 +1058,41 @@ public class TestabilityTest extends BaseTest {
                         "}",
                 "X.java",
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "        a.Y ya = new a.Y();\n" +
-                        "        b.Y yb = new b.Y();\n" +
-                        "        ya.fn();\n" +
-                        "        yb.fn();\n" +
-                        "   }" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "        a.Y ya = new a.Y();\n" +
+                "        b.Y yb = new b.Y();\n" +
+                "        ya.fn();\n" +
+                "        yb.fn();\n" +
+                "   }" +
+                "}\n"
         };
         String expectedOutput =
-                        "import b.Y;\n" +
-                        "\n" +
-                        "public class X {\n" +
-                        "   public Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
-                        "      var1.fn();\n" +
-                        "      return null;\n" +
-                        "   };\n" +
-                        "   public Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
-                        "      var1.fn();\n" +
-                        "      return null;\n" +
-                        "   };\n" +
-                        "   public Function0<Y> $$b$Y$new = () -> {\n" +
-                        "      return new Y();\n" +
-                        "   };\n" +
-                        "   public Function0<a.Y> $$a$Y$new = () -> {\n" +
-                        "      return new a.Y();\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      a.Y var1 = (a.Y)this.$$a$Y$new.apply();\n" +
-                        "      Y var2 = (Y)this.$$b$Y$new.apply();\n" +
-                        "      this.$$a$Y$fn.apply(var1);\n" +
-                        "      this.$$b$Y$fn.apply(var2);\n" +
-                        "   }\n" +
-                        "}";
+                "import b.Y;\n" +
+                "import helpers.Function0;\n" +
+                "import helpers.Function1;\n\n" +
+                "public class X {\n" +
+                "   public Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
+                "      var1.fn();\n" +
+                "      return null;\n" +
+                "   };\n" +
+                "   public Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
+                "      var1.fn();\n" +
+                "      return null;\n" +
+                "   };\n" +
+                "   public Function0<Y> $$b$Y$new = () -> {\n" +
+                "      return new Y();\n" +
+                "   };\n" +
+                "   public Function0<a.Y> $$a$Y$new = () -> {\n" +
+                "      return new a.Y();\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() throws Exception {\n" +
+                "      a.Y var1 = (a.Y)this.$$a$Y$new.apply();\n" +
+                "      Y var2 = (Y)this.$$b$Y$new.apply();\n" +
+                "      this.$$a$Y$fn.apply(var1);\n" +
+                "      this.$$b$Y$fn.apply(var2);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
@@ -1083,16 +1106,17 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
-                        "      var1.println(var2);\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn(String var1) {\n" +
-                        "      this.$$PrintStream$println$$String.apply(System.out, var1);\n" +
-                        "   }\n" +
-                        "}";
+                "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
+                "      var1.println(var2);\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn(String var1) {\n" +
+                "      this.$$PrintStream$println$$String.apply(System.out, var1);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
@@ -1106,16 +1130,17 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
-                        "      var1.println(var2);\n" +
-                        "      return null;\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      this.$$PrintStream$println$$String.apply(System.out, \"x\");\n" +
-                        "   }\n" +
-                        "}";
+                "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
+                "      var1.println(var2);\n" +
+                "      return null;\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      this.$$PrintStream$println$$String.apply(System.out, \"x\");\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1132,16 +1157,17 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
+                "import helpers.Function1;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                        "   public Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
-                        "      return var1.toString();\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   void fn() {\n" +
-                        "      this.$$Object$toString.apply(System.out);\n" +
-                        "   }\n" +
-                        "}";
+                "   public Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
+                "      return var1.toString();\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      this.$$Object$toString.apply(System.out);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1157,15 +1183,20 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function0;\n" +
+                "import helpers.Function1;\n" +
+                "import helpers.Function2;\n" +
+                "import helpers.Function21;\n" +
+                "import helpers.Function3;\n\n" +
                 "public class X {\n" +
-                        "   Function0<Boolean> x0;\n" +
-                        "   Function1<Integer, Boolean> x1;\n" +
-                        "   Function2<Integer, String, Boolean> x2;\n" +
-                        "   Function3<Integer, String, Float, Boolean> x3;\n" +
-//                        "Function21<Integer,Integer,Integer,Integer,Integer,Integer,Integer,Integer," +
-//                        "Integer,Integer,Integer,Integer,Integer,Integer,Integer,Integer,Integer,Integer," +
-//                        "Integer,Integer,Integer,Boolean> x21;\n" +
-                        "}"
+                "   Function0<Boolean> x0;\n" +
+                "   Function1<Integer, Boolean> x1;\n" +
+                "   Function2<Integer, String, Boolean> x2;\n" +
+                "   Function3<Integer, String, Float, Boolean> x3;\n" +
+                "   Function21<Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
+                "Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
+                "Integer, Integer, Integer, Boolean> x21;\n" +
+                "}"
         };
 
         String expectedOutput = task[1];
@@ -1188,6 +1219,7 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<String, Void> $$Object$notify = (var1) -> {\n" +
                         "      var1.notify();\n" +
@@ -1212,14 +1244,15 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                        "public class X {\n" +
-                        "   public Function0<String> $$String$new = () -> {\n" +
-                        "      return new String();\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      this.$$String$new.apply();\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Function0;\n\n" +
+                "public class X {\n" +
+                "   public Function0<String> $$String$new = () -> {\n" +
+                "      return new String();\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      this.$$String$new.apply();\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1229,6 +1262,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   Function1<String, String> $$java$lang$String$new = (s) -> {\n" +
                         "      return new String(s);\n" +
@@ -1410,6 +1444,7 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.io.PrintStream;\n" +
+                        "import helpers.Function2;\n\n" +
                         "public class X {\n" +
                         "   Function2<java.io.PrintStream, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
                         "     (ps, c)-> {return null;};\n" +
@@ -1489,6 +1524,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "Function1<String, String> f = (arg) -> {return \"\";};" +
                         "	String exec2(){" +
@@ -1533,6 +1569,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "	void fn(){ Function1<String, String> f = (arg) -> {return new String(\"x\");};}" +
                         "}\n"
@@ -1546,6 +1583,7 @@ public class TestabilityTest extends BaseTest {
         //error reported at QualifiedNameReference#1031 this.indexOfFirstFieldBinding == 1
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
                         "}\n"
@@ -1559,6 +1597,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   Function1<String, String> ff = (a) -> \"\";" +
 
@@ -1575,6 +1614,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   Function1<String, String> ff = (a) -> a;" +
                         "	void fn(){\n" +
@@ -1606,7 +1646,9 @@ public class TestabilityTest extends BaseTest {
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        String expectedOutput = "public class X {\n" +
+        String expectedOutput =
+                "import helpers.Function1;\n\n" +
+                "public class X {\n" +
                 "   public Function1<int[], Integer> $$Y$arrayArg$$ⒶI = (var1) -> {\n" +
                 "      return Integer.valueOf(Y.arrayArg(var1));\n" +
                 "   };\n" +
@@ -1641,6 +1683,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<String, String> $$String$new$$String = (var1) -> {\n" +
                         "      return new String(var1);\n" +
@@ -1705,6 +1748,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<String, Integer> $$Integer$parseInt$$String = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
@@ -1736,6 +1780,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "   public Function1<String, Integer> $$Integer$parseInt$$String = (var1) -> {\n" +
                         "      return Integer.valueOf(Integer.parseInt(var1));\n" +
@@ -1759,6 +1804,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                         "	void fn(){\n" +
                         "     Function1<String, String> f = (arg) -> {return new String(\"x\");};\n" +
@@ -1773,6 +1819,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
                 "   public Function1<String, String> $$String$new$$String = (var1) -> {\n" +
                 "      return new String(var1);\n" +
@@ -1826,14 +1873,15 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                        "public class X {\n" +
-                        "   public Function1<StringBuilder, String> $$String$new$$StringBuilder = (var1) -> {\n" +
-                        "      return new String(var1);\n" +
-                        "   };\n\n" +
-                        "   void fn(StringBuilder var1) {\n" +
-                        "      this.$$String$new$$StringBuilder.apply(var1);\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Function1;\n\n" +
+                "public class X {\n" +
+                "   public Function1<StringBuilder, String> $$String$new$$StringBuilder = (var1) -> {\n" +
+                "      return new String(var1);\n" +
+                "   };\n\n" +
+                "   void fn(StringBuilder var1) {\n" +
+                "      this.$$String$new$$StringBuilder.apply(var1);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
     }
@@ -1847,14 +1895,15 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function0;\n\n" +
                 "public class X {\n" +
-                        "   public Function0<String> $$String$new = () -> {\n" +
-                        "      return new String();\n" +
-                        "   };\n\n" +
-                        "   String fn() {\n" +
-                        "      return (String)this.$$String$new.apply();\n" +
-                        "   }\n" +
-                        "}";
+                "   public Function0<String> $$String$new = () -> {\n" +
+                "      return new String();\n" +
+                "   };\n\n" +
+                "   String fn() {\n" +
+                "      return (String)this.$$String$new.apply();\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1871,18 +1920,19 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
+                "import helpers.Function2;\n" +
                 "import java.io.PrintStream;\n\n" +
-                        "public class X {\n" +
-                        "   public Function2<PrintStream, Character, PrintStream> $$PrintStream$append$$C = (var1, var2) -> {\n" +
-                        "      return var1.append(var2.charValue());\n" +
-                        "   };\n\n" +
-                        "   PrintStream fn() {\n" +
-                        "      return (PrintStream)this.$$PrintStream$append$$C.apply(System.out, Character.valueOf('c'));\n" +
-                        "   }\n\n" +
-                        "   public static PrintStream exec() {\n" +
-                        "      return (new X()).fn();\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public Function2<PrintStream, Character, PrintStream> $$PrintStream$append$$C = (var1, var2) -> {\n" +
+                "      return var1.append(var2.charValue());\n" +
+                "   };\n\n" +
+                "   PrintStream fn() {\n" +
+                "      return (PrintStream)this.$$PrintStream$append$$C.apply(System.out, Character.valueOf('c'));\n" +
+                "   }\n\n" +
+                "   public static PrintStream exec() {\n" +
+                "      return (new X()).fn();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1890,7 +1940,6 @@ public class TestabilityTest extends BaseTest {
         Method main = cl.loadClass("X").getMethod("exec");
         Object ret = main.invoke(null);
         assertEquals(System.out, ret);
-
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
@@ -2129,7 +2178,7 @@ public class TestabilityTest extends BaseTest {
                         "   public static void exec(){" +
                         "      X x = new X(); " +
                         "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
-                        "        Testability.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
+                        "        testablejava.Helpers.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
                         "        return ps;\n" +
                         "      };" +
                         "      x.fn();" +
