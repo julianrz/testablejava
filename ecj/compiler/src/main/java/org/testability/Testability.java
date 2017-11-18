@@ -120,7 +120,8 @@ public class Testability {
             MethodBinding originalBinding,
             BlockScope currentScope,
             Optional<TypeBinding> receiverType,
-            InvocationSite invocationSite) {
+            InvocationSite invocationSite,
+            boolean returnsVoid) {
 
         TypeBinding[] parameters;
 
@@ -132,9 +133,7 @@ public class Testability {
             parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
         }
 
-        String selector =
-                (originalBinding.returnType instanceof VoidTypeBinding) &&
-                !(invocationSite instanceof AllocationExpression)? //note: allocation for some reason has void return type, but it is always a Function
+        String selector = returnsVoid?
                 TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
                 TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
 
@@ -172,7 +171,7 @@ public class Testability {
 
         String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
 
-        String selector = messageSend.binding.returnType instanceof VoidTypeBinding?
+        String selector = returnsVoid(messageSend)?
                         TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
                         TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
 
@@ -190,7 +189,8 @@ public class Testability {
                 messageSend.binding,
                 currentScope,
                 receiverPrecedes? Optional.of(messageSend.receiver.resolvedType) : Optional.empty(),
-                messageSend);
+                messageSend,
+                returnsVoid(messageSend));
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
@@ -292,7 +292,8 @@ public class Testability {
                 allocationExpression.binding,
                 currentScope,
                 Optional.empty(),
-                allocationExpression);
+                allocationExpression,
+                false);
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException("internal error: unresolved field " + fieldNameReference);//TODO handle legally
@@ -640,7 +641,7 @@ public class Testability {
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
 
-        boolean returnsVoid = originalMessageSend.binding.returnType instanceof VoidTypeBinding;
+        boolean returnsVoid = returnsVoid(originalMessageSend);
 
         int argc = returnsVoid?
                 typeArgumentsForFunction.length :
@@ -670,12 +671,7 @@ public class Testability {
 
         TypeBinding fieldTypeBinding = originalMessageSend.binding.returnType;
 
-        boolean returnsVoid = false;
-        if (new String(fieldTypeBinding.shortReadableName()).equals("void")) {
-            TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(referenceBinding.scope);
-            fieldTypeBinding = tvoid;
-            returnsVoid = true;
-        }
+        boolean returnsVoid = returnsVoid(originalMessageSend);
 
         FieldDeclaration fieldDeclaration = new FieldDeclaration(fieldName.toCharArray(), 0, 0);
 
@@ -802,10 +798,7 @@ public class Testability {
                 new EmptyStatement(0, 0),
                 0, 0);
 
-        if (originalMessageSend.binding.returnType instanceof VoidTypeBinding &&
-                !originalMessageSend.binding.isConstructor()) { //constructor AllocationExpression has void return!
-//            Expression nullExpression = new NullLiteral(0, 0);
-//            ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
+        if (returnsVoid) {
             ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
 
             block.statements = new Statement[]{
@@ -828,6 +821,11 @@ public class Testability {
 
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
+    }
+
+    static boolean returnsVoid(MessageSend messageSend) {
+        return messageSend.binding.returnType instanceof VoidTypeBinding &&
+                !messageSend.binding.isConstructor(); //somehow constructors have void return type
     }
 
     static boolean receiverPrecedesParameters(MessageSend messageSend) {
@@ -1105,7 +1103,7 @@ public class Testability {
      */
     static String functionNameForArgs(MessageSend messageSend, Expression [] messageSendArguments) {
         int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
-        boolean returnsVoid = (messageSend.binding.returnType instanceof VoidTypeBinding);
+        boolean returnsVoid = returnsVoid(messageSend);
         return functionNameForArgs(messageSendArguments, parameterShift, returnsVoid);
     }
 
