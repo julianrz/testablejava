@@ -4,10 +4,8 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
-import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
-import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -16,7 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
@@ -26,7 +23,8 @@ import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSI
 public class Testability {
     public static final String TESTABILITY_FIELD_NAME_PREFIX = "$$";
     public static final String TESTABILITY_ARG_LIST_SEPARATOR = "$$";
-    public static final String TARGET_REDIRECTED_METHOD_NAME = "apply";
+    public static final String TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION = "apply";
+    public static final String TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER = "accept";
     public static final String TESTABILITYLABEL = "testabilitylabel"; //TODO can we use dontredirect: instead?
     public static final String DONTREDIRECT = "dontredirect";
 
@@ -134,15 +132,21 @@ public class Testability {
             parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
         }
 
+        String selector =
+                (originalBinding.returnType instanceof VoidTypeBinding) &&
+                !(invocationSite instanceof AllocationExpression)? //note: allocation for some reason has void return type, but it is always a Function
+                TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
+                TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
+
         MethodBinding binding =
                 currentScope.getMethod(
                         newReceiver.resolvedType, //TODO may be unresolved? use receiverType passed in?
-                        TARGET_REDIRECTED_METHOD_NAME.toCharArray(),
+                        selector.toCharArray(),
                         parameters,
                         invocationSite);
 
         binding.modifiers = ClassFileConstants.AccPublic;
-        binding.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
+        binding.selector = selector.toCharArray();
 
         return binding;
     }
@@ -168,7 +172,11 @@ public class Testability {
 
         String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
 
-        messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
+        String selector = messageSend.binding.returnType instanceof VoidTypeBinding?
+                        TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
+                        TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
+
+        messageToFieldApply.selector = selector.toCharArray();//TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray();
 
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
@@ -264,7 +272,7 @@ public class Testability {
 
         String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForNewOperator(methodClassName);
 
-        messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME.toCharArray();
+        messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray(); //always Function for allocation
 
         NameReference fieldNameReference = makeSingleNameReference(targetFieldNameInThis);
 
@@ -632,7 +640,11 @@ public class Testability {
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
 
-        int argc = typeArgumentsForFunction.length - 1;
+        boolean returnsVoid = originalMessageSend.binding.returnType instanceof VoidTypeBinding;
+
+        int argc = returnsVoid?
+                typeArgumentsForFunction.length :
+                typeArgumentsForFunction.length - 1;
 
         Argument[] lambdaArguments = new Argument[argc];
         for (int i = 0; i < argc; i++) { //type args has return at the end, method args do not
@@ -658,9 +670,11 @@ public class Testability {
 
         TypeBinding fieldTypeBinding = originalMessageSend.binding.returnType;
 
+        boolean returnsVoid = false;
         if (new String(fieldTypeBinding.shortReadableName()).equals("void")) {
             TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(referenceBinding.scope);
             fieldTypeBinding = tvoid;
+            returnsVoid = true;
         }
 
         FieldDeclaration fieldDeclaration = new FieldDeclaration(fieldName.toCharArray(), 0, 0);
@@ -684,8 +698,10 @@ public class Testability {
         if (originalArguments == null)
             originalArguments = new Expression[0];
 
+        int typeArgsCount = parameterShift + originalArguments.length + (returnsVoid ? 0 : 1);
+
         TypeBinding[] typeArgumentsForFunction //(receiver), args, return
-                   = new TypeBinding[parameterShift + originalArguments.length + 1];
+                   = new TypeBinding[typeArgsCount];
 
         if (parameterShift > 0)
             typeArgumentsForFunction[0] = originalMessageSend.receiver.resolvedType;
@@ -694,7 +710,9 @@ public class Testability {
         for (TypeBinding arg : originalMessageSend.binding.parameters) {
             typeArgumentsForFunction[iArg++] = boxIfApplicable(arg, lookupEnvironment);
         }
-        typeArgumentsForFunction[iArg++] = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
+
+        if (!returnsVoid)
+            typeArgumentsForFunction[iArg++] = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
 
         ParameterizedTypeBinding typeBindingForFunction =
                 lookupEnvironment.createParameterizedType(
@@ -759,7 +777,9 @@ public class Testability {
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 
-        Expression[] argv = new SingleNameReference[typeArgumentsForFunction.length - 1 - parameterShift];
+        int methodArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1) - parameterShift;
+
+        Expression[] argv = new SingleNameReference[methodArgCount];
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + parameterShift)).toCharArray();
 
@@ -784,8 +804,9 @@ public class Testability {
 
         if (originalMessageSend.binding.returnType instanceof VoidTypeBinding &&
                 !originalMessageSend.binding.isConstructor()) { //constructor AllocationExpression has void return!
-            Expression nullExpression = new NullLiteral(0, 0);
-            ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
+//            Expression nullExpression = new NullLiteral(0, 0);
+//            ReturnStatement returnStatement = new ReturnStatement(nullExpression, 0, 0);
+            ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
 
             block.statements = new Statement[]{
                     labeledStatement,
@@ -836,7 +857,7 @@ public class Testability {
 
         char[][] path = {
             "helpers".toCharArray(),
-            functionNameForArgs(originalMessageSend.arguments, 0).toCharArray()
+            functionNameForArgs(originalMessageSend.arguments, 0, false).toCharArray()
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
@@ -1084,12 +1105,20 @@ public class Testability {
      */
     static String functionNameForArgs(MessageSend messageSend, Expression [] messageSendArguments) {
         int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
-        return functionNameForArgs(messageSendArguments, parameterShift);
+        boolean returnsVoid = (messageSend.binding.returnType instanceof VoidTypeBinding);
+        return functionNameForArgs(messageSendArguments, parameterShift, returnsVoid);
     }
 
-    static String functionNameForArgs(Expression [] arguments, int parameterShift) {
+    static String functionNameForArgs(Expression[] arguments, int parameterShift, boolean returnsVoid) {
         int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
-        return "Function" + functionArgCount;
+
+        String name = (
+                returnsVoid ?
+                        "Consumer" :
+                        "Function"
+        ) + functionArgCount;
+
+        return name;
     }
 
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {

@@ -140,15 +140,14 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import helpers.Function1;\n" +
+                "import helpers.Consumer1;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
+                "   public Consumer1<PrintStream> $$PrintStream$println = (var1) -> {\n" +
                 "      var1.println();\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
-                "      this.$$PrintStream$println.apply(System.out);\n" +
+                "      this.$$PrintStream$println.accept(System.out);\n" +
                 "   }\n" +
                 "}";
 
@@ -762,18 +761,17 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                        "import helpers.Function1;\n" +
+                        "import helpers.Consumer1;\n" +
                         "import java.io.PrintStream;\n\n" +
                         "public class X {\n" +
-                        "   public Function1<PrintStream, Void> $$PrintStream$println = (var1) -> {\n" +
+                        "   public Consumer1<PrintStream> $$PrintStream$println = (var1) -> {\n" +
                         "      var1.println();\n" +
-                        "      return null;\n" +
                         "   };\n\n" +
                         "   void fn1() {\n" +
-                        "      this.$$PrintStream$println.apply(System.out);\n" +
+                        "      this.$$PrintStream$println.accept(System.out);\n" +
                         "   }\n\n" +
                         "   void fn2() {\n" +
-                        "      this.$$PrintStream$println.apply(System.out);\n" +
+                        "      this.$$PrintStream$println.accept(System.out);\n" +
                         "   }\n" +
                         "}";
 
@@ -795,16 +793,15 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-                "import helpers.Function2;\n" +
+                "import helpers.Consumer2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
+                "   public Consumer2<PrintStream, Integer> $$PrintStream$write$$I = (var1, var2) -> {\n" +
                 "      var1.write(var2.intValue());\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
                 "      int var1 = 434242342;\n" +
-                "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(var1));\n" +
+                "      this.$$PrintStream$write$$I.accept(System.out, Integer.valueOf(var1));\n" +
                 "   }\n\n" +
                 "   public static void exec() throws Exception {\n" +
                 "      (new X()).fn();\n" +
@@ -912,15 +909,14 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-                "import helpers.Function2;\n" +
+                "import helpers.Consumer2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$I = (var1, var2) -> {\n" +
+                "   public Consumer2<PrintStream, Integer> $$PrintStream$write$$I = (var1, var2) -> {\n" +
                 "      var1.write(var2.intValue());\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
-                "      this.$$PrintStream$write$$I.apply(System.out, Integer.valueOf(434242342));\n" +
+                "      this.$$PrintStream$write$$I.accept(System.out, Integer.valueOf(434242342));\n" +
                 "   }\n\n" +
                 "   public static void exec() throws Exception {\n" +
                 "      (new X()).fn();\n" +
@@ -985,23 +981,21 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import helpers.Function1;\n" +
-                "import helpers.Function2;\n" +
+                "import helpers.Consumer1;\n" +
+                "import helpers.Consumer2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function1<PrintStream, Void> $$PrintStream$close = (var1) -> {\n" +
+                "   public Consumer1<PrintStream> $$PrintStream$close = (var1) -> {\n" +
                 "      var1.close();\n" +
-                "      return null;\n" +
                 "   };\n" +
-                "   public Function2<PrintStream, Integer, Void> $$PrintStream$write$$Integer = (var1, var2) -> {\n" +
+                "   public Consumer2<PrintStream, Integer> $$PrintStream$write$$Integer = (var1, var2) -> {\n" +
                 "      var1.write(var2.intValue());\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
                 "      PrintStream var1 = System.out;\n" +
                 "      Integer var2 = Integer.valueOf(0);\n"+
-                "      this.$$PrintStream$write$$Integer.apply(var1, var2.intValue());\n" +
-                "      this.$$PrintStream$close.apply(var1);\n" +
+                "      this.$$PrintStream$write$$Integer.accept(var1, var2.intValue());\n" +
+                "      this.$$PrintStream$close.accept(var1);\n" +
                 "   }\n" +
                 "}";
 
@@ -1027,16 +1021,15 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "import a.Y;\n" +
-                "import helpers.Function1;\n\n" +
+                "import helpers.Consumer1;\n\n" +
                 "public class X {\n" +
-                "   public Function1<Y, Void> $$Y$fn = (var1) -> {\n" +
+                "   public Consumer1<Y> $$Y$fn = (var1) -> {\n" +
                 "      var1.fn();\n" +
-                "      return null;\n" +
                 "   };\n" +
                 "\n" +
                 "   void fn() throws Exception {\n" +
                 "      Y var1 = new Y();\n" +
-                "      this.$$Y$fn.apply(var1);\n" +
+                "      this.$$Y$fn.accept(var1);\n" +
                 "   }\n" +
                 "}";
 
@@ -1068,16 +1061,14 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "import b.Y;\n" +
-                "import helpers.Function0;\n" +
-                "import helpers.Function1;\n\n" +
+                "import helpers.Consumer1;\n" +
+                "import helpers.Function0;\n\n" +
                 "public class X {\n" +
-                "   public Function1<Y, Void> $$b$Y$fn = (var1) -> {\n" +
+                "   public Consumer1<Y> $$b$Y$fn = (var1) -> {\n" +
                 "      var1.fn();\n" +
-                "      return null;\n" +
                 "   };\n" +
-                "   public Function1<a.Y, Void> $$a$Y$fn = (var1) -> {\n" +
+                "   public Consumer1<a.Y> $$a$Y$fn = (var1) -> {\n" +
                 "      var1.fn();\n" +
-                "      return null;\n" +
                 "   };\n" +
                 "   public Function0<Y> $$b$Y$new = () -> {\n" +
                 "      return new Y();\n" +
@@ -1089,8 +1080,8 @@ public class TestabilityTest extends BaseTest {
                 "   void fn() throws Exception {\n" +
                 "      a.Y var1 = (a.Y)this.$$a$Y$new.apply();\n" +
                 "      Y var2 = (Y)this.$$b$Y$new.apply();\n" +
-                "      this.$$a$Y$fn.apply(var1);\n" +
-                "      this.$$b$Y$fn.apply(var2);\n" +
+                "      this.$$a$Y$fn.accept(var1);\n" +
+                "      this.$$b$Y$fn.accept(var2);\n" +
                 "   }\n" +
                 "}";
 
@@ -1106,15 +1097,14 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import helpers.Function2;\n" +
+                "import helpers.Consumer2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
+                "   public Consumer2<PrintStream, String> $$PrintStream$println$$String = (var1, var2) -> {\n" +
                 "      var1.println(var2);\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn(String var1) {\n" +
-                "      this.$$PrintStream$println$$String.apply(System.out, var1);\n" +
+                "      this.$$PrintStream$println$$String.accept(System.out, var1);\n" +
                 "   }\n" +
                 "}";
 
@@ -1130,15 +1120,14 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import helpers.Function2;\n" +
+                "import helpers.Consumer2;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function2<PrintStream, String, Void> $$PrintStream$println$$String = (var1, var2) -> {\n" +
+                "   public Consumer2<PrintStream, String> $$PrintStream$println$$String = (var1, var2) -> {\n" +
                 "      var1.println(var2);\n" +
-                "      return null;\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
-                "      this.$$PrintStream$println$$String.apply(System.out, \"x\");\n" +
+                "      this.$$PrintStream$println$$String.accept(System.out, \"x\");\n" +
                 "   }\n" +
                 "}";
 
@@ -1219,15 +1208,14 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
         String expectedOutput =
-                "import helpers.Function1;\n\n" +
+                "import helpers.Consumer1;\n\n" +
                 "public class X {\n" +
-                        "   public Function1<String, Void> $$Object$notify = (var1) -> {\n" +
+                        "   public Consumer1<String> $$Object$notify = (var1) -> {\n" +
                         "      var1.notify();\n" +
-                        "      return null;\n"+
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      String var1 = \"\";\n" +
-                        "      this.$$Object$notify.apply(var1);\n" +
+                        "      this.$$Object$notify.accept(var1);\n" +
                         "   }\n" +
                         "}";
 
@@ -1863,6 +1851,116 @@ public class TestabilityTest extends BaseTest {
         Object ret = main.invoke(null);
         assertEquals(System.out, ret);
     }
+
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_Vararg() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "   java.io.PrintStream fn(int x){return System.out.format(\"\", x);}\n" +
+//                        "   public static java.io.PrintStream exec(){return new X().fn(1);}\n" +
+//                        "}\n"
+//        };
+//
+//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//
+//        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+//        Method main = cl.loadClass("X").getMethod("exec");
+//        Object ret = main.invoke(null);
+//        assertEquals(System.out, ret);
+//    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeArg() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   String fn(int x){return Integer.toString(x);}\n" +
+                        "   public static String exec(){return new X().fn(1);}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("1", ret);
+    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeConst() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   String fn(){return Integer.toString(1);}\n" +
+                        "   public static String exec(){return new X().fn();}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("1", ret);
+    }
+
+    void fnZZ(){
+        Integer.parseInt("0");
+    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeVoidReturn() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   static void takeInt(int i){}\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   void fn(){Y.takeInt(1);}\n" +
+                        "   public static void exec(){new X().fn();}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals(null, ret);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeNonVoidReturn() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   static String takeInt(int i){return \"\";}\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   String fn(){return Y.takeInt(1);}\n" +
+                        "   public static String exec(){return new X().fn();}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("", ret);
+    }
+
+
+
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorPassingArgsThrough() throws Exception {
 
