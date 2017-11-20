@@ -155,6 +155,73 @@ public class TestabilityTest extends BaseTest {
 
     }
     @Test
+    public void testTestabilityInjectFunctionField_ForLocalCallNoArgs() throws Exception {
+        //??should it pass in instance for consistency? external call does but redundant here
+
+        //?? is $$X before $callee redundant here? $$ for consistency? $ always before name, $$$callee?
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                "   String callee(){return \"1\";}\n" +
+                "	String fn(){\n" +
+                "      return callee();" +
+                "   }\n" +
+                "}\n"
+        };
+        String expectedOutput =
+                "import helpers.Function0;\n\n" +
+                "public class X {\n" +
+                "   public Function0<String> $$X$callee = () -> {\n" +
+                "      return this.callee();\n" +
+                "   };\n\n" +
+                "   String callee() {\n" +
+                "      return \"1\";\n" +
+                "   }\n\n" +
+                "   String fn() {\n" +
+                "      return (String)this.$$X$callee.apply();\n" +
+                "   }\n" +
+                "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+        Object actual = invokeCompiledMethod("X", "fn");
+        assertEquals("1", actual);
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForLocalCallNoArgs_FromStaticContext() throws Exception {
+        //need static fields to be created/initialized
+
+        String[] task = {
+                "X.java",
+
+                "public class X {\n" +
+                        "   static Integer callee(){return 1;}\n" +
+                        "	static Integer fn(){\n" +
+                        "      return callee();" +
+                        "   }\n" +
+                        "}\n"
+        };
+        String expectedOutput =
+
+                "import helpers.Function0;\n\n" +
+                        "public class X {\n" +
+                        "   public static Function0<Integer> $$X$callee = () -> {\n" +
+                        "      return callee();\n" +
+                        "   };\n\n" +
+                        "   static Integer callee() {\n" +
+                        "      return Integer.valueOf(1);\n" +
+                        "   }\n\n" +
+                        "   static Integer fn() {\n" +
+                        "      return (Integer)$$X$callee.apply();\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+        Object actual = invokeCompiledMethod("X", "fn");
+        assertEquals(1, actual);
+
+    }
+    @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithClassReceiver() throws Exception {
 
 
@@ -162,7 +229,7 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "public class X {\n" +
                         "	void fn(){Integer.valueOf(2);}" +
-                        "   static public void exec() throws Exception {new X().fn();}" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}" +
                         "}\n"
         };
         String expectedOutput =
@@ -198,7 +265,7 @@ public class TestabilityTest extends BaseTest {
                 "import static java.lang.Integer.valueOf;" +
                 "public class X {\n" +
                         "	void fn(){valueOf(2);}" +
-                        "   static public void exec() throws Exception {new X().fn();}" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}" +
                         "}\n"
         };
         String expectedOutput =
@@ -744,7 +811,17 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}"
         };
-        String expectedOutput = task[1];
+        String expectedOutput =
+                "import helpers.Consumer1;\n" +
+                "import java.io.PrintStream;\n\n" +
+                "public class X {\n" +
+                "   public static Consumer1<PrintStream> $$PrintStream$println = (var0) -> {\n" +
+                "      var0.println();\n" +
+                "   };\n\n" +
+                "   static void fn() {\n" +
+                "      $$PrintStream$println.accept(System.out);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -788,7 +865,7 @@ public class TestabilityTest extends BaseTest {
                 "     int i = 434242342;" +
                 "     System.out.write(i);" +
                 "   }" +
-                "   static public void exec() throws Exception {new X().fn();}\n" +
+                "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
                 "}\n"
         };
 
@@ -828,7 +905,7 @@ public class TestabilityTest extends BaseTest {
                         "     int i = 434242342;" +
                         "     lst.add(i);" +
                         "   }" +
-                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
                         "}\n"
         };
 
@@ -868,7 +945,7 @@ public class TestabilityTest extends BaseTest {
                         "     int i = 434242342;" +
                         "     new BigDecimal(i);" +
                         "   }" +
-                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
                         "}\n"
         };
 
@@ -904,7 +981,7 @@ public class TestabilityTest extends BaseTest {
                         "	void fn() throws Exception {" +
                         "     System.out.write(434242342);" +
                         "   }" +
-                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
                         "}\n"
         };
 
@@ -940,7 +1017,7 @@ public class TestabilityTest extends BaseTest {
                         "	void fn() throws Exception {" +
                         "     new BigDecimal(434242342);" +
                         "   }" +
-                        "   static public void exec() throws Exception {new X().fn();}\n" +
+                        "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
                         "}\n"
         };
 
@@ -1760,7 +1837,7 @@ public class TestabilityTest extends BaseTest {
                         "     return Integer.parseInt(\"1\");" +
                         "   };\n" +
                         "   public static int exec() {\n" +
-                        "     return new X().fn();\n" +
+                        "     dontredirect: return new X().fn();\n" +
                         "   }\n" +
                         "}\n"
         };
@@ -1799,7 +1876,7 @@ public class TestabilityTest extends BaseTest {
                         "     assert f!=null;" +
                         "   };" +
                         "   public static void exec(){\n" +
-                        "     new X().fn();" +
+                        "     dontredirect: new X().fn();" +
                         "   }\n" +
                         "}\n"
         };
@@ -2014,7 +2091,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "public class X {\n" +
                         "	PrintStream fn(){return System.out.append('c');}" +
-                        "   public static PrintStream exec(){return new X().fn();}\n" +
+                        "   public static PrintStream exec(){dontredirect: return new X().fn();}\n" +
                         "}\n"
         };
         String expectedOutput =
@@ -2053,7 +2130,16 @@ public class TestabilityTest extends BaseTest {
                         "   }\n" +
                         "}"
         };
-        String expectedOutput = task[1];
+        String expectedOutput =
+                "import helpers.Function0;\n\n" +
+                "public class X {\n" +
+                "   public static Function0<String> $$String$new = () -> {\n" +
+                "      return new String();\n" +
+                "   };\n\n" +
+                "   static void fn() {\n" +
+                "      $$String$new.apply();\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 

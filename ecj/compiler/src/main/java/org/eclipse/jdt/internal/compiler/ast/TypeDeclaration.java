@@ -78,7 +78,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     public int enumConstantsCounter;
 
     // testability
-    public List<Expression> allCallsToRedirect = new ArrayList<>();
+    public List<Map.Entry<Expression, Boolean>> allCallsToRedirect = new ArrayList<>();
     public Map<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
 
     // 1.5 support

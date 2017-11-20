@@ -39,9 +39,6 @@ public class Testability {
         if (methodScope == null) //TODO could it be block scope?
             return false;
 
-        if (methodScope.isStatic)
-            return false; //TODO remove when implemented
-
         if (isLabelledAsDontRedirect(methodScope, expressionToBeReplaced))
             return false;
         TypeDeclaration classDeclaration = methodScope.classScope().referenceContext;
@@ -390,21 +387,22 @@ public class Testability {
                 !fromTestabilityFieldInitializer(scope) && //it calls original code
 //                    !classReferenceContext.isTestabilityRedirectorMethod(scope) &&
                 !isTestabilityFieldAccess(messageSend.receiver) &&
-                !isLabelledAsDontRedirect(scope.methodScope(), messageSend) &&
-                        (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
+                !isLabelledAsDontRedirect(scope.methodScope(), messageSend)
                 ) //it calls the testability field apply method
 
         {
-            classReferenceContext.allCallsToRedirect.add(messageSend);
+            boolean isInStaticScope = (scope instanceof MethodScope)? ((MethodScope) scope).isStatic : false;
+            classReferenceContext.allCallsToRedirect.add(
+                    new AbstractMap.SimpleEntry<>(messageSend, isInStaticScope));
         }
     }
     public static void registerCallToRedirectIfNeeded(AllocationExpression allocationExpression, BlockScope scope) {
         TypeDeclaration classReferenceContext = scope.classScope().referenceContext;
         if (!fromTestabilityFieldInitializer(scope) &&
-                !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression) &&
-            (scope.methodScope()!=null && !scope.methodScope().isStatic) //TODO remove when implemented
+                !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression)
            ) {//it calls original code
-            classReferenceContext.allCallsToRedirect.add(allocationExpression);
+            boolean isInStaticScope = (scope instanceof MethodScope)? ((MethodScope) scope).isStatic : false;
+            classReferenceContext.allCallsToRedirect.add(new AbstractMap.SimpleEntry<>(allocationExpression, isInStaticScope));
         }
     }
 
@@ -537,16 +535,20 @@ public class Testability {
             Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
 
         //eliminate duplicates, since multiple call of the same method possible
-        Map<String, List<Expression>> uniqueFieldToExpression = typeDeclaration.allCallsToRedirect.stream().
+        Map<String, List<Map.Entry<Expression, Boolean>>> uniqueFieldToExpression = typeDeclaration.allCallsToRedirect.stream().
                 collect(
-                        Collectors.groupingBy(
-                                Testability::testabilityFieldDescriptorUniqueInOverload));
+                        Collectors.groupingBy(entry -> {
+                            Expression expr = entry.getKey();
+                            return testabilityFieldDescriptorUniqueInOverload(expr);
+                        })
+                );
 
-        List<Expression> distinctCalls = uniqueFieldToExpression.values().stream().
+        List<Map.Entry<Expression, Boolean>> distinctCalls = uniqueFieldToExpression.values().stream().
                 map(expressionList -> expressionList.get(0)).
                 collect(toList()); //take 1st value of each list (where items have same toUniqueMethodDescriptor()
 
         List<List<String>> shortNames = distinctCalls.stream().
+                map(Map.Entry::getKey).
                 map(originalExpression -> testabilityFieldName(originalExpression, true)).
                 collect(toList());
 
@@ -558,7 +560,9 @@ public class Testability {
 
         shortNames = Util.cloneAndEqualizeMatrix(shortNames, maxRowSize, "");
 
-        List<List<String>> longNames = Util.cloneAndEqualizeMatrix(distinctCalls.stream().
+        List<List<String>> longNames = Util.cloneAndEqualizeMatrix(
+                distinctCalls.stream().
+                map(Map.Entry::getKey).
                 map(originalExpression -> testabilityFieldName(originalExpression, false)).
                 collect(toList()), maxRowSize, "");
 
@@ -576,7 +580,10 @@ public class Testability {
 
         List<FieldDeclaration> ret = IntStream.range(0, uniqueFieldNames.size()).
                 mapToObj(pos -> {
-                    Expression originalCall = distinctCalls.get(pos);
+                    Map.Entry<Expression, Boolean> entry = distinctCalls.get(pos);
+                    Expression originalCall = entry.getKey();
+                    boolean fromStaticContext = entry.getValue();
+
                     List<String> fieldNameParts = uniqueFieldNames.get(pos);
 
                     String fieldName = TESTABILITY_FIELD_NAME_PREFIX + fieldNameParts.stream().collect(joining(""));
@@ -587,16 +594,20 @@ public class Testability {
                         MessageSend originalMessageSend = (MessageSend) originalCall;
 
                         fieldDeclaration = makeRedirectorFieldDeclaration(
-                                originalMessageSend, typeDeclaration,
+                                originalMessageSend,
+                                typeDeclaration,
                                 referenceBinding,
-                                fieldName);
+                                fieldName,
+                                fromStaticContext);
                     } else if (originalCall instanceof AllocationExpression) {
                         AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
 
                         fieldDeclaration = makeRedirectorFieldDeclaration(
-                                originalAllocationExpression, typeDeclaration,
+                                originalAllocationExpression,
+                                typeDeclaration,
                                 referenceBinding,
-                                fieldName);
+                                fieldName,
+                                fromStaticContext);
                     }
                     return fieldDeclaration;
                 }).
@@ -604,7 +615,9 @@ public class Testability {
 
         //ret is in the order of longFieldNameToExpression.values: 1st element of each list was used to make a field
         List<List<Expression>> longFieldNameToExpressionValues = new ArrayList<>(
-            uniqueFieldToExpression.values()
+            uniqueFieldToExpression.values().stream().
+                    map(lst -> lst.stream().map(Map.Entry::getKey).collect(toList())).
+                    collect(toList())
         );
 
         IdentityHashMap<Expression, FieldDeclaration> originalCallToField =
@@ -667,7 +680,8 @@ public class Testability {
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
-            String fieldName) {
+            String fieldName,
+            boolean fromStaticContext) {
 
         TypeBinding fieldTypeBinding = originalMessageSend.binding.returnType;
 
@@ -733,10 +747,15 @@ public class Testability {
 
         fieldDeclaration.type = parameterizedQualifiedTypeReferenceForFunction;
 
+        fieldDeclaration.modifiers = ClassFileConstants.AccPublic;
+
+        if (fromStaticContext)
+            fieldDeclaration.modifiers |= ClassFileConstants.AccStatic;
+
         FieldBinding fieldBinding = new FieldBinding(
                 fieldDeclaration,
                 typeBindingForFunction,
-                fieldDeclaration.modifiers | ClassFileConstants.AccPublic,
+                fieldDeclaration.modifiers,
                 typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
@@ -823,23 +842,14 @@ public class Testability {
         return fieldDeclaration;
     }
 
-    static boolean returnsVoid(MessageSend messageSend) {
-        return messageSend.binding.returnType instanceof VoidTypeBinding &&
-                !messageSend.binding.isConstructor(); //somehow constructors have void return type
-    }
 
-    static boolean receiverPrecedesParameters(MessageSend messageSend) {
-
-        if (messageSend.binding.isStatic()) //receiver is hardcoded in lambda implementation
-            return false;
-        return true;
-    }
 
     static FieldDeclaration makeRedirectorFieldDeclaration(
             AllocationExpression originalMessageSend,
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
-            String fieldName) {
+            String fieldName,
+            boolean fromStaticContext) {
 
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
@@ -898,10 +908,16 @@ public class Testability {
 
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
+        fieldDeclaration.modifiers = ClassFileConstants.AccPublic;
+
+        if (fromStaticContext)
+            fieldDeclaration.modifiers |= ClassFileConstants.AccStatic;
+
+
         FieldBinding fieldBinding = new FieldBinding(
                 fieldDeclaration,
                 typeBinding,
-                fieldDeclaration.modifiers | ClassFileConstants.AccPublic,
+                fieldDeclaration.modifiers,
                 typeDeclaration.binding);
 
         fieldDeclaration.binding = fieldBinding;
@@ -963,6 +979,18 @@ public class Testability {
 
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
+    }
+
+    static boolean returnsVoid(MessageSend messageSend) {
+        return messageSend.binding.returnType instanceof VoidTypeBinding &&
+                !messageSend.binding.isConstructor(); //somehow constructors have void return type
+    }
+
+    static boolean receiverPrecedesParameters(MessageSend messageSend) {
+
+        if (messageSend.binding.isStatic() || messageSend.receiver instanceof ThisReference) //receiver is hardcoded in lambda implementation
+            return false;
+        return true;
     }
     static FieldDeclaration makeListenerFieldDeclaration(
             TypeDeclaration typeDeclaration,
