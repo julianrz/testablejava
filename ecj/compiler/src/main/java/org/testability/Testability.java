@@ -142,6 +142,8 @@ public class Testability {
                         invocationSite);
 
         binding.modifiers = ClassFileConstants.AccPublic;
+        if ((originalBinding.modifiers & ClassFileConstants.AccVarargs)!=0)
+            binding.modifiers |= ClassFileConstants.AccVarargs;
         binding.selector = selector.toCharArray();
 
         return binding;

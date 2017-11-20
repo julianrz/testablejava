@@ -1929,25 +1929,25 @@ public class TestabilityTest extends BaseTest {
         assertEquals(System.out, ret);
     }
 
-    //TODO reen
-//    @Test
-//    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_Vararg() throws Exception {
-//
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "   java.io.PrintStream fn(int x){return System.out.format(\"\", x);}\n" +
-//                        "   public static java.io.PrintStream exec(){return new X().fn(1);}\n" +
-//                        "}\n"
-//        };
-//
-//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-//
-//        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
-//        Method main = cl.loadClass("X").getMethod("exec");
-//        Object ret = main.invoke(null);
-//        assertEquals(System.out, ret);
-//    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_Vararg() throws Exception {
+
+        //function s/be passing new Object[]{Integer.valueOf(var1) into format()
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   java.io.PrintStream fn(int x){return System.out.format(\"\", x);}\n" +
+                        "   public static java.io.PrintStream exec(){dontredirect: return new X().fn(1);}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals(System.out, ret);
+    }
 
     @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeArg() throws Exception {
