@@ -703,7 +703,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+            throw new RuntimeException("testablejava internal error, " + Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
         }
 
         Expression[] originalArguments = originalMessageSend.arguments;
@@ -1154,7 +1154,7 @@ public class Testability {
         if (dim == 0){
             if (typeBinding instanceof ReferenceBinding) {
                 ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;
-                if (typeBinding instanceof WildcardBinding){
+                if (typeBinding instanceof WildcardBinding) {
                     Wildcard wildcard = new Wildcard(((WildcardBinding) typeBinding).boundKind);
                     wildcard.bound = typeReferenceFromTypeBinding(((WildcardBinding) typeBinding).bound);
                     return wildcard;
@@ -1178,6 +1178,8 @@ public class Testability {
                             new long[binaryTypeBinding.compoundName.length]
                     );
                 }
+            } else if (typeBinding instanceof BaseTypeBinding){
+                return TypeReference.baseTypeReference(typeBinding.id, 0);
             } else { //TODO will this ever happen?
                 if (!typeBinding.isParameterizedType()) {
                     return new SingleTypeReference(
@@ -1201,11 +1203,25 @@ public class Testability {
                 }
             }
 
-        } else {
-            return new ArrayTypeReference(
-                    typeBinding.leafComponentType().sourceName(),//typeBinding.sourceName(),
+        } else { //array
+            TypeReference typeReference = typeReferenceFromTypeBinding(typeBinding.leafComponentType());
+            char[][] typeName = typeReference.getTypeName();
+            if (typeBinding.leafComponentType() instanceof BaseTypeBinding) {
+                //array of primitive type
+                return new ArrayTypeReference(
+                        typeBinding.leafComponentType().sourceName(),
+                        dim, //- 1,
+                        0
+                );
+            }
+
+            long[] poss = new long[typeName.length];
+            poss[poss.length - 1] = typeBinding.id;
+
+            return new ArrayQualifiedTypeReference(
+                    typeName, //typeBinding.leafComponentType().compoundName//.sourceName(),//typeBinding.sourceName(),
                     dim, //- 1,
-                    typeBinding.id
+                    poss
             );
         }
     }
@@ -1264,13 +1280,7 @@ public class Testability {
             ret.addAll(testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName));
 
             List<String> argTypes = Arrays.stream(originalMessageSend.argumentTypes).
-                    map(argType -> {
-                        String longName =
-                                new String(argType.constantPoolName()).
-                                        replace('/','.').
-                                        replace('[', '\u24b6'); //array symbol Ⓐ
-                        return escapeClassName(shortClassName? Util.lastChunk(longName, "."):longName);
-                    }).
+                    map(argType -> escapeArgType(argType, shortClassName)).
                     collect(toList());
 
             if (!argTypes.isEmpty()) ret.add(TESTABILITY_ARG_LIST_SEPARATOR);
@@ -1284,10 +1294,7 @@ public class Testability {
             ret.addAll(testabilityFieldNameForNewOperator(invokedClassName));
 
             List<String> argTypes = Arrays.stream(((AllocationExpression) originalCall).argumentTypes).
-                    map(argType -> {
-                        String longName = new String(argType.constantPoolName()).replace('/','.');;
-                        return escapeClassName(shortClassName? Util.lastChunk(longName, "."):longName);
-                    }).
+                    map(argType -> escapeArgType(argType, shortClassName)).
                     collect(toList());
 
             if (!argTypes.isEmpty()) ret.add(TESTABILITY_ARG_LIST_SEPARATOR);
@@ -1300,7 +1307,28 @@ public class Testability {
             throw new RuntimeException("domain error on argument");
     }
 
-    static String escapeClassName(String className) {
+    static String escapeArgType(TypeBinding argType, boolean shortForm) {
+        String constPoolName = new String(argType.constantPoolName());
+        if (shortForm) {
+            String shortName = Util.lastChunk(constPoolName, "/");
+            if (constPoolName.startsWith("[") && !shortName.startsWith("["))
+                shortName = "[" + shortName; //preserve, since it is not in last chunk
+            String shortEscapedName = escapePathSeparatorsAndArrayInTypeName(shortName) ;
+            return escapeTypeArgsInTypeName(shortEscapedName);
+        } else {
+            String longEscapedName = escapePathSeparatorsAndArrayInTypeName(constPoolName);
+            return escapeTypeArgsInTypeName(longEscapedName);
+        }
+    }
+
+    static String escapePathSeparatorsAndArrayInTypeName(String name) {
+        return name.
+                replace('/','$').
+                replace('[', '\u24b6').//array symbol Ⓐ
+                replace(';',' ').trim();
+    }
+
+    static String escapeTypeArgsInTypeName(String className) {
         return className.
                 replace("<","_").
                 replace(">","_").
@@ -1362,7 +1390,7 @@ public class Testability {
 
     static public List<String> testabilityFieldNameForExternalAccess(String methodClassName, String calledMethodName) {
         List<String> ret = new ArrayList<>();
-        ret.add(escapeClassName(methodClassName));
+        ret.add(escapeTypeArgsInTypeName(methodClassName));
         ret.add("$" + calledMethodName);
         return ret;
     }
