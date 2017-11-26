@@ -179,6 +179,9 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
+        if (qualifiedNameReference.resolvedType == null) //TODO return null depending on setting
+            throw new RuntimeException("could not resolve " + qualifiedNameReference + " during code replace");
+
         boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
 
         messageToFieldApply.receiver = qualifiedNameReference;
@@ -283,6 +286,9 @@ public class Testability {
 
             currentScope.methodScope().lastVisibleFieldID = savId;
         }
+
+        if (fieldNameReference.resolvedType == null) //TODO return null depending on setting
+            throw new RuntimeException("could not resolve " + fieldNameReference + " during code replace");
 
         messageToFieldApply.receiver = fieldNameReference;
 
