@@ -1285,10 +1285,17 @@ public class Testability {
 
             String invokedClassName;
 
-            if (receiverBinding instanceof ReferenceBinding)
-                invokedClassName = new String(readableName((ReferenceBinding) receiverBinding /*binding.declaringClass*/, shortClassName));
-            else
-                invokedClassName = new String(readableName(binding.declaringClass, shortClassName)); //TODO is this reachable?
+            //note: ThisReference in case of statically imported class (and static call) is a confusing case,
+            // for which we will use declaringClass
+            ReferenceBinding receiverReferenceBinding;
+            if (receiverBinding instanceof ReferenceBinding &&
+                    !(originalMessageSend.receiver instanceof ThisReference)) {
+                receiverReferenceBinding = (ReferenceBinding) receiverBinding;
+            } else {
+                receiverReferenceBinding = binding.declaringClass;
+            }
+
+            invokedClassName = new String(readableName(receiverReferenceBinding, shortClassName));
 
             String invokedMethodName = new String(originalMessageSend.selector);
 

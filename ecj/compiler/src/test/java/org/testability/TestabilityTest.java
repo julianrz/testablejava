@@ -1287,12 +1287,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import helpers.Consumer1;\n\n" +
                 "public class X {\n" +
-                        "   public Consumer1<String> $$Object$notify = (var1) -> {\n" +
+                        "   public Consumer1<String> $$String$notify = (var1) -> {\n" +
                         "      var1.notify();\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
                         "      String var1 = \"\";\n" +
-                        "      this.$$Object$notify.accept(var1);\n" +
+                        "      this.$$String$notify.accept(var1);\n" +
                         "   }\n" +
                         "}";
 
