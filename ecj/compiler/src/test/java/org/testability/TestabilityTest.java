@@ -1226,12 +1226,12 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import java.io.PrintStream;\n\n" +
                 "public class X {\n" +
-                "   public Function1<PrintStream, String> $$Object$toString = (var1) -> {\n" +
+                "   public Function1<PrintStream, String> $$PrintStream$toString = (var1) -> {\n" +
                 "      return var1.toString();\n" +
                 "   };\n" +
                 "\n" +
                 "   void fn() {\n" +
-                "      this.$$Object$toString.apply(System.out);\n" +
+                "      this.$$PrintStream$toString.apply(System.out);\n" +
                 "   }\n" +
                 "}";
 

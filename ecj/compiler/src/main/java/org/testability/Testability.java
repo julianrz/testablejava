@@ -590,6 +590,10 @@ public class Testability {
 
                     String fieldName = TESTABILITY_FIELD_NAME_PREFIX + fieldNameParts.stream().collect(joining(""));
 
+                    if (fieldName.equals("$$TypeBinding$isLocalType")) { //TODO remove
+                        System.out.println("tracking $$TypeBinding$isLocalType");
+                    }
+
                     FieldDeclaration fieldDeclaration = null;
 
                     if (originalCall instanceof MessageSend) {
@@ -716,7 +720,8 @@ public class Testability {
                    = new TypeBinding[typeArgsCount];
 
         if (parameterShift > 0)
-            typeArgumentsForFunction[0] = originalMessageSend.receiver.resolvedType;
+            typeArgumentsForFunction[0] = //originalMessageSend.binding.declaringClass;
+                    originalMessageSend.receiver.resolvedType; //apparent compile-time (non-virtual) class
 
         int iArg = parameterShift;
         for (TypeBinding arg : originalMessageSend.binding.parameters) {
@@ -1269,12 +1274,22 @@ public class Testability {
 
         MethodBinding binding = ((Invocation) originalCall).binding();
 
-        String invokedClassName = new String(readableName(binding.declaringClass, shortClassName));
 
         List<String> ret = new ArrayList<>();
 
+
+
         if (originalCall instanceof MessageSend) {
             MessageSend originalMessageSend = (MessageSend) originalCall;
+            TypeBinding receiverBinding = originalMessageSend.receiver.resolvedType;
+
+            String invokedClassName;
+
+            if (receiverBinding instanceof ReferenceBinding)
+                invokedClassName = new String(readableName((ReferenceBinding) receiverBinding /*binding.declaringClass*/, shortClassName));
+            else
+                invokedClassName = new String(readableName(binding.declaringClass, shortClassName)); //TODO is this reachable?
+
             String invokedMethodName = new String(originalMessageSend.selector);
 
             ret.addAll(testabilityFieldNameForExternalAccess(invokedClassName, invokedMethodName));
@@ -1290,6 +1305,8 @@ public class Testability {
             return ret;
         }
         else if (originalCall instanceof AllocationExpression) {
+
+            String invokedClassName = new String(readableName(binding.declaringClass, shortClassName));
 
             ret.addAll(testabilityFieldNameForNewOperator(invokedClassName));
 
