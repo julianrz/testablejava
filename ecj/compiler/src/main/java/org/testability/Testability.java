@@ -179,8 +179,10 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
-        if (qualifiedNameReference.resolvedType == null) //TODO return null depending on setting
-            throw new RuntimeException("could not resolve " + qualifiedNameReference + " during code replace");
+        if (qualifiedNameReference.resolvedType == null) {//TODO return null depending on setting
+            String fieldNames = fieldNamesFromScope(currentScope);
+            throw new RuntimeException(currentScope.referenceContext().compilationResult().toString() + " during code replace; candidates: " + fieldNames);
+        }
 
         boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
 
@@ -237,6 +239,12 @@ public class Testability {
         return messageToFieldApply;
     }
 
+    static String fieldNamesFromScope(BlockScope currentScope) {
+        return Arrays.stream(currentScope.methodScope().classScope().referenceContext.fields).
+                map(f -> new String(f.name)).
+                collect(joining("\n"));
+    }
+
     static void ensureImplicitConversion(Expression arg, TypeBinding targetParamType) {
         removeCharToIntImplicitConversionIfNeeded(arg);
 
@@ -287,9 +295,10 @@ public class Testability {
             currentScope.methodScope().lastVisibleFieldID = savId;
         }
 
-        if (fieldNameReference.resolvedType == null) //TODO return null depending on setting
-            throw new RuntimeException("could not resolve " + fieldNameReference + " during code replace");
-
+        if (fieldNameReference.resolvedType == null) {//TODO return null depending on setting
+            String fieldNames = fieldNamesFromScope(currentScope);
+            throw new RuntimeException(currentScope.referenceContext().compilationResult().toString() + " during code replace; candidates: " + fieldNames);
+        }
         messageToFieldApply.receiver = fieldNameReference;
 
         messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
@@ -399,7 +408,8 @@ public class Testability {
                 ) //it calls the testability field apply method
 
         {
-            boolean isInStaticScope = (scope instanceof MethodScope)? ((MethodScope) scope).isStatic : false;
+            MethodScope methodScope = scope.methodScope();
+            boolean isInStaticScope = methodScope==null? false : methodScope.isStatic;
             classReferenceContext.allCallsToRedirect.add(
                     new AbstractMap.SimpleEntry<>(messageSend, isInStaticScope));
         }
@@ -409,7 +419,8 @@ public class Testability {
         if (!fromTestabilityFieldInitializer(scope) &&
                 !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression)
            ) {//it calls original code
-            boolean isInStaticScope = (scope instanceof MethodScope)? ((MethodScope) scope).isStatic : false;
+            MethodScope methodScope = scope.methodScope();
+            boolean isInStaticScope = methodScope==null? false : methodScope.isStatic;
             classReferenceContext.allCallsToRedirect.add(new AbstractMap.SimpleEntry<>(allocationExpression, isInStaticScope));
         }
     }
