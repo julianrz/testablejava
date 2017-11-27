@@ -156,7 +156,7 @@ public class TestabilityTest extends BaseTest {
     }
     @Test
     public void testTestabilityInjectFunctionField_ForLocalCallNoArgs() throws Exception {
-        //??should it pass in instance for consistency? external call does but redundant here
+        //passes in instance for consistency. Also applicable for parent call
 
         //?? is $$X before $callee redundant here? $$ for consistency? $ always before name, $$$callee?
         String[] task = {
@@ -169,16 +169,16 @@ public class TestabilityTest extends BaseTest {
                 "}\n"
         };
         String expectedOutput =
-                "import helpers.Function0;\n\n" +
+                "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                "   public Function0<String> $$X$callee = () -> {\n" +
-                "      return this.callee();\n" +
+                "   public Function1<X, String> $$X$callee = (var1) -> {\n" +
+                "      return var1.callee();\n" +
                 "   };\n\n" +
                 "   String callee() {\n" +
                 "      return \"1\";\n" +
                 "   }\n\n" +
                 "   String fn() {\n" +
-                "      return (String)this.$$X$callee.apply();\n" +
+                "      return (String)this.$$X$callee.apply(this);\n" +
                 "   }\n" +
                 "}";
 
@@ -365,6 +365,92 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorWithNullArg() throws Exception {
+        String[] task = {
+                "Base.java",
+                "public class Base {}\n",
+
+                "T.java",
+                "public class T extends Base {}\n",
+
+                "Y.java",
+                "public class Y {\n" +
+                "   Y(T t){}\n" +
+                "}",
+
+                "X.java",
+                "public class X {\n" +
+                "	Y fn(){" +
+                "       T t = null;\n" +
+                "       return new Y(t);\n" +
+                "   }" +
+                "}\n"
+        };
+
+        String expectedOutput = "import helpers.Function1;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public Function1<T, Y> $$Y$new$$T = (var1) -> {\n" +
+                "      return new Y(var1);\n" +
+                "   };\n" +
+                "\n" +
+                "   Y fn() {\n" +
+                "      Object var1 = null;\n" +
+                "      return (Y)this.$$Y$new$$T.apply(var1);\n" +
+                "   }\n" +
+                "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+
+        Object actual = invokeCompiledMethod("X","fn");
+        assertEquals("Y", actual.getClass().getName());
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithNullArg() throws Exception {
+        //Note: apparent type T and not its base should be used to name the field
+        String[] task = {
+                "Base.java",
+                "public class Base {}\n",
+                "T.java",
+                "public class T extends Base {}\n",
+
+                "Y.java",
+                "public class Y {\n" +
+                        "   String fn(Base b){return \"1\";}\n" +
+                        "}",
+                "X.java",
+                        "public class X {\n" +
+                        "	String fn(){\n" +
+                        "       Y y;\n" +
+                        "       dontredirect: y = new Y();\n" +
+                        "       T t = null;\n" +
+                        "       return y.fn(t);\n" +
+                        "   }" +
+                        "}\n"
+        };
+//NOTE: decompiler somehow reports Object t, its type is lost
+        String expectedOutput =
+                "import helpers.Function2;\n\n" +
+                "public class X {\n" +
+                "   public Function2<Y, T, String> $$Y$fn$$T = (var1, var2) -> {\n" +
+                "      return var1.fn(var2);\n" +
+                "   };\n\n" +
+                "   String fn() {\n" +
+                "      Y var1 = new Y();\n" +
+                "      Object var2 = null;\n" +
+                "      return (String)this.$$Y$fn$$T.apply(var1, var2);\n" +
+                "   }\n" +
+                "}";
+
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+        assertEquals("1", invokeCompiledMethod("X", "fn"));
+
+    }
+
     @Test
     public void testTestabilityInjectFunctionField_ForExternalCallsWithOverloadGenerics() throws Exception {
         String[] task = {
@@ -389,7 +475,6 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import helpers.Function2;\n" +
                 "import java.util.ArrayList;\n" +
-                "import java.util.Collection;\n" +
                 "import java.util.List;\n\n" +
                 "public class X {\n" +
                         "   public Function1<List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var1) -> {\n" +
@@ -398,7 +483,7 @@ public class TestabilityTest extends BaseTest {
                         "   public Function2<List<Integer>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var1, var2) -> {\n" +
                         "      return Boolean.valueOf(var1.add(var2));\n" +
                         "   };\n" +
-                        "   public Function2<List<Integer>, Collection<? extends Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var1, var2) -> {\n" +
+                        "   public Function2<List<Integer>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var1, var2) -> {\n" +
                         "      return Boolean.valueOf(var1.addAll(var2));\n" +
                         "   };\n" +
                         "   public Function1<List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var1) -> {\n" +
@@ -407,7 +492,7 @@ public class TestabilityTest extends BaseTest {
                         "   public Function0<ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = () -> {\n" +
                         "      return new ArrayList();\n" +
                         "   };\n" +
-                        "   public Function2<List<String>, Collection<? extends String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var1, var2) -> {\n" +
+                        "   public Function2<List<String>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var1, var2) -> {\n" +
                         "      return Boolean.valueOf(var1.addAll(var2));\n" +
                         "   };\n" +
                         "   public Function0<ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = () -> {\n" +
@@ -675,13 +760,13 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import helpers.Function2;\n\n" +
                 "public class X {\n" +
-                        "   public Function2<Long, Long, Integer> $$Long$compare$$I$J = (var1, var2) -> {\n" +
-                        "      return Integer.valueOf(Long.compare(var1.longValue(), var2.longValue()));\n" +
+                        "   public Function2<Integer, Long, Integer> $$Long$compare$$I$J = (var1, var2) -> {\n" +
+                        "      return Integer.valueOf(Long.compare((long)var1.intValue(), var2.longValue()));\n" +
                         "   };\n\n" +
                         "   public int fn() {\n" +
                         "      int var1 = " + Integer.MAX_VALUE +";\n" +
                         "      long var2 = 2L;\n" +
-                        "      return ((Integer)this.$$Long$compare$$I$J.apply(Long.valueOf((long)var1), Long.valueOf(var2))).intValue();\n" +
+                        "      return ((Integer)this.$$Long$compare$$I$J.apply(Integer.valueOf(var1), Long.valueOf(var2))).intValue();\n" +
                         "   }\n" +
                         "}";
 
@@ -706,12 +791,12 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "   public Function1<Long, Long> $$Long$valueOf$$I = (var1) -> {\n" +
-                        "      return Long.valueOf(var1.longValue());\n" +
+                        "   public Function1<Integer, Long> $$Long$valueOf$$I = (var1) -> {\n" +
+                        "      return Long.valueOf((long)var1.intValue());\n" +
                         "   };\n\n" +
                         "   public Long fn() {\n" +
                         "      int var1 = " + Integer.MAX_VALUE + ";\n" +
-                        "      return (Long)this.$$Long$valueOf$$I.apply(Long.valueOf((long)var1));\n" +
+                        "      return (Long)this.$$Long$valueOf$$I.apply(Integer.valueOf(var1));\n" +
                         "   }\n" +
                         "}";
 

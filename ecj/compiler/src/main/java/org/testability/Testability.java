@@ -114,6 +114,7 @@ public class Testability {
 
     static MethodBinding makeRedirectorFieldMethodBinding(
             NameReference newReceiver,
+            Expression [] arguments,
             MethodBinding originalBinding,
             BlockScope currentScope,
             Optional<TypeBinding> receiverType,
@@ -122,12 +123,22 @@ public class Testability {
 
         TypeBinding[] parameters;
 
+        TypeBinding[] originalArgBindings = arguments!=null?
+                Arrays.stream(arguments).map(arg -> arg.resolvedType).collect(toList()).toArray(new TypeBinding[0]) :
+                new TypeBinding[0];
+
         if (receiverType.isPresent()) {
-            parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length + 1);
+
+            parameters = Arrays.copyOf(
+                    originalArgBindings/*originalBinding.parameters*/,
+                    originalBinding.parameters.length + 1
+            );
+
             System.arraycopy(parameters, 0, parameters, 1, parameters.length - 1);
             parameters[0] = receiverType.get();
         } else {
-            parameters = Arrays.copyOf(originalBinding.parameters, originalBinding.parameters.length);
+            parameters = Arrays.copyOf(originalArgBindings/*originalBinding.parameters*/,
+                    originalBinding.parameters.length);
         }
 
         String selector = returnsVoid?
@@ -190,6 +201,7 @@ public class Testability {
 
         messageToFieldApply.binding = makeRedirectorFieldMethodBinding( //TODO is this needed? see in addListenerCallsToConstructor, resolution sets this?
                 qualifiedNameReference,
+                messageSend.arguments,
                 messageSend.binding,
                 currentScope,
                 receiverPrecedes? Optional.of(messageSend.receiver.resolvedType) : Optional.empty(),
@@ -210,7 +222,8 @@ public class Testability {
         Expression[] argsWithReceiver = new Expression[parameterShift + originalArgCount];
         for (int iArg = 0; iArg< originalArgCount; iArg++) {
             Expression arg = messageSend.arguments[iArg];
-            TypeBinding targetParamType = messageSend.binding.parameters[iArg];
+            TypeBinding targetParamType = //messageSend.binding.parameters[iArg];
+                    messageSend.argumentTypes[iArg];
 
             ensureImplicitConversion(arg, targetParamType);
 
@@ -255,9 +268,10 @@ public class Testability {
     static void diagnoseBinding(MessageSend messageSend, BlockScope currentScope) {
         MethodBinding binding = messageSend.binding;
         if (binding instanceof ProblemMethodBinding) {
-            throw new RuntimeException("testability field method not found: " + binding + "; closest match: " + ((ProblemMethodBinding) binding).closestMatch);
+            throw new RuntimeException(
+                    "testability field method not found in " + new String(messageSend.receiver.resolvedType.readableName()) +": " + binding +
+                            "; closest match: " + ((ProblemMethodBinding) binding).closestMatch);
         }
-
     }
 
     /**
@@ -303,6 +317,7 @@ public class Testability {
 
         messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
                 fieldNameReference,
+                allocationExpression.arguments,
                 allocationExpression.binding,
                 currentScope,
                 Optional.empty(),
@@ -488,19 +503,19 @@ public class Testability {
 
                 @Override
                 public boolean visit(MessageSend messageSend, BlockScope scope) {
-                    System.out.println("visiting " + messageSend);
+//                    System.out.println("visiting " + messageSend);
                     checkIsFieldAccessExpression.accept(messageSend);
                     return super.visit(messageSend, scope);
                 }
                 @Override
                 public boolean visit(QualifiedNameReference qnr, BlockScope scope) {
-                    System.out.println("visiting qnr " + qnr);
+//                    System.out.println("visiting qnr " + qnr);
                     checkIsFieldAccessExpression.accept(qnr);
                     return super.visit(qnr, scope);
                 }
                 @Override
                 public boolean visit(FieldReference fr, BlockScope scope) {
-                    System.out.println("visiting field " + fr);
+//                    System.out.println("visiting field " + fr);
                     checkIsFieldAccessExpression.accept(fr);
                     return super.visit(fr, scope);
                 }
@@ -607,8 +622,8 @@ public class Testability {
 
                     String fieldName = TESTABILITY_FIELD_NAME_PREFIX + fieldNameParts.stream().collect(joining(""));
 
-                    if (fieldName.equals("$$TypeBinding$isLocalType")) { //TODO remove
-                        System.out.println("tracking $$TypeBinding$isLocalType");
+                    if (fieldName.equals("$$ASTNode$checkInvocationArguments$$BlockScope$N$ReferenceBinding$MethodBinding$ⒶExpression$ⒶTypeBinding$Z$QualifiedAllocationExpression")) { //TODO remove
+                        System.out.println("tracking $$ASTNode$checkInvocationArguments$$BlockScope$N$ReferenceBinding$MethodBinding$ⒶExpression$ⒶTypeBinding$Z$QualifiedAllocationExpression");
                     }
 
                     FieldDeclaration fieldDeclaration = null;
@@ -741,8 +756,27 @@ public class Testability {
                     originalMessageSend.receiver.resolvedType; //apparent compile-time (non-virtual) class
 
         int iArg = parameterShift;
-        for (TypeBinding arg : originalMessageSend.binding.parameters) {
-            typeArgumentsForFunction[iArg++] = boxIfApplicable(arg, lookupEnvironment);
+        boolean varargs = originalMessageSend.binding.parameters.length + parameterShift + (returnsVoid? 0 : 1) != typeArgumentsForFunction.length;
+
+        for (Expression arg : originalArguments) {//originalMessageSend.binding.parameters) {
+            TypeBinding argType = arg.resolvedType;
+
+            //special-case vararg case, need an array type even though compiler type can be single
+            int iArgOriginal = iArg - parameterShift;
+
+            TypeBinding argTypeOriginal = originalMessageSend.binding.parameters[iArgOriginal];
+
+            if (!varargs &&
+                    argTypeOriginal instanceof ArrayBinding &&
+                    argType != null &&
+                    !(argType instanceof ArrayBinding)) {
+                argType = argTypeOriginal;
+                varargs = true;
+            }
+
+            typeArgumentsForFunction[iArg] = boxIfApplicable(argType, lookupEnvironment);
+
+            iArg++;
         }
 
         if (!returnsVoid)
@@ -753,6 +787,14 @@ public class Testability {
                         genericType,
                         typeArgumentsForFunction,
                         referenceBinding);
+
+        if (varargs) {
+            char[] selector = (returnsVoid? TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER : TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION).toCharArray();
+            MethodBinding[] methods = typeBindingForFunction.actualType().getMethods(selector);
+            if (methods.length == 0)
+                throw new RuntimeException("testablejava internal error, no methods on functional interface on type " + typeBindingForFunction.actualType());
+            methods[0].modifiers |= ClassFileConstants.AccVarargs;
+        }
 
         TypeReference[][] typeReferences = new TypeReference[path.length][];
         typeReferences[path.length - 1] = Arrays.stream(typeArgumentsForFunction).
@@ -825,6 +867,7 @@ public class Testability {
             SingleNameReference singleNameReference = new SingleNameReference(name, 0);
 
             singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
+
             argv[i] = singleNameReference;
         }
 
@@ -906,6 +949,10 @@ public class Testability {
                 = new TypeBinding[originalArguments.length + 1];
 
         int iArg = 0;
+//        for (TypeBinding arg : originalMessageSend.binding.parameters) {
+//            typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);
+//        }
+
         for (Expression arg : originalArguments) {
             typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
         }
@@ -1012,7 +1059,7 @@ public class Testability {
 
     static boolean receiverPrecedesParameters(MessageSend messageSend) {
 
-        if (messageSend.binding.isStatic() || messageSend.receiver instanceof ThisReference) //receiver is hardcoded in lambda implementation
+        if (messageSend.binding.isStatic() /*|| messageSend.receiver instanceof ThisReference*/) //receiver is hardcoded in lambda implementation
             return false;
         return true;
     }
