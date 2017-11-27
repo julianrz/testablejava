@@ -101,7 +101,7 @@ public class HelpersInstrumenter {
             throw oneFailure.get();
     }
     static void emitConsumers(String targetDir) throws Exception {
-        Optional<Exception> oneFailure = IntStream.range(1, 255).parallel().
+        Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
                 mapToObj(iFunction -> {
                     try {
                         emitConsumer(iFunction, targetDir);
@@ -149,7 +149,8 @@ public class HelpersInstrumenter {
         TypeDescription.Generic[] parameters =
                 IntStream.range(0, iFunction).
                         mapToObj(iArg -> TypeDescription.Generic.Builder.typeVariable("T" + (1 + iArg)).build()).
-                        collect(toList()).toArray(new TypeDescription.Generic[iFunction]);
+                        collect(toList()).
+                        toArray(new TypeDescription.Generic[iFunction]);
 
         soFar
                 .defineMethod("apply",
@@ -168,28 +169,41 @@ public class HelpersInstrumenter {
             return;
 
 
-        DynamicType.Builder.TypeVariableDefinition<?> soFar = new ByteBuddy()
+        DynamicType.Builder<?> builder = new ByteBuddy()
                 .makeInterface()
                 .name(name)
-                .annotateType(AnnotationDescription.Builder.ofType(FunctionalInterface.class).build())
-                .typeVariable("T1");
+                .annotateType(AnnotationDescription.Builder.ofType(FunctionalInterface.class).build());
 
-        for (int iArg = 1; iArg < iFunction; iArg++) {
-            soFar = soFar.typeVariable("T" + (1 + iArg));
+        if (iFunction == 0) {
+            builder
+                    .defineMethod("accept",
+                            TypeDescription.VOID,
+                            Visibility.PUBLIC) //irrelevant for interfaces
+                    .withoutCode()
+                    .make()
+                    .saveIn(new File(targetDir));
+        } else {
+
+            DynamicType.Builder.TypeVariableDefinition<?> soFar = builder.typeVariable("T1");
+
+            for (int iArg = 1; iArg < iFunction; iArg++) {
+                soFar = soFar.typeVariable("T" + (1 + iArg));
+            }
+
+            TypeDescription.Generic[] parameters =
+                    IntStream.range(0, iFunction).
+                            mapToObj(iArg -> TypeDescription.Generic.Builder.typeVariable("T" + (1 + iArg)).build()).
+                            collect(toList()).
+                            toArray(new TypeDescription.Generic[iFunction]);
+
+            soFar
+                    .defineMethod("accept",
+                            TypeDescription.VOID,
+                            Visibility.PUBLIC) //irrelevant for interfaces
+                    .withParameters(parameters)
+                    .withoutCode()
+                    .make()
+                    .saveIn(new File(targetDir));
         }
-
-        TypeDescription.Generic[] parameters =
-                IntStream.range(0, iFunction).
-                        mapToObj(iArg -> TypeDescription.Generic.Builder.typeVariable("T" + (1 + iArg)).build()).
-                        collect(toList()).toArray(new TypeDescription.Generic[iFunction]);
-
-        soFar
-                .defineMethod("accept",
-                        TypeDescription.VOID,
-                        Visibility.PUBLIC) //irrelevant for interfaces
-                .withParameters(parameters)
-                .withoutCode()
-                .make()
-                .saveIn(new File(targetDir));
     }
 }
