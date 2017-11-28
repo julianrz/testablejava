@@ -27,6 +27,7 @@ public class Testability {
     public static final String TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER = "accept";
     public static final String TESTABILITYLABEL = "testabilitylabel"; //TODO can we use dontredirect: instead?
     public static final String DONTREDIRECT = "dontredirect";
+    public static final String TESTABLEJAVA_INTERNAL_ERROR = "testablejava internal error";
 
     /**
      *
@@ -127,18 +128,23 @@ public class Testability {
                 Arrays.stream(arguments).map(arg -> arg.resolvedType).collect(toList()).toArray(new TypeBinding[0]) :
                 new TypeBinding[0];
 
+        parameters = Arrays.copyOf(
+                originalArgBindings/*originalBinding.parameters*/,
+                originalArgBindings.length
+        );
+
+        if (originalBinding.isVarargs()) {
+            //last element in originalBinding.parameters is an array, preserve
+            parameters[originalBinding.parameters.length - 1] =
+                    originalBinding.parameters[originalBinding.parameters.length - 1];
+            //truncate parameters at that element
+            parameters = Arrays.copyOf(parameters, originalBinding.parameters.length);
+        }
+
         if (receiverType.isPresent()) {
-
-            parameters = Arrays.copyOf(
-                    originalArgBindings/*originalBinding.parameters*/,
-                    originalBinding.parameters.length + 1
-            );
-
+            parameters = Arrays.copyOf(parameters, parameters.length + 1);
             System.arraycopy(parameters, 0, parameters, 1, parameters.length - 1);
             parameters[0] = receiverType.get();
-        } else {
-            parameters = Arrays.copyOf(originalArgBindings/*originalBinding.parameters*/,
-                    originalBinding.parameters.length);
         }
 
         String selector = returnsVoid?
@@ -209,7 +215,7 @@ public class Testability {
                 returnsVoid(messageSend));
 
         if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException("internal error: unresolved field " + qualifiedNameReference);//TODO handle legally
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + qualifiedNameReference);//TODO handle legally
 
         messageToFieldApply.argumentTypes = messageToFieldApply.binding.parameters;//TODO original message has this, needed?
 
@@ -325,7 +331,7 @@ public class Testability {
                 false);
 
         if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException("internal error: unresolved field " + fieldNameReference);//TODO handle legally
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);//TODO handle legally
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
@@ -335,7 +341,8 @@ public class Testability {
             messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
             for (int iArg=0; iArg<messageToFieldApply.arguments.length; iArg++){
                 Expression arg = messageToFieldApply.arguments[iArg];
-                TypeBinding targetParamType = allocationExpression.binding.parameters[iArg];
+                TypeBinding targetParamType = //allocationExpression.binding.parameters[iArg];
+                        allocationExpression.argumentTypes[iArg];
                 ensureImplicitConversion(arg, targetParamType);
             }
         }
@@ -731,17 +738,6 @@ public class Testability {
 
         int parameterShift = receiverPrecedesParameters(originalMessageSend) ? 1 : 0;
 
-        char[][] path = {
-            "helpers".toCharArray(),
-            functionNameForArgs(originalMessageSend, originalMessageSend.arguments).toCharArray()
-        };
-
-        ReferenceBinding genericType = lookupEnvironment.getType(path);
-
-        if (genericType == null) {
-            throw new RuntimeException("testablejava internal error, " + Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
-        }
-
         Expression[] originalArguments = originalMessageSend.arguments;
         if (originalArguments == null)
             originalArguments = new Expression[0];
@@ -756,31 +752,56 @@ public class Testability {
                     originalMessageSend.receiver.resolvedType; //apparent compile-time (non-virtual) class
 
         int iArg = parameterShift;
-        boolean varargs = originalMessageSend.binding.parameters.length + parameterShift + (returnsVoid? 0 : 1) != typeArgumentsForFunction.length;
+        TypeBinding[] originalBindingParameters = originalMessageSend.binding.parameters;
+
+        boolean varargs = false;
 
         for (Expression arg : originalArguments) {//originalMessageSend.binding.parameters) {
             TypeBinding argType = arg.resolvedType;
 
-            //special-case vararg case, need an array type even though compiler type can be single
             int iArgOriginal = iArg - parameterShift;
 
-            TypeBinding argTypeOriginal = originalMessageSend.binding.parameters[iArgOriginal];
+            TypeBinding argTypeOriginal = iArgOriginal < originalBindingParameters.length?
+                    originalBindingParameters[iArgOriginal] : null;
 
-            if (!varargs &&
-                    argTypeOriginal instanceof ArrayBinding &&
+            //special-case NullTypeBinding, get resolved version
+            if (argType instanceof NullTypeBinding)
+                argType = argTypeOriginal;
+
+            //special-case vararg case, need an array type even though compiler type can be single
+            if (argTypeOriginal instanceof ArrayBinding &&
                     argType != null &&
                     !(argType instanceof ArrayBinding)) {
                 argType = argTypeOriginal;
                 varargs = true;
+                //last arg is array, skip the rest
+                typeArgumentsForFunction[iArg++] = boxIfApplicable(argType, lookupEnvironment);
+
+                break;
             }
-
-            typeArgumentsForFunction[iArg] = boxIfApplicable(argType, lookupEnvironment);
-
-            iArg++;
+            typeArgumentsForFunction[iArg++] = boxIfApplicable(argType, lookupEnvironment);
         }
 
         if (!returnsVoid)
             typeArgumentsForFunction[iArg++] = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
+
+        //truncate the rest
+        typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
+
+        int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
+
+        char[][] path = {
+            "helpers".toCharArray(),
+            functionNameForArgs(
+                    returnsVoid,
+                    functionArgCount).toCharArray()
+        };
+
+        ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        if (genericType == null) {
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
+        }
 
         ParameterizedTypeBinding typeBindingForFunction =
                 lookupEnvironment.createParameterizedType(
@@ -792,7 +813,7 @@ public class Testability {
             char[] selector = (returnsVoid? TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER : TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION).toCharArray();
             MethodBinding[] methods = typeBindingForFunction.actualType().getMethods(selector);
             if (methods.length == 0)
-                throw new RuntimeException("testablejava internal error, no methods on functional interface on type " + typeBindingForFunction.actualType());
+                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", no methods on functional interface on type " + typeBindingForFunction.actualType());
             methods[0].modifiers |= ClassFileConstants.AccVarargs;
         }
 
@@ -930,16 +951,6 @@ public class Testability {
 
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
 
-        char[][] path = {
-            "helpers".toCharArray(),
-            functionNameForArgs(originalMessageSend.arguments, 0, false).toCharArray()
-        };
-
-        ReferenceBinding genericType = lookupEnvironment.getType(path);
-
-        if (genericType == null) {
-            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
-        }
 
         Expression[] originalArguments = originalMessageSend.arguments;
         if (originalArguments == null)
@@ -949,14 +960,53 @@ public class Testability {
                 = new TypeBinding[originalArguments.length + 1];
 
         int iArg = 0;
-//        for (TypeBinding arg : originalMessageSend.binding.parameters) {
-//            typeArguments[iArg++] = boxIfApplicable(arg, lookupEnvironment);
-//        }
+        TypeBinding[] originalBingingParameters = originalMessageSend.binding.parameters;
+
+        boolean varargs = false;
 
         for (Expression arg : originalArguments) {
-            typeArguments[iArg++] = boxIfApplicable(arg.resolvedType, lookupEnvironment);
+            TypeBinding argType = arg.resolvedType;
+
+            TypeBinding argTypeOriginal = iArg < originalBingingParameters.length?
+                    originalBingingParameters[iArg] : null;
+
+            //special-case NullTypeBinding, get resolved version
+            if (argType instanceof NullTypeBinding)
+                argType = argTypeOriginal;
+
+            //special-case vararg case, need an array type even though compiler type can be single
+            if (argTypeOriginal instanceof ArrayBinding &&
+                argType != null &&
+                !(argType instanceof ArrayBinding)) {
+                argType = argTypeOriginal;
+                varargs = true;
+                //last arg is array, skip the rest
+                typeArguments[iArg++] = boxIfApplicable(argType, lookupEnvironment);
+
+                break;
+            }
+            typeArguments[iArg++] = boxIfApplicable(argType, lookupEnvironment);
         }
         typeArguments[iArg++] = fieldTypeBinding;
+
+        //truncate the rest
+        typeArguments = Arrays.copyOf(typeArguments, iArg);
+
+        int functionArgCount = typeArguments.length - 1;
+
+        char[][] path = {
+                "helpers".toCharArray(),
+                functionNameForArgs(
+                        false,
+                        functionArgCount).toCharArray()
+        };
+
+        ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        if (genericType == null) {
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
+        }
+
 
         ParameterizedTypeBinding typeBinding =
                 lookupEnvironment.createParameterizedType(
@@ -976,6 +1026,14 @@ public class Testability {
                 typeReferences,
                 0,
                 new long[path.length]);
+
+        if (varargs) {
+            char[] selector = TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray();
+            MethodBinding[] methods = typeBinding.actualType().getMethods(selector);
+            if (methods.length == 0)
+                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", no methods on functional interface on type " + typeBinding.actualType());
+            methods[0].modifiers |= ClassFileConstants.AccVarargs;
+        }
 
         fieldDeclaration.type = parameterizedQualifiedTypeReference;
 
@@ -1082,7 +1140,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
         }
 
         TypeBinding[] typeArguments //class
@@ -1162,7 +1220,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException("testablejava internal error, " + new String(path[0]) + " not found");
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
         }
 
         TypeBinding[] typeArguments //class
@@ -1209,6 +1267,18 @@ public class Testability {
     static String functionNameForArgs(Expression[] arguments, int parameterShift, boolean returnsVoid) {
         int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
 
+        return functionNameForArgs(returnsVoid, functionArgCount);
+    }
+
+    /**
+     *
+     * @param returnsVoid true for Consumer and false for Function
+     * @param functionArgCount actual number of arguments passed to the function,
+     *                         e.g. one less than type arguments for Function
+     *                         and exactly the count of type args for Consumer
+     * @return
+     */
+    static String functionNameForArgs(boolean returnsVoid, int functionArgCount) {
         String name = (
                 returnsVoid ?
                         "Consumer" :
@@ -1247,6 +1317,8 @@ public class Testability {
                             new long[binaryTypeBinding.compoundName.length]
                     );
                 }
+            } else if (typeBinding instanceof NullTypeBinding){
+                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", NullTypeBinding passed in");
             } else if (typeBinding instanceof BaseTypeBinding){
                 return TypeReference.baseTypeReference(typeBinding.id, 0);
             } else { //TODO will this ever happen?
@@ -1607,7 +1679,7 @@ public class Testability {
         labeledStatement.resolve(constructorDeclaration.scope);
 
         if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException("internal error: unresolved field " + fieldNameReference);
+            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);
 
         return labeledStatement;
     }

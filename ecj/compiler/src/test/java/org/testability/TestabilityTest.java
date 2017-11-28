@@ -2070,7 +2070,71 @@ public class TestabilityTest extends BaseTest {
         Object ret = main.invoke(null);
         assertEquals(System.out, ret);
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_MultipleVararg() throws Exception {
 
+        //function s/be passing new Object[]{Integer.valueOf(var1) into format()
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   java.io.PrintStream fn(int x, long y){return System.out.format(\"\", x, y);}\n" +
+                        "   public static java.io.PrintStream exec(){dontredirect: return new X().fn(1, 2L);}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals(System.out, ret);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperator_Vararg() throws Exception {
+
+        //function s/be passing new Object[]{Integer.valueOf(var1) into format()
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   Y(String f, Object... x){}\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   Y fn(int x){return new Y(\"\", x);}\n" +
+                        "   public static Y exec(){dontredirect: return new X().fn(1);}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("Y", ret.getClass().getName());
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperator_MultipleVararg() throws Exception {
+
+        //function s/be passing new Object[]{Integer.valueOf(var1) into format()
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   Y(String f, Object... x){}\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   Y fn(int x, long y){return new Y(\"\", x, y);}\n" +
+                        "   public static Y exec(){dontredirect: return new X().fn(1, 2L);}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("Y", ret.getClass().getName());
+    }
     @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_PrimitiveTypeArg() throws Exception {
 
