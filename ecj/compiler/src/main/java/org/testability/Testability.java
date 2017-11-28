@@ -781,6 +781,13 @@ public class Testability {
         //truncate the rest
         typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
 
+        //rewire anonymous inner classes to their parents
+        for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
+            TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
+            if (typeBinding.isAnonymousType())
+                typeArgumentsForFunction[iTypeArg] = typeArgumentsForFunction[iTypeArg].superclass();
+        }
+
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
 
         char[][] path = {
@@ -1271,8 +1278,11 @@ public class Testability {
                     wildcard.bound = typeReferenceFromTypeBinding(((WildcardBinding) typeBinding).bound);
                     return wildcard;
                 }
+
+                char[][] compoundName = expandInternalName(binaryTypeBinding.compoundName);
+
                 if (!typeBinding.isParameterizedType()) {
-                    return new QualifiedTypeReference(binaryTypeBinding.compoundName, new long[binaryTypeBinding.compoundName.length]);
+                    return new QualifiedTypeReference(compoundName, new long[compoundName.length]);
                 } else {
                     ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
                     TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
@@ -1281,14 +1291,14 @@ public class Testability {
                             map(Testability::typeReferenceFromTypeBinding).
                             collect(Collectors.toList()).toArray(typeArguments);
 
-                    TypeReference[][] typeArgumentsCompound = new TypeReference[binaryTypeBinding.compoundName.length][];//{typeArguments};
+                    TypeReference[][] typeArgumentsCompound = new TypeReference[compoundName.length][];//{typeArguments};
                     typeArgumentsCompound[typeArgumentsCompound.length - 1] = typeArguments;
 
                     return new ParameterizedQualifiedTypeReference(
-                            binaryTypeBinding.compoundName,
+                            compoundName,
                             typeArgumentsCompound,
                             dim,
-                            new long[binaryTypeBinding.compoundName.length]
+                            new long[compoundName.length]
                     );
                 }
             } else if (typeBinding instanceof NullTypeBinding){
@@ -1296,9 +1306,10 @@ public class Testability {
             } else if (typeBinding instanceof BaseTypeBinding){
                 return TypeReference.baseTypeReference(typeBinding.id, 0);
             } else { //TODO will this ever happen?
+                char[][] sourceName = expandInternalName(typeBinding.sourceName());
                 if (!typeBinding.isParameterizedType()) {
-                    return new SingleTypeReference(
-                            typeBinding.sourceName(), 0
+                    return new QualifiedTypeReference(
+                            sourceName, new long[sourceName.length]
                     );
                 } else {
                     ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
@@ -1309,11 +1320,14 @@ public class Testability {
                             map(Testability::typeReferenceFromTypeBinding).
                             collect(Collectors.toList()).toArray(typeArguments);
 
-                    return new ParameterizedSingleTypeReference(
-                            typeBinding.sourceName(),
-                            typeArguments,
+                    TypeReference[][] typeArgumentsCompound = new TypeReference[sourceName.length][];//{typeArguments};
+                    typeArgumentsCompound[typeArgumentsCompound.length - 1] = typeArguments;
+
+                    return new ParameterizedQualifiedTypeReference(
+                            sourceName,
+                            typeArgumentsCompound,
                             dim,
-                            0
+                            new long[sourceName.length]
                     );
                 }
             }
@@ -1340,6 +1354,37 @@ public class Testability {
             );
         }
     }
+
+    /**
+     *
+     * @param compoundName
+     * @return deep copy of arg where in each element with '$' replaced with '.'
+     */
+    static char[][] expandInternalName(char[][] compoundName) {
+        return Arrays.stream(compoundName).
+                flatMap(chunk -> Arrays.stream(expandInternalName(chunk))).
+                collect(toList()).
+                toArray(new char[][]{});
+    }
+
+    /**
+     *
+     * @param internalName
+     * @return copy of arg split by '$'
+     */
+    static char[][] expandInternalName(char[] internalName) {
+        String internalNameStr = new String(internalName);
+
+        String[] chunks = internalNameStr.split("\\$");
+
+        char [][] ret = new char[chunks.length][];
+
+        for (int i = 0; i < chunks.length; i++) {
+            ret[i] = chunks[i].toCharArray();
+        }
+        return ret;
+    }
+
     static public TypeBinding boxIfApplicable(TypeBinding typeBinding, LookupEnvironment lookupEnvironment) {
         if (typeBinding instanceof BaseTypeBinding){
             BaseTypeBinding baseTypeBinding = (BaseTypeBinding) typeBinding;
@@ -1400,6 +1445,10 @@ public class Testability {
                 receiverReferenceBinding = (ReferenceBinding) receiverBinding;
             } else {
                 receiverReferenceBinding = binding.declaringClass;
+            }
+
+            if (receiverReferenceBinding.isAnonymousType()){
+                receiverReferenceBinding = ((LocalTypeBinding) receiverReferenceBinding).superclass;
             }
 
             invokedClassName = new String(readableName(receiverReferenceBinding, shortClassName));

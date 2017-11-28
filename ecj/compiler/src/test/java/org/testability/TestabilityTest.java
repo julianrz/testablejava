@@ -2567,4 +2567,68 @@ public class TestabilityTest extends BaseTest {
             assertEquals("from lambda",exOriginal.getMessage());
         }
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_InnerClassArg() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class Z { " +
+                        "     Z zfn(){return this;}" +
+                        "   };\n" +
+                        "   Z fn(){return new Z().zfn();};\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   public static Y.Z exec(){dontredirect: return new Y().fn();}\n" +
+                        "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("Y$Z", ret.getClass().getName());
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_AnonymousInnerClassArg() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class Z { " +
+                        "     Z zfn(){return this;}" +
+                        "   };\n" +
+                        "   Z fn(){return new Z(){}.zfn();};\n" +
+                        "}\n",
+                "X.java",
+                "public class X {\n" +
+                        "   public static Y.Z exec(){dontredirect: return new Y().fn();}\n" +
+                        "}\n"
+        };
+        String expectedOutput =
+                "import Y.1;\n" +
+                "import Y.Z;\n" +
+                "import helpers.Function1;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public Function1<Z, Z> $$Z$zfn = (var1) -> {\n" +
+                "      return var1.zfn();\n" +
+                "   };\n\n" +
+                "   Z fn() {\n" +
+                "      return (Z)this.$$Z$zfn.apply(new 1(this, this));\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
+        Method main = cl.loadClass("X").getMethod("exec");
+        Object ret = main.invoke(null);
+        assertEquals("Y$Z", ret.getClass().getSuperclass().getName());
+
+
+        assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
 }
