@@ -129,7 +129,7 @@ public class Testability {
                 new TypeBinding[0];
 
         parameters = Arrays.copyOf(
-                originalArgBindings/*originalBinding.parameters*/,
+                originalArgBindings,
                 originalArgBindings.length
         );
 
@@ -191,7 +191,7 @@ public class Testability {
                         TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
                         TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
 
-        messageToFieldApply.selector = selector.toCharArray();//TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray();
+        messageToFieldApply.selector = selector.toCharArray();
 
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
@@ -228,7 +228,7 @@ public class Testability {
         Expression[] argsWithReceiver = new Expression[parameterShift + originalArgCount];
         for (int iArg = 0; iArg< originalArgCount; iArg++) {
             Expression arg = messageSend.arguments[iArg];
-            TypeBinding targetParamType = //messageSend.binding.parameters[iArg];
+            TypeBinding targetParamType =
                     messageSend.argumentTypes[iArg];
 
             ensureImplicitConversion(arg, targetParamType);
@@ -300,7 +300,7 @@ public class Testability {
 
         MessageSend messageToFieldApply = new MessageSend();
 
-        String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForNewOperator(methodClassName);
+        String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);
 
         messageToFieldApply.selector = TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray(); //always Function for allocation
 
@@ -341,7 +341,7 @@ public class Testability {
             messageToFieldApply.arguments = Arrays.copyOf(allocationExpression.arguments, allocationExpression.arguments.length);
             for (int iArg=0; iArg<messageToFieldApply.arguments.length; iArg++){
                 Expression arg = messageToFieldApply.arguments[iArg];
-                TypeBinding targetParamType = //allocationExpression.binding.parameters[iArg];
+                TypeBinding targetParamType =
                         allocationExpression.argumentTypes[iArg];
                 ensureImplicitConversion(arg, targetParamType);
             }
@@ -510,19 +510,16 @@ public class Testability {
 
                 @Override
                 public boolean visit(MessageSend messageSend, BlockScope scope) {
-//                    System.out.println("visiting " + messageSend);
                     checkIsFieldAccessExpression.accept(messageSend);
                     return super.visit(messageSend, scope);
                 }
                 @Override
                 public boolean visit(QualifiedNameReference qnr, BlockScope scope) {
-//                    System.out.println("visiting qnr " + qnr);
                     checkIsFieldAccessExpression.accept(qnr);
                     return super.visit(qnr, scope);
                 }
                 @Override
                 public boolean visit(FieldReference fr, BlockScope scope) {
-//                    System.out.println("visiting field " + fr);
                     checkIsFieldAccessExpression.accept(fr);
                     return super.visit(fr, scope);
                 }
@@ -628,10 +625,6 @@ public class Testability {
                     List<String> fieldNameParts = uniqueFieldNames.get(pos);
 
                     String fieldName = TESTABILITY_FIELD_NAME_PREFIX + fieldNameParts.stream().collect(joining(""));
-
-                    if (fieldName.equals("$$ASTNode$checkInvocationArguments$$BlockScope$N$ReferenceBinding$MethodBinding$ⒶExpression$ⒶTypeBinding$Z$QualifiedAllocationExpression")) { //TODO remove
-                        System.out.println("tracking $$ASTNode$checkInvocationArguments$$BlockScope$N$ReferenceBinding$MethodBinding$ⒶExpression$ⒶTypeBinding$Z$QualifiedAllocationExpression");
-                    }
 
                     FieldDeclaration fieldDeclaration = null;
 
@@ -862,7 +855,7 @@ public class Testability {
         //if receiver provided as lambda arg0, (arg0, arg1, .. argN) -> arg0.apply(arg1, .. argN)
         //otherwise (arg0, .. argN) -> (hardcodedReceiver, arg0, .. argN)
 
-        if (receiverPrecedesParameters(originalMessageSend)){//originalMessageSend.receiver)) {
+        if (receiverPrecedesParameters(originalMessageSend)){
             Expression newReceiver = new SingleNameReference((" arg0").toCharArray(), 0);
 
             messageSendInLambdaBody.receiver = newReceiver;
@@ -951,7 +944,6 @@ public class Testability {
 
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
 
-
         Expression[] originalArguments = originalMessageSend.arguments;
         if (originalArguments == null)
             originalArguments = new Expression[0];
@@ -1007,7 +999,6 @@ public class Testability {
             throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
         }
 
-
         ParameterizedTypeBinding typeBinding =
                 lookupEnvironment.createParameterizedType(
                         genericType,
@@ -1042,7 +1033,6 @@ public class Testability {
         if (fromStaticContext)
             fieldDeclaration.modifiers |= ClassFileConstants.AccStatic;
 
-
         FieldBinding fieldBinding = new FieldBinding(
                 fieldDeclaration,
                 typeBinding,
@@ -1055,7 +1045,7 @@ public class Testability {
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
 
-        int argc = typeArguments.length - 1; //type args has return at the end, method args do not //Optional.ofNullable(originalMessageSend.arguments).map(ex -> ex.length).orElse(0);//this.descriptor.parameters.length;
+        int argc = typeArguments.length - 1; //type args has return at the end, method args do not
         Argument[] arguments = new Argument[argc];
         for (int i = 0; i < argc; i++) {
             TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
@@ -1254,23 +1244,6 @@ public class Testability {
     }
 
     /**
-     * Function name reflects # of its arguments, which is # of type args - 1
-     * @param messageSend
-     * @return
-     */
-    static String functionNameForArgs(MessageSend messageSend, Expression [] messageSendArguments) {
-        int parameterShift = receiverPrecedesParameters(messageSend) ? 1 : 0;
-        boolean returnsVoid = returnsVoid(messageSend);
-        return functionNameForArgs(messageSendArguments, parameterShift, returnsVoid);
-    }
-
-    static String functionNameForArgs(Expression[] arguments, int parameterShift, boolean returnsVoid) {
-        int functionArgCount = (arguments == null? 0 : arguments.length) + parameterShift;
-
-        return functionNameForArgs(returnsVoid, functionArgCount);
-    }
-
-    /**
      *
      * @param returnsVoid true for Consumer and false for Function
      * @param functionArgCount actual number of arguments passed to the function,
@@ -1310,6 +1283,7 @@ public class Testability {
 
                     TypeReference[][] typeArgumentsCompound = new TypeReference[binaryTypeBinding.compoundName.length][];//{typeArguments};
                     typeArgumentsCompound[typeArgumentsCompound.length - 1] = typeArguments;
+
                     return new ParameterizedQualifiedTypeReference(
                             binaryTypeBinding.compoundName,
                             typeArgumentsCompound,
@@ -1360,8 +1334,8 @@ public class Testability {
             poss[poss.length - 1] = typeBinding.id;
 
             return new ArrayQualifiedTypeReference(
-                    typeName, //typeBinding.leafComponentType().compoundName//.sourceName(),//typeBinding.sourceName(),
-                    dim, //- 1,
+                    typeName,
+                    dim,
                     poss
             );
         }
@@ -1410,10 +1384,7 @@ public class Testability {
 
         MethodBinding binding = ((Invocation) originalCall).binding();
 
-
         List<String> ret = new ArrayList<>();
-
-
 
         if (originalCall instanceof MessageSend) {
             MessageSend originalMessageSend = (MessageSend) originalCall;
@@ -1683,6 +1654,4 @@ public class Testability {
 
         return labeledStatement;
     }
-
-
 }
