@@ -42,7 +42,7 @@ public class Testability {
 
         if (isLabelledAsDontRedirect(methodScope, expressionToBeReplaced))
             return false;
-        TypeDeclaration classDeclaration = methodScope.classScope().referenceContext;
+        TypeDeclaration classDeclaration = methodScope.outerMostClassScope().referenceContext;
 
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
             return false;
@@ -180,7 +180,7 @@ public class Testability {
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing?
 
-        TypeDeclaration typeDeclaration = currentScope.classScope().referenceContext;
+        TypeDeclaration typeDeclaration = currentScope.outerMostClassScope().referenceContext;
         FieldDeclaration redirectorFieldDeclaration = typeDeclaration.callExpressionToRedirectorField.get(messageSend);
 
         MessageSend messageToFieldApply = new MessageSend();
@@ -295,7 +295,7 @@ public class Testability {
 
         //retarget the current message to generated local field'a apply() method. Arguments s/be the same, except boxing
 
-        TypeDeclaration typeDeclaration = currentScope.classScope().referenceContext;
+        TypeDeclaration typeDeclaration = currentScope.outerMostClassScope().referenceContext;
         FieldDeclaration redirectorFieldDeclaration = typeDeclaration.callExpressionToRedirectorField.get(allocationExpression);
 
         MessageSend messageToFieldApply = new MessageSend();
@@ -420,7 +420,7 @@ public class Testability {
     }
 
     public static void registerCallToRedirectIfNeeded(MessageSend messageSend, BlockScope scope) {
-        TypeDeclaration classReferenceContext = scope.classScope().referenceContext;
+        TypeDeclaration classReferenceContext = scope.outerMostClassScope().referenceContext;
         if (
 //                    !classReferenceContext.isTestabilityRedirectorField(this.receiver) &&
                 !fromTestabilityFieldInitializer(scope) && //it calls original code
@@ -437,7 +437,7 @@ public class Testability {
         }
     }
     public static void registerCallToRedirectIfNeeded(AllocationExpression allocationExpression, BlockScope scope) {
-        TypeDeclaration classReferenceContext = scope.classScope().referenceContext;
+        TypeDeclaration classReferenceContext = scope.outerMostClassScope().referenceContext;
         if (!fromTestabilityFieldInitializer(scope) &&
                 !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression)
            ) {//it calls original code

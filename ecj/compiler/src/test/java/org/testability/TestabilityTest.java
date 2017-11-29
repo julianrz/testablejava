@@ -2592,20 +2592,107 @@ public class TestabilityTest extends BaseTest {
         assertEquals("Y$Z", ret.getClass().getName());
     }
     @Test
+    public void testTestabilityInjectFunctionField_ForNewOperator_ExpandsInsideInnerClass() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                "   class Z { " +
+                "     String zfn(){return new String(\"1\");}" +
+                "   };\n" +
+                "   public String fn(){" +
+                "     dontredirect2: return new Z().zfn();" +
+                "   }\n" +
+                "}\n"
+        };
+
+        String expectedOutputY = //note the field is created on outer class
+                "import Y.Z;\n" +
+                "import helpers.Function1;\n\n" +
+                "public class Y {\n" +
+                "   public Function1<String, String> $$String$new$$String = (var1) -> {\n" +
+                "      return new String(var1);\n" +
+                "   };\n\n" +
+                "   public String fn() {\n" +
+                "      return (new Z(this)).zfn();\n" +
+                "   }\n" +
+                "}";
+
+        String expectedOutputZ =
+                "class Y$Z {\n" +
+                "   Y$Z(Y var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n\n" +
+                "   String zfn() {\n" +
+                "      return (String)this.this$0.$$String$new$$String.apply(\"1\");\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        Object ret = invokeCompiledMethod("Y", "fn");
+
+        assertEquals("1", ret);
+
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(expectedOutputZ, moduleMap.get("Y$Z").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_ExpandsInsideInnerClass() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                "   class Z { " +
+                "     String zfn(){return String.valueOf(1);}" +
+                "   };\n" +
+                "   public String fn(){" +
+                "     dontredirect: return new Z().zfn();" +
+                "   }\n" +
+                "}\n"
+        };
+
+        String expectedOutputY = //note the field is created on outer class
+                "import Y.Z;\n" +
+                "import helpers.Function1;\n\n" +
+                "public class Y {\n" +
+                "   public Function1<Integer, String> $$String$valueOf$$I = (var1) -> {\n" +
+                "      return String.valueOf(var1);\n" +
+                "   };\n\n" +
+                "   public String fn() {\n" +
+                "      return (new Z(this)).zfn();\n" +
+                "   }\n" +
+                "}";
+
+        String expectedOutputZ =
+                "class Y$Z {\n" +
+                "   Y$Z(Y var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n\n" +
+                "   String zfn() {\n" +
+                "      return (String)this.this$0.$$String$valueOf$$I.apply(Integer.valueOf(1));\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        Object ret = invokeCompiledMethod("Y", "fn");
+        assertEquals("1", ret);
+
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(expectedOutputZ, moduleMap.get("Y$Z").stream().collect(joining("\n")));
+    }
+    @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_AnonymousInnerClassArg() throws Exception {
 
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   class Z { " +
-                        "     Z zfn(){return this;}" +
-                        "   };\n" +
-                        "   Z fn(){return new Z(){}.zfn();};\n" +
-                        "}\n",
-                "X.java",
-                "public class X {\n" +
-                        "   public static Y.Z exec(){dontredirect: return new Y().fn();}\n" +
-                        "}\n"
+                "   class Z { " +
+                "     Z zfn(){return this;}" +
+                "   };\n" +
+                "   Z fn(){return new Z(){}.zfn();};\n" +
+                "}\n"
         };
         String expectedOutput =
                 "import Y.1;\n" +
@@ -2620,14 +2707,45 @@ public class TestabilityTest extends BaseTest {
                 "      return (Z)this.$$Z$zfn.apply(new 1(this, this));\n" +
                 "   }\n" +
                 "}";
+//TODO why call new Z(){} not turned into a field?
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        Object ret = invokeCompiledMethod("Y", "fn");//main.invoke(null);
+
+        assertEquals("Y$Z", ret.getClass().getSuperclass().getName());
+
+        assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperator_ForAnonymousInnerClass() throws Exception {
+
+        String[] task = {
+                "Z.java",
+                "public class Z {}",
+                "Y.java",
+                "public class Y {\n" +
+                "   Z fn(){return new Z(){};}\n" +
+                "}\n"
+        };
+        String expectedOutput =
+                "import Y.1;\n" +
+                        "import Z;\n" +
+                        "import helpers.Function1;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "   public Function1<Z, Z> $$Y$Z$new = (var1) -> {\n" +
+                        "      return new 1();\n" +
+                        "   };\n\n" +
+                        "   Z fn() {\n" +
+                        "      return (Z)this.$$Y$Z$new.apply();\n" +
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
-        URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
-        Method main = cl.loadClass("X").getMethod("exec");
-        Object ret = main.invoke(null);
-        assertEquals("Y$Z", ret.getClass().getSuperclass().getName());
+        Object ret = invokeCompiledMethod("Y", "fn");//main.invoke(null);
 
+        assertEquals("Z", ret.getClass().getSuperclass().getName());
 
         assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
     }
