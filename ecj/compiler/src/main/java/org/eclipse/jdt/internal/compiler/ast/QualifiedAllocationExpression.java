@@ -86,7 +86,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 
         // check captured variables are initialized in current context (26134)
         checkCapturedLocalInitializationIfNecessary(
-                (ReferenceBinding)(this.anonymousType == null
+                (ReferenceBinding) (this.anonymousType == null
                         ? this.binding.declaringClass.erasure()
                         : this.binding.declaringClass.superclass().erasure()),
                 currentScope,
@@ -97,7 +97,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
             boolean analyseResources = currentScope.compilerOptions().analyseResourceLeaks;
             boolean hasResourceWrapperType = analyseResources
                     && this.resolvedType instanceof ReferenceBinding
-                    && ((ReferenceBinding)this.resolvedType).hasTypeBit(TypeIds.BitWrapperCloseable);
+                    && ((ReferenceBinding) this.resolvedType).hasTypeBit(TypeIds.BitWrapperCloseable);
             for (int i = 0, count = this.arguments.length; i < count; i++) {
                 flowInfo = this.arguments[i].analyseCode(currentScope, flowContext, flowInfo);
                 if (analyseResources && !hasResourceWrapperType) { // allocation of wrapped closeables is analyzed specially
@@ -205,11 +205,11 @@ public class QualifiedAllocationExpression extends AllocationExpression {
             // conversion only generated if unboxing
             codeStream.generateImplicitConversion(this.implicitConversion);
             switch (postConversionType(currentScope).id) {
-                case T_long :
-                case T_double :
+                case T_long:
+                case T_double:
                     codeStream.pop2();
                     break;
-                default :
+                default:
                     codeStream.pop();
             }
         }
@@ -234,7 +234,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
      * exact need.
      */
     public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo) {
-        if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0)	{
+        if ((flowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) == 0) {
             ReferenceBinding allocatedTypeErasure = (ReferenceBinding) this.binding.declaringClass.erasure();
 
             // perform some extra emulation work in case there is some and we are inside a local type only
@@ -309,7 +309,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                     this.enclosingInstance.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
                     enclosingInstanceContainsCast = true;
                 }
-                if ((enclosingInstanceType = this.enclosingInstance.resolveType(scope)) == null){
+                if ((enclosingInstanceType = this.enclosingInstance.resolveType(scope)) == null) {
                     hasError = true;
                 } else if (enclosingInstanceType.isBaseType() || enclosingInstanceType.isArrayType()) {
                     scope.problemReporter().illegalPrimitiveOrArrayTypeForEnclosingInstance(
@@ -317,7 +317,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                             this.enclosingInstance);
                     hasError = true;
                 } else if (this.type instanceof QualifiedTypeReference) {
-                    scope.problemReporter().illegalUsageOfQualifiedTypeReference((QualifiedTypeReference)this.type);
+                    scope.problemReporter().illegalUsageOfQualifiedTypeReference((QualifiedTypeReference) this.type);
                     hasError = true;
                 } else if (!(enclosingInstanceReference = (ReferenceBinding) enclosingInstanceType).canBeSeenBy(scope)) {
                     // https://bugs.eclipse.org/bugs/show_bug.cgi?id=317212
@@ -341,15 +341,17 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                 } else {
                     receiverType = this.type.resolveType(scope, true /* check bounds*/);
                     checkIllegalNullAnnotation(scope, receiverType);
-                    checkParameterizedAllocation: {
+                    checkParameterizedAllocation:
+                    {
                         if (receiverType == null || !receiverType.isValidBinding()) break checkParameterizedAllocation;
                         if (this.type instanceof ParameterizedQualifiedTypeReference) { // disallow new X<String>.Y<Integer>()
-                            ReferenceBinding currentType = (ReferenceBinding)receiverType;
+                            ReferenceBinding currentType = (ReferenceBinding) receiverType;
                             do {
                                 // isStatic() is answering true for toplevel types
-                                if ((currentType.modifiers & ClassFileConstants.AccStatic) != 0) break checkParameterizedAllocation;
+                                if ((currentType.modifiers & ClassFileConstants.AccStatic) != 0)
+                                    break checkParameterizedAllocation;
                                 if (currentType.isRawType()) break checkParameterizedAllocation;
-                            } while ((currentType = currentType.enclosingType())!= null);
+                            } while ((currentType = currentType.enclosingType()) != null);
                             ParameterizedQualifiedTypeReference qRef = (ParameterizedQualifiedTypeReference) this.type;
                             for (int i = qRef.typeArguments.length - 2; i >= 0; i--) {
                                 if (qRef.typeArguments[i] != null) {
@@ -405,7 +407,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                         this.argsContainCast = true;
                     }
                     argument.setExpressionContext(INVOCATION_CONTEXT);
-                    if ((this.argumentTypes[i] = argument.resolveType(scope)) == null){
+                    if ((this.argumentTypes[i] = argument.resolveType(scope)) == null) {
                         this.argumentsHaveErrors = hasError = true;
                     }
                 }
@@ -413,7 +415,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 
             // limit of fault-tolerance
             if (hasError) {
-				/* https://bugs.eclipse.org/bugs/show_bug.cgi?id=345359, if arguments have errors, completely bail out in the <> case.
+                /* https://bugs.eclipse.org/bugs/show_bug.cgi?id=345359, if arguments have errors, completely bail out in the <> case.
 			       No meaningful type resolution is possible since inference of the elided types is fully tied to argument types. Do
 			       not return the partially resolved type.
 				 */
@@ -424,19 +426,19 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                     ReferenceBinding referenceReceiver = (ReferenceBinding) receiverType;
                     if (receiverType.isValidBinding()) {
                         // record a best guess, for clients who need hint about possible contructor match
-                        int length = this.arguments  == null ? 0 : this.arguments.length;
+                        int length = this.arguments == null ? 0 : this.arguments.length;
                         TypeBinding[] pseudoArgs = new TypeBinding[length];
-                        for (int i = length; --i >= 0;) {
+                        for (int i = length; --i >= 0; ) {
                             pseudoArgs[i] = this.argumentTypes[i] == null ? TypeBinding.NULL : this.argumentTypes[i]; // replace args with errors with null type
                         }
                         this.binding = scope.findMethod(referenceReceiver, TypeConstants.INIT, pseudoArgs, this, false);
                         if (this.binding != null && !this.binding.isValidBinding()) {
-                            MethodBinding closestMatch = ((ProblemMethodBinding)this.binding).closestMatch;
+                            MethodBinding closestMatch = ((ProblemMethodBinding) this.binding).closestMatch;
                             // record the closest match, for clients who may still need hint about possible method match
                             if (closestMatch != null) {
                                 if (closestMatch.original().typeVariables != Binding.NO_TYPE_VARIABLES) { // generic method
                                     // shouldn't return generic method outside its context, rather convert it to raw method (175409)
-                                    closestMatch = scope.environment().createParameterizedGenericMethod(closestMatch.original(), (RawTypeBinding)null);
+                                    closestMatch = scope.environment().createParameterizedGenericMethod(closestMatch.original(), (RawTypeBinding) null);
                                 }
                                 this.binding = closestMatch;
                                 MethodBinding closestMatchOriginal = closestMatch.original();
@@ -524,7 +526,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                     scope.problemReporter().unnecessaryTypeArgumentsForMethodInvocation(inheritedBinding, this.genericTypeArguments, this.typeArguments);
                 }
                 // Update the anonymous inner class : superclass, interface
-                this.binding = this.anonymousType.createDefaultConstructorWithBinding(inheritedBinding, 	(this.bits & ASTNode.Unchecked) != 0 && this.genericTypeArguments == null);
+                this.binding = this.anonymousType.createDefaultConstructorWithBinding(inheritedBinding, (this.bits & ASTNode.Unchecked) != 0 && this.genericTypeArguments == null);
                 return this.resolvedType;
             }
         } else {
@@ -573,7 +575,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
             scope.problemReporter().missingTypeInConstructor(this, this.binding);
         }
         if (!isDiamond && receiverType.isParameterizedTypeWithActualArguments()) {
-            checkTypeArgumentRedundancy((ParameterizedTypeBinding)receiverType, scope);
+            checkTypeArgumentRedundancy((ParameterizedTypeBinding) receiverType, scope);
         }
         // The enclosing instance must be compatible with the innermost enclosing type
         ReferenceBinding expectedType = this.binding.declaringClass.enclosingType();
