@@ -2691,7 +2691,11 @@ public class TestabilityTest extends BaseTest {
                 "   class Z { " +
                 "     Z zfn(){return this;}" +
                 "   };\n" +
-                "   Z fn(){return new Z(){}.zfn();};\n" +
+                "   Z fn(){\n" +
+                "     Z z;\n" +
+                "     dontredirect: z = new Z(){};\n" +
+                "     return z.zfn();\n" +
+                "   };\n" +
                 "}\n"
         };
         String expectedOutput =
@@ -2704,7 +2708,8 @@ public class TestabilityTest extends BaseTest {
                 "      return var1.zfn();\n" +
                 "   };\n\n" +
                 "   Z fn() {\n" +
-                "      return (Z)this.$$Z$zfn.apply(new 1(this, this));\n" +
+                "      1 var1 = new 1(this, this);\n" +
+                "      return (Z)this.$$Z$zfn.apply(var1);\n" +
                 "   }\n" +
                 "}";
 //TODO why call new Z(){} not turned into a field?
@@ -2717,36 +2722,79 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
     }
     @Test
-    public void testTestabilityInjectFunctionField_ForNewOperator_ForAnonymousInnerClass() throws Exception {
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_StaticInnerClass() throws Exception {
 
+        //here call from static class is redirected using instance field of Y
         String[] task = {
-                "Z.java",
-                "public class Z {}",
                 "Y.java",
                 "public class Y {\n" +
-                "   Z fn(){return new Z(){};}\n" +
-                "}\n"
+                        "   static class Z { " +
+                        "     long zfn(){return System.currentTimeMillis();}" +
+                        "   };\n" +
+                        "   long fn(){\n" +
+                        "     Z z;\n" +
+                        "     dontredirect: z = new Z();\n" +
+                        "     return z.zfn();\n" +
+                        "   };\n" +
+                        "}\n"
         };
         String expectedOutput =
-                "import Y.1;\n" +
-                        "import Z;\n" +
-                        "import helpers.Function1;\n" +
+                        "import helpers.Function0;\n" +
                         "\n" +
                         "public class Y {\n" +
-                        "   public Function1<Z, Z> $$Y$Z$new = (var1) -> {\n" +
-                        "      return new 1();\n" +
+                        "   public Function<Long> $$Z$zfn = (var1) -> {\n" +
+                        "      return var1.zfn();\n" +
                         "   };\n\n" +
                         "   Z fn() {\n" +
-                        "      return (Z)this.$$Y$Z$new.apply();\n" +
+                        "      return (Z)this.$$Z$zfn.apply();\n" +
                         "   }\n" +
                         "}";
-
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         Object ret = invokeCompiledMethod("Y", "fn");//main.invoke(null);
 
-        assertEquals("Z", ret.getClass().getSuperclass().getName());
+        assertEquals(0, (System.currentTimeMillis() - (Long)ret)/1000);
 
         assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_ForNewOperator_ForAnonymousInnerClass() throws Exception {
+//
+//        String[] task = {
+//                "Z.java",
+//                "public class Z {}",
+//                "Y.java",
+//                "public class Y {\n" +
+//                        "public helpers.Function0<Z> $$trythis = () -> {\n" +
+//                        "        dontredirect:return new Z() {\n" +
+//                        "        };\n" +
+//                        "    };" +
+//                "   Z fn(){return new Z(){};}\n" +
+////                        "   Z fn2() {\n" +
+////                        "      return (Z)this.$$trythis.apply();\n" +
+////                        "   }\n" +
+//                "}\n"
+//        };
+//        String expectedOutput =
+//                "import Y.1;\n" +
+//                "import helpers.Function0;\n" +
+//                "\n" +
+//                "public class Y {\n" +
+//                "   public Function0<Z> $$Z$new = () -> {\n" +
+//                "      return new 1();\n" +
+//                "   };\n\n" +
+//                "   Z fn() {\n" +
+//                "      return (Z)this.$$Z$new.apply();\n" +
+//                "   }\n" +
+//                "}";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task,  INSERT_REDIRECTORS_ONLY);
+//
+//        Object ret = invokeCompiledMethod("Y", "fn");//main.invoke(null);
+//
+//        assertEquals("Z", ret.getClass().getSuperclass().getName());
+//
+//        assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
+//    }
 }

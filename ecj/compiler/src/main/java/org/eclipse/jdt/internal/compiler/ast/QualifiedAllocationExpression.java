@@ -43,6 +43,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.testability.Testability;
 
 import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION_CONTEXT;
 
@@ -149,6 +150,9 @@ public class QualifiedAllocationExpression extends AllocationExpression {
     }
 
     public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+        if (replaceCallWithFieldRefirectorIfNeeded(currentScope, codeStream, valueRequired))
+            return;
+
         cleanUpInferenceContexts();
         if (!valueRequired)
             currentScope.problemReporter().unusedObjectAllocation(this);
@@ -287,6 +291,9 @@ public class QualifiedAllocationExpression extends AllocationExpression {
                 this.resolvedType = scope.environment().createAnnotatedType(this.resolvedType, this.binding.getTypeAnnotations());
             }
         }
+
+        Testability.registerCallToRedirectIfNeeded(this, scope);
+
         return result;
     }
 

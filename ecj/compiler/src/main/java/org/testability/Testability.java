@@ -107,6 +107,13 @@ public class Testability {
                         found.set(true);
                     super.endVisit(allocationExpression, scope);
                 }
+
+                @Override
+                public void endVisit(QualifiedAllocationExpression allocationExpression, BlockScope scope) {
+                    if (allocationExpression == expressionToBeReplaced)
+                        found.set(true);
+                    super.endVisit(allocationExpression, scope);
+                }
             }, methodScope);
         }
 
@@ -991,6 +998,13 @@ public class Testability {
         //truncate the rest
         typeArguments = Arrays.copyOf(typeArguments, iArg);
 
+        //rewire anonymous inner classes to their parents
+        for (int iTypeArg=0; iTypeArg<typeArguments.length; iTypeArg++){
+            TypeBinding typeBinding = typeArguments[iTypeArg];
+            if (typeBinding.isAnonymousType())
+                typeArguments[iTypeArg] = typeArguments[iTypeArg].superclass();
+        }
+
         int functionArgCount = typeArguments.length - 1;
 
         char[][] path = {
@@ -1066,8 +1080,28 @@ public class Testability {
 
         lambdaExpression.setExpectedType(fieldDeclaration.type.resolvedType);
 
-        AllocationExpression messageSendInLambdaBody = new AllocationExpression();
+        AllocationExpression messageSendInLambdaBody;
+        if (originalMessageSend instanceof QualifiedAllocationExpression){
+//            QualifiedAllocationExpression originalQualifiedAllocationExpression = (QualifiedAllocationExpression) originalMessageSend;
+//
+//            TypeDeclaration anonymousType = originalQualifiedAllocationExpression.anonymousType;
+//
+//            anonymousType.binding = null;
+//
+//            QualifiedAllocationExpression inLambdaBodyQualifiedAllocationExpression =
+//                    new QualifiedAllocationExpression(anonymousType);
+//            //TODO where set?
+//            inLambdaBodyQualifiedAllocationExpression.enclosingInstance = originalQualifiedAllocationExpression.enclosingInstance;
+//            messageSendInLambdaBody = inLambdaBodyQualifiedAllocationExpression;
+
+            messageSendInLambdaBody = originalMessageSend; //TODO issues re-resolving code with new X(){} anonymous class
+            messageSendInLambdaBody.constant = null;
+            ((QualifiedAllocationExpression)messageSendInLambdaBody).anonymousType.methods = null;//TODO review
+        } else {
+            messageSendInLambdaBody = new AllocationExpression();
+        }
         messageSendInLambdaBody.type = originalMessageSend.type;
+        messageSendInLambdaBody.setExpectedType(originalMessageSend.invocationTargetType());
         messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = originalMessageSend.binding;//TODO null to match MessageSend version? see "fixed static import case' commit
 
@@ -1431,6 +1465,7 @@ public class Testability {
 
         List<String> ret = new ArrayList<>();
 
+
         if (originalCall instanceof MessageSend) {
             MessageSend originalMessageSend = (MessageSend) originalCall;
             TypeBinding receiverBinding = originalMessageSend.receiver.resolvedType;
@@ -1468,8 +1503,13 @@ public class Testability {
             return ret;
         }
         else if (originalCall instanceof AllocationExpression) {
+            ReferenceBinding receiverReferenceBinding = binding.declaringClass;
 
-            String invokedClassName = new String(readableName(binding.declaringClass, shortClassName));
+            if (receiverReferenceBinding.isAnonymousType()){
+                receiverReferenceBinding = ((LocalTypeBinding) receiverReferenceBinding).superclass;
+            }
+
+            String invokedClassName = new String(readableName(receiverReferenceBinding, shortClassName));
 
             ret.addAll(testabilityFieldNameForNewOperator(invokedClassName));
 
