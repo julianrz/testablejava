@@ -71,7 +71,7 @@ public class HelpersTest {
     @Test
     public void emitConsumers() throws Exception {
         Map<String, Optional<Class<?>>> nameToClass =
-                IntStream.range(1, 255).
+                IntStream.range(0, 255).
                         mapToObj(iArity -> "helpers.Consumer" + iArity).
                         collect(toMap(
                                 interfaceName -> interfaceName,
