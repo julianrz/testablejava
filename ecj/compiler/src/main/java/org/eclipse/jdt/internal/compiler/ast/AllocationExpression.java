@@ -176,20 +176,9 @@ public class AllocationExpression extends Expression implements IPolyExpression,
     }
 
     public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
-        { //check if this needs to be replaced with special redirector message send, which will be used in generation instead
-            MessageSend messageGetField = Testability.replaceCallWithFieldRedirectorIfNeeded(
-                    this, currentScope, valueRequired);
+        if (replaceCallWithFieldRefirectorIfNeeded(currentScope, codeStream, valueRequired))
+            return;
 
-            if (messageGetField != null) {
-
-                messageGetField.generateCode(currentScope, codeStream, valueRequired);
-
-                System.out.println(
-                        "replaced call for " + this + " in " + currentScope.methodScope().referenceContext +
-                                " with call " + messageGetField);
-                return;
-            }
-        }
         cleanUpInferenceContexts();
         if (!valueRequired)
             currentScope.problemReporter().unusedObjectAllocation(this);
@@ -257,6 +246,23 @@ public class AllocationExpression extends Expression implements IPolyExpression,
             }
         }
         codeStream.recordPositionsFrom(pc, this.sourceStart);
+    }
+
+    boolean replaceCallWithFieldRefirectorIfNeeded(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+        //check if this needs to be replaced with special redirector message send, which will be used in generation instead
+        MessageSend messageGetField = Testability.replaceCallWithFieldRedirectorIfNeeded(
+                this, currentScope, valueRequired);
+
+        if (messageGetField != null) {
+
+            messageGetField.generateCode(currentScope, codeStream, valueRequired);
+
+            System.out.println(
+                    "replaced call for " + this + " in " + currentScope.methodScope().referenceContext +
+                            " with call " + messageGetField);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -422,8 +428,9 @@ public class AllocationExpression extends Expression implements IPolyExpression,
                         this.argsContainCast = true;
                     }
                     argument.setExpressionContext(INVOCATION_CONTEXT);
-                    if (this.arguments[i].resolvedType != null)
-                        scope.problemReporter().genericInferenceError("Argument was unexpectedly found resolved", this); //$NON-NLS-1$
+                    //jr: made re-resolution legit
+                    //if (this.arguments[i].resolvedType != null)
+                    //    scope.problemReporter().genericInferenceError("Argument was unexpectedly found resolved", this); //$NON-NLS-1$
                     if ((this.argumentTypes[i] = argument.resolveType(scope)) == null) {
                         this.argumentsHaveErrors = true;
                     }
