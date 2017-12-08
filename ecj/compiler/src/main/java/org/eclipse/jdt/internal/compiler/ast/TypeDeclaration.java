@@ -78,8 +78,9 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     public int enumConstantsCounter;
 
     // testability
-    public List<Map.Entry<Expression, Boolean>> allCallsToRedirect = new ArrayList<>();
+    public List<Map.Entry<Expression, TypeDeclaration>> allCallsToRedirect = new ArrayList<>(); //expression to type containing expression (e.g. inner)
     public Map<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
+    public boolean methodsResolved = false; //flag indicating method resolution phase is over
 
     // 1.5 support
     public TypeParameter[] typeParameters;
@@ -1218,6 +1219,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                     this.methods[i].resolve(this.scope);
                 }
             }
+            this.methodsResolved = true;
             // Resolve javadoc
             if (this.javadoc != null) {
                 if (this.scope != null && (this.name != TypeConstants.PACKAGE_INFO_NAME)) {
