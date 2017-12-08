@@ -979,7 +979,9 @@ public class SingleNameReference extends NameReference implements OperatorIds {
 
     public TypeBinding resolveType(BlockScope scope) {
         // for code gen, harm the restrictiveFlag
-
+        if (resolvedType != null) { //JR re-resolve should be legit and hard to avoid in some cases
+            return resolvedType;
+        }
         if (this.actualReceiverType != null) {
             this.binding = scope.getField(this.actualReceiverType, this.token, this);
         } else {
