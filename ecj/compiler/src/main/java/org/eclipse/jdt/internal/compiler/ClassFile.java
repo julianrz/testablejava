@@ -600,11 +600,14 @@ public class ClassFile implements TypeConstants, TypeIds {
                                 testabilityFieldDeclarations.size() +
                                 iField] = testabilityFieldDeclarations.get(iField);
 
-            currentBinding.setFields(
+            FieldBinding[] fields =
                     Arrays.stream(currentBinding.scope.referenceContext.fields).
                             map(decl -> decl.binding).
+                            filter(Objects::nonNull).//note: instanceof Initializer has binding=null, e.g. in class org.eclipse.jdt.internal.compiler.batch.ClasspathJsr199
                             collect(toList()).
-                            toArray(new FieldBinding[0]));
+                            toArray(new FieldBinding[0]);
+
+            currentBinding.setFields(fields);
 
             ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());//TODO fields() does sort already
 
