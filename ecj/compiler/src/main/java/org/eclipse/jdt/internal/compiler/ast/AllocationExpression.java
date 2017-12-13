@@ -68,6 +68,7 @@ import org.testability.Testability;
 import java.util.HashMap;
 
 import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.*;
+import static org.eclipse.jdt.internal.compiler.ast.MessageSend.getMethodDescriptor;
 
 public class AllocationExpression extends Expression implements IPolyExpression, Invocation {
 
@@ -248,18 +249,25 @@ public class AllocationExpression extends Expression implements IPolyExpression,
         codeStream.recordPositionsFrom(pc, this.sourceStart);
     }
 
+    /**
+     *
+     * @param currentScope
+     * @param codeStream
+     * @param valueRequired
+     * @return true if code replaced (and bytecode generated)
+     */
     boolean replaceCallWithFieldRefirectorIfNeeded(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
         //check if this needs to be replaced with special redirector message send, which will be used in generation instead
         MessageSend messageGetField = Testability.replaceCallWithFieldRedirectorIfNeeded(
                 this, currentScope, valueRequired);
 
         if (messageGetField != null) {
+            String methodDescriptor = getMethodDescriptor(currentScope, "<unknown>");
+            System.out.println(
+                    "instrumenting call in " + methodDescriptor +": " + this + " ... ");
 
             messageGetField.generateCode(currentScope, codeStream, valueRequired);
-
-            System.out.println(
-                    "replaced call for " + this + " in " + currentScope.methodScope().referenceContext +
-                            " with call " + messageGetField);
+            System.out.println("instrumented call in " + methodDescriptor + ": " + this + " ==> " + messageGetField);
             return true;
         }
         return false;
