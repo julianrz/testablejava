@@ -660,7 +660,10 @@ public class ProblemReporter extends ProblemHandler {
     }
 
     public void testabilityInstrumentationError(String errorMessage) {
-        this.testabilityInstrumentationError(errorMessage, null);
+        this.testabilityInstrumentationError(errorMessage, (ASTNode)null);
+    }
+    public void testabilityInstrumentationError(String errorMessage, Exception ex) {
+        this.testabilityInstrumentationError(errorMessage, ex, null);
     }
 
     public void testabilityInstrumentationError(String errorMessage, ASTNode location) {
@@ -672,6 +675,11 @@ public class ProblemReporter extends ProblemHandler {
                 ProblemSeverities.Error,
                 location == null ? 0 : location.sourceStart,
                 location == null ? 0 : location.sourceEnd);
+    }
+    public void testabilityInstrumentationError(String errorMessage, Exception ex, ASTNode location) {
+        System.out.println("Instrumentation error: " + errorMessage);
+        ex.printStackTrace(System.out);
+        testabilityInstrumentationError(errorMessage, location);
     }
 
     public void abortDueToInternalError(String errorMessage) {
