@@ -77,8 +77,10 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.testability.Testability;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
+import static java.util.stream.Collectors.joining;
 import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.*;
 
 public class MessageSend extends Expression implements IPolyExpression, Invocation {
@@ -414,15 +416,12 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
                     this, currentScope, valueRequired);
 
             if (messageGetField != null) {
-                System.out.println(
-                        "instrumenting call for " + this + " in " + currentScope.methodScope().referenceContext +
-                                " with call " + messageGetField);
+                String methodDescriptor = getMethodDescriptor(currentScope, "<unknown>");
+                System.out.println("instrumenting call in " + methodDescriptor + ": " + this + " ... ");
 
                 messageGetField.generateCode(currentScope, codeStream, valueRequired);
 
-                System.out.println(
-                        "replaced call for " + this + " in " + currentScope.methodScope().referenceContext +
-                                " with call " + messageGetField);
+                System.out.println("instrumenting call in " + methodDescriptor +": " + this + " ==> " + messageGetField);
                 return;
             }
         }
@@ -485,6 +484,25 @@ public class MessageSend extends Expression implements IPolyExpression, Invocati
             }
         }
         codeStream.recordPositionsFrom(pc, (int) (this.nameSourcePosition >>> 32)); // highlight selector
+    }
+
+    static String getMethodDescriptor(BlockScope currentScope, String defaultValue) {
+        MethodScope methodScope = currentScope.methodScope();
+        if (methodScope == null)
+            return defaultValue;
+        ReferenceContext referenceContext = methodScope.referenceContext;
+        if (referenceContext instanceof MethodDeclaration)
+            return ((MethodDeclaration) referenceContext).binding.toString();
+        else if (referenceContext instanceof LambdaExpression) {
+            String argConcat =
+                    Arrays.stream(((LambdaExpression) referenceContext).arguments).
+                            map(Object::toString).
+                            collect(joining(",", "(", ")"));
+            return argConcat + " -> {...}";
+        } else {
+            return defaultValue;
+        }
+
     }
 
     /**
