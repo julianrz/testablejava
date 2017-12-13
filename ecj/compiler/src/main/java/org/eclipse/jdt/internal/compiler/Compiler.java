@@ -831,7 +831,8 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
                                 new CompilationResult(sourceUnit, 0, maxUnits, this.options.maxProblemsPerUnit);
 
                         CompilationUnitDeclaration fullParsedUnit = previewParser.parse(sourceUnit, fullParseUnitResult);
-                        return Testability.codeContainsTestabilityFieldAccessExpression(fullParsedUnit);
+                        return Testability.codeContainsSyntaxErrors(fullParseUnitResult) || //note: cannot detect if this is test code: empty methods. Want to prevent field creation
+                                Testability.codeContainsTestabilityFieldAccessExpression(fullParsedUnit);
                     }));
             ArrayList<ICompilationUnit> sortedTestLast = new ArrayList<>();
 
