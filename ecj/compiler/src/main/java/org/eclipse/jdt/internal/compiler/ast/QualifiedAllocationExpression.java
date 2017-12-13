@@ -294,6 +294,9 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 
         Testability.registerCallToRedirectIfNeeded(this, scope);
 
+        if (this.anonymousType != null)
+            Testability.registerAnonymousType(this.anonymousType, scope);
+
         return result;
     }
 

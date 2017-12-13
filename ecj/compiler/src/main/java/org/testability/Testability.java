@@ -2,6 +2,7 @@ package org.testability;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -12,6 +13,7 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -120,64 +122,6 @@ public class Testability {
         return found.get();
     }
 
-    static MethodBinding makeRedirectorFieldMethodBinding(
-            NameReference newReceiver,
-            Expression [] arguments,
-            MethodBinding originalBinding,
-            BlockScope currentScope,
-            TypeBinding receiverType,
-            InvocationSite invocationSite,
-            boolean returnsVoid) {
-
-        TypeBinding[] parameters;
-
-        TypeBinding[] originalArgBindings = arguments!=null?
-                Arrays.stream(arguments).map(arg -> arg.resolvedType).collect(toList()).toArray(new TypeBinding[0]) :
-                new TypeBinding[0];
-
-        parameters = Arrays.copyOf(
-                originalArgBindings,
-                originalArgBindings.length
-        );
-
-        if (originalBinding.isVarargs()) {
-            //last element in originalBinding.parameters is an array, preserve
-            parameters[originalBinding.parameters.length - 1] =
-                    originalBinding.parameters[originalBinding.parameters.length - 1];
-            //truncate parameters at that element
-            parameters = Arrays.copyOf(parameters, originalBinding.parameters.length);
-        }
-
-        {
-            parameters = Arrays.copyOf(parameters, parameters.length + 1);
-            System.arraycopy(parameters, 0, parameters, 1, parameters.length - 1);
-
-            SourceTypeBinding callingType = currentScope.classScope().referenceContext.binding;
-
-            TypeBinding arg0Type = bindingForCallContextType(callingType, receiverType, currentScope.environment());
-
-            parameters[0] = arg0Type;
-        }
-
-        String selector = returnsVoid?
-                TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER :
-                TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION;
-
-        MethodBinding binding =
-                currentScope.getMethod(
-                        newReceiver.resolvedType, //TODO may be unresolved? use receiverType passed in?
-                        selector.toCharArray(),
-                        parameters,
-                        invocationSite);
-
-        binding.modifiers = ClassFileConstants.AccPublic;
-        if ((originalBinding.modifiers & ClassFileConstants.AccVarargs)!=0)
-            binding.modifiers |= ClassFileConstants.AccVarargs;
-        binding.selector = selector.toCharArray();
-
-        return binding;
-    }
-
     /**
      * add a redirection via field to call - change the call so that it uses field and its 'apply' method
      * which, in turn makes the original call
@@ -208,26 +152,21 @@ public class Testability {
         QualifiedNameReference qualifiedNameReference = makeQualifiedNameReference(targetFieldNameInThis);
         qualifiedNameReference.resolve(currentScope);
 
-        if (qualifiedNameReference.resolvedType == null) {//TODO return null depending on setting
-            String fieldNames = fieldNamesFromScope(currentScope);
-            throw new RuntimeException(currentScope.referenceContext().compilationResult().toString() + " during code replace; candidates: " + fieldNames);
+        if (qualifiedNameReference.resolvedType == null) {
+            currentScope.problemReporter().testabilityInstrumentationError(
+                    currentScope.referenceContext().compilationResult().toString() + " during code replace");
+            return null;
         }
-
-        boolean receiverPrecedes = receiverPrecedesParameters(messageSend);
 
         messageToFieldApply.receiver = qualifiedNameReference;
 
-        messageToFieldApply.binding = makeRedirectorFieldMethodBinding( //TODO is this needed? see in addListenerCallsToConstructor, resolution sets this?
-                qualifiedNameReference,
-                messageSend.arguments,
-                messageSend.binding,
-                currentScope,
-                messageSend.receiver.resolvedType,
-                messageSend,
-                returnsVoid(messageSend));
+        //use the field's binding directly
+        messageToFieldApply.binding = redirectorFieldDeclaration.type.resolvedType.getMethods(selector.toCharArray())[0];
 
-        if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + qualifiedNameReference);//TODO handle legally
+        if (null == messageToFieldApply.receiver.resolvedType) {
+            currentScope.problemReporter().testabilityInstrumentationError(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + qualifiedNameReference);
+            return null;
+        }
 
         messageToFieldApply.argumentTypes = messageToFieldApply.binding.parameters;//TODO original message has this, needed?
 
@@ -237,7 +176,17 @@ public class Testability {
         Expression[] argsWithReceiver = new Expression[1 + originalArgCount];
 
         int iArg = 0;
-        argsWithReceiver[iArg++] = makeCallSiteExpression(messageSend, currentScope);
+        AllocationExpression callSiteExpression;
+
+        try {
+            callSiteExpression = makeCallSiteExpression(messageSend, currentScope);
+        } catch (Exception ex) {
+            currentScope.problemReporter().testabilityInstrumentationError(
+                    TESTABLEJAVA_INTERNAL_ERROR + ": makeCallSiteExpression", ex);
+            return null;
+        }
+
+        argsWithReceiver[iArg++] = callSiteExpression;
 
         for (int iArgOriginal = 0; iArgOriginal< originalArgCount; iArgOriginal++) {
 
@@ -251,7 +200,6 @@ public class Testability {
         }
 
         //construct call site creation expression
-
 
         messageToFieldApply.arguments = argsWithReceiver;
 
@@ -268,7 +216,9 @@ public class Testability {
             }
         }
 
-        diagnoseBinding(messageToFieldApply, currentScope);
+        if (!diagnoseBinding(messageToFieldApply, currentScope.methodScope(), redirectorFieldDeclaration))
+            return null;
+
         return messageToFieldApply;
     }
 
@@ -353,10 +303,11 @@ public class Testability {
         return allocationExpression;
     }
 
-    static String fieldNamesFromScope(BlockScope currentScope) {
+    static String fieldNamesFromScope(BlockScope currentScope, String delimiter, Predicate<? super String> filt) {
         return Arrays.stream(currentScope.methodScope().classScope().referenceContext.fields).
                 map(f -> new String(f.name)).
-                collect(joining("\n"));
+                filter(filt).
+                collect(joining(delimiter));
     }
 
     static void ensureImplicitConversion(Expression arg, TypeBinding targetParamType) {
@@ -366,13 +317,23 @@ public class Testability {
     }
 
 
-    static void diagnoseBinding(MessageSend messageSend, BlockScope currentScope) {
+    static boolean diagnoseBinding(MessageSend messageSend, MethodScope methodScope, FieldDeclaration redirectorFieldDeclaration) {
         MethodBinding binding = messageSend.binding;
         if (binding instanceof ProblemMethodBinding) {
-            throw new RuntimeException(
-                    "testability field method not found in " + new String(messageSend.receiver.resolvedType.readableName()) +": " + binding +
-                            "; closest match: " + ((ProblemMethodBinding) binding).closestMatch);
+
+            String message = String.format("when compiling class %s method %s: testability field %s: method not found in field class %s binding: %s; closest match: ",
+                    new String(methodScope.classScope().referenceContext.name),
+                    new String(((MethodDeclaration) methodScope.referenceContext).selector),
+                    new String(redirectorFieldDeclaration.name),
+                    new String(messageSend.receiver.resolvedType.readableName()),
+                    binding,
+                    ((ProblemMethodBinding) binding).closestMatch);
+
+            methodScope.problemReporter().testabilityInstrumentationError(message);
+
+            return false;
         }
+        return true;
     }
 
     /**
@@ -410,23 +371,21 @@ public class Testability {
             currentScope.methodScope().lastVisibleFieldID = savId;
         }
 
-        if (fieldNameReference.resolvedType == null) {//TODO return null depending on setting
-            String fieldNames = fieldNamesFromScope(currentScope);
-            throw new RuntimeException(currentScope.referenceContext().compilationResult().toString() + " during code replace; candidates: " + fieldNames);
+        if (fieldNameReference.resolvedType == null) {
+            currentScope.problemReporter().testabilityInstrumentationError(
+                    currentScope.referenceContext().compilationResult().toString() + " during code replace");
+            return null;
         }
+
         messageToFieldApply.receiver = fieldNameReference;
 
-        messageToFieldApply.binding = makeRedirectorFieldMethodBinding(
-                fieldNameReference,
-                allocationExpression.arguments,
-                allocationExpression.binding,
-                currentScope,
-                allocationExpression.type.resolvedType,
-                allocationExpression,
-                false);
+        messageToFieldApply.binding = redirectorFieldDeclaration.type.resolvedType.getMethods(messageToFieldApply.selector)[0];
 
-        if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);//TODO handle legally
+        if (null == messageToFieldApply.receiver.resolvedType) {
+            currentScope.problemReporter().testabilityInstrumentationError(
+                    TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);
+            return null;
+        }
 
         messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
 
@@ -442,7 +401,15 @@ public class Testability {
                     1,
                     allocationExpression.arguments.length);
         }
-        messageToFieldApply.arguments[0] = makeCallSiteExpression(allocationExpression, currentScope);
+        AllocationExpression callSiteExpression;
+        try {
+            callSiteExpression = makeCallSiteExpression(allocationExpression, currentScope);
+        } catch (Exception ex) {
+            currentScope.problemReporter().testabilityInstrumentationError(
+                    TESTABLEJAVA_INTERNAL_ERROR + ": makeCallSiteExpression", ex);
+            return null;
+        }
+        messageToFieldApply.arguments[0] = callSiteExpression;
 
         for (int iArg=1; iArg<messageToFieldApply.arguments.length; iArg++){
             Expression arg = messageToFieldApply.arguments[iArg];
@@ -554,6 +521,15 @@ public class Testability {
             classReferenceContext.allCallsToRedirect.add(new AbstractMap.SimpleEntry<>(allocationExpression, typeContainingExpression));
         }
     }
+    public static void registerAnonymousType(TypeDeclaration anonymousType, BlockScope scope) {
+        TypeDeclaration classReferenceContext = scope.outerMostClassScope().referenceContext;
+
+        MethodScope methodScope = scope.methodScope();
+
+        TypeDeclaration typeContainingExpression = methodScope.classScope().referenceContext;
+        classReferenceContext.anonymousTypes.add(new AbstractMap.SimpleEntry<>(anonymousType, typeContainingExpression));
+    }
+
 
     public static List<FieldDeclaration> makeTestabilityFields(
             TypeDeclaration typeDeclaration,
@@ -568,7 +544,8 @@ public class Testability {
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
                 !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
 
-            ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
+            if (!typeDeclaration.binding.isLocalType()) //otherwise they are on outer class
+                ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
         }
 
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
@@ -577,10 +554,12 @@ public class Testability {
                 List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
                         typeDeclaration,
                         referenceBinding,
+                        lookupEnvironment,
                         expressionToRedirectorField);
                 ret.addAll(redirectorFields);
-            } catch (Exception e) {
-                throw new RuntimeException(e); //TODO optionally log and continue
+            } catch (Exception ex) {
+                lookupEnvironment.problemReporter.
+                        testabilityInstrumentationError("a field cannot be created", ex);
             }
         }
 
@@ -591,9 +570,19 @@ public class Testability {
                 peek(fieldDeclaration -> {
                     System.out.println("injected field: " + fieldDeclaration);
                 }).
-                peek(fieldDeclaration -> {
-                    fieldDeclaration.resolve(typeDeclaration.initializerScope);
+                map(fieldDeclaration -> {
+                    try {
+                        fieldDeclaration.resolve(typeDeclaration.initializerScope);
+                        return fieldDeclaration;
+                    } catch (Exception ex){
+                        lookupEnvironment.problemReporter.
+                                testabilityInstrumentationError(
+                                        "field cannot be resolved: " + fieldDeclaration, ex);
+
+                        return null;
+                    }
                 }).
+                filter(Objects::nonNull).
                 collect(toList());
 
     }
@@ -608,7 +597,6 @@ public class Testability {
 
             if (calls.isEmpty() && Testability.isTestabilityFieldAccess(ex)) {
                 calls.add(ex);
-                System.out.println("found " + ex);
                 throw exceptionVisitorInterrupted;
             }
         };
@@ -652,33 +640,45 @@ public class Testability {
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding) {
 
+        String supertypeName =
+                typeDeclaration.binding.isLocalType()?
+                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) +"$" :
+                        "";
+
         FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
                 typeDeclaration,
                 referenceBinding,
-                "$$preCreate");
+                "$$"+supertypeName+"preCreate");
         FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
                 typeDeclaration,
                 referenceBinding,
-                "$$postCreate");
+                "$$"+supertypeName+"postCreate");
 
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
 
         ret.add(fieldDeclarationPreCreate);
         ret.add(fieldDeclarationPostCreate);
+
+        typeDeclaration.anonymousTypes.forEach( entry -> {
+            TypeDeclaration anonType = entry.getKey();
+            TypeDeclaration originType = entry.getValue();
+            ret.addAll(makeTestabilityListenerFields(anonType, referenceBinding));
+        });
         return ret;
     }
 
     /**
      *
+     * @param originalCallToField
      * @param typeDeclaration
      * @param referenceBinding
-     * @param originalCallToField
+     * @param lookupEnvironment
      * @return unique field instances
      */
     public static List<FieldDeclaration> makeTestabilityRedirectorFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
-            Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
+            LookupEnvironment lookupEnvironment, Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
 
         //eliminate duplicates, since multiple call of the same method possible
         Map<String, List<Map.Entry<Expression, TypeDeclaration>>> uniqueFieldToExpression = typeDeclaration.allCallsToRedirect.stream().
@@ -724,7 +724,8 @@ public class Testability {
 
         List<List<String>> uniqueFieldNames = shortNames;
 
-        List<FieldDeclaration> ret = IntStream.range(0, uniqueFieldNames.size()).
+        List<FieldDeclaration> ret = //contains nulls
+                IntStream.range(0, uniqueFieldNames.size()).
                 mapToObj(pos -> {
                     Map.Entry<Expression, TypeDeclaration> entry = distinctCalls.get(pos);
 
@@ -738,26 +739,33 @@ public class Testability {
 
                     FieldDeclaration fieldDeclaration = null;
 
-                    if (originalCall instanceof MessageSend) {
-                        MessageSend originalMessageSend = (MessageSend) originalCall;
+                    try {
+                        if (originalCall instanceof MessageSend) {
+                            MessageSend originalMessageSend = (MessageSend) originalCall;
 
-                        fieldDeclaration = makeRedirectorFieldDeclaration(
-                                originalMessageSend,
-                                typeDeclaration,
-                                typeDeclarationContainingCall,
-                                referenceBinding,
-                                fieldName
-                        );
-                    } else if (originalCall instanceof AllocationExpression) {
-                        AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
+                            fieldDeclaration = makeRedirectorFieldDeclaration(
+                                    originalMessageSend,
+                                    typeDeclaration,
+                                    typeDeclarationContainingCall,
+                                    referenceBinding,
+                                    fieldName
+                            );
+                        } else if (originalCall instanceof AllocationExpression) {
+                            AllocationExpression originalAllocationExpression = (AllocationExpression) originalCall;
 
-                        fieldDeclaration = makeRedirectorFieldDeclaration(
-                                originalAllocationExpression,
-                                typeDeclaration,
-                                typeDeclarationContainingCall,
-                                referenceBinding,
-                                fieldName
-                        );
+                            fieldDeclaration = makeRedirectorFieldDeclaration(
+                                    originalAllocationExpression,
+                                    typeDeclaration,
+                                    typeDeclarationContainingCall,
+                                    referenceBinding,
+                                    fieldName
+                            );
+                        }
+                    } catch(Exception ex){
+                        lookupEnvironment.problemReporter.
+                                testabilityInstrumentationError(
+                                        "field " + fieldName + " cannot be created for expression " + originalCall, ex);
+                        return null;
                     }
                     return fieldDeclaration;
                 }).
@@ -776,8 +784,12 @@ public class Testability {
 
                             List<Expression> list = longFieldNameToExpressionValues.get(i);
                             FieldDeclaration field = ret.get(i);
+                            if (field == null) {
+                                return null;
+                            }
                             return new AbstractMap.SimpleEntry<>(field, list);
                         }).
+                        filter(Objects::nonNull).
                         flatMap(e -> { //form stream by individual expression
                             return e.getValue().stream().
                                     map(ex -> new AbstractMap.SimpleEntry<>(e.getKey(), ex));
@@ -876,9 +888,11 @@ public class Testability {
 
         int iArg = 0;
 
+        TypeBinding receiverResolvedType = originalMessageSend.receiver.resolvedType;
+
         typeArgumentsForFunction[iArg++] = bindingForCallContextType(
-                typeDeclarationContainingCall.binding,
-                originalMessageSend.receiver.resolvedType,
+                convertIfLocal(typeDeclarationContainingCall.binding),
+                convertIfLocal(receiverResolvedType), //this should be apparent compile type called
                 lookupEnvironment);
 
         TypeBinding[] originalBindingParameters = originalMessageSend.binding.parameters;
@@ -923,6 +937,25 @@ public class Testability {
             if (typeBinding.isAnonymousType())
                 typeArgumentsForFunction[iTypeArg] = typeArgumentsForFunction[iTypeArg].superclass();
         }
+        //TODO test!
+        for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
+            TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
+
+            typeArgumentsForFunction[iTypeArg] = convertCaptureBinding(typeBinding);
+
+        }
+
+//        //TODO//see if any type argument is CaptureBinding, and replace it with its sourceType
+//        if (receiverResolvedType instanceof ParameterizedTypeBinding){
+//            ParameterizedTypeBinding receiverResolvedTypeParameterized = (ParameterizedTypeBinding) receiverResolvedType;
+//            TypeBinding[] originalArgs = receiverResolvedTypeParameterized.arguments;
+//            TypeBinding [] newArgs = Arrays.stream(originalArgs).
+//                    map(arg -> (arg instanceof CaptureBinding)?((CaptureBinding) arg).sourceType: arg).
+//                    collect(toList()).
+//                    toArray(new TypeBinding[originalArgs.length]);
+//            receiverResolvedTypeParameterized.arguments = newArgs;
+//
+//        }
 
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
 
@@ -976,7 +1009,7 @@ public class Testability {
                 fieldDeclaration,
                 typeBindingForFunction,
                 fieldDeclaration.modifiers,
-                typeDeclaration.binding);
+                typeDeclaration.binding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
@@ -1061,6 +1094,44 @@ public class Testability {
         return fieldDeclaration;
     }
 
+    /**
+     * given local binding, return a 'parent' binding, which could be actual parent class or interface
+     * @param binding
+     * @return
+     */
+    static TypeBinding convertIfLocal(TypeBinding binding) {
+        if (!(binding instanceof LocalTypeBinding))
+          return binding;
+        LocalTypeBinding localTypeBinding = (LocalTypeBinding) binding;
+        if (localTypeBinding.superclass != null && localTypeBinding.superclass.superclass()!=null)
+            return localTypeBinding.superclass;
+        if (localTypeBinding.superInterfaces().length != 0){
+            return localTypeBinding.superInterfaces()[0]; //cannot derive from more than one interface to make a local class
+        }
+        return (localTypeBinding.superclass != null)? localTypeBinding.superclass : binding;
+    }
+
+    static TypeBinding convertCaptureBinding(TypeBinding typeBinding) {
+        if (typeBinding instanceof CaptureBinding) {
+            return ((CaptureBinding) typeBinding).sourceType;
+//            return typeBinding.clone(typeBinding.enclosingType());
+        }
+        if (typeBinding instanceof ParameterizedTypeBinding) {
+            ParameterizedTypeBinding typeBindingParameterized =
+                    (ParameterizedTypeBinding) typeBinding;
+            TypeBinding[] originalArgs = typeBindingParameterized.arguments;
+            TypeBinding[] newArgs = Arrays.stream(originalArgs).
+                    map(arg -> convertCaptureBinding(arg)).
+                    collect(toList()).
+                    toArray(new TypeBinding[originalArgs.length]); //TODO this is partially in-place conversion, partially new return
+
+            typeBindingParameterized.arguments = newArgs;
+
+            return typeBindingParameterized;
+        }
+        return typeBinding;
+    }
+
     static FieldDeclaration makeRedirectorFieldDeclaration(
             AllocationExpression originalMessageSend,
             TypeDeclaration typeDeclaration,
@@ -1089,8 +1160,8 @@ public class Testability {
         TypeBinding[] typeArguments = new TypeBinding[typeArgsCount];
 
         typeArguments[0] = bindingForCallContextType(
-                typeDeclarationContainingCall.binding,
-                originalMessageSend.resolvedType,
+                convertIfLocal(typeDeclarationContainingCall.binding),
+                convertIfLocal(originalMessageSend.resolvedType),
                 lookupEnvironment);
 
         int iArg = 1;
@@ -1185,7 +1256,7 @@ public class Testability {
                 fieldDeclaration,
                 typeBinding,
                 fieldDeclaration.modifiers,
-                typeDeclaration.binding);
+                typeDeclaration.binding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
@@ -1317,8 +1388,10 @@ public class Testability {
             throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
         }
 
+        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeDeclaration.binding), lookupEnvironment);
+
         TypeBinding[] typeArguments //class
-                = {typeDeclaration.binding};
+                = {resultingTypeBinding};
 
         ParameterizedTypeBinding typeBinding =
                 lookupEnvironment.createParameterizedType(
@@ -1327,7 +1400,8 @@ public class Testability {
                         referenceBinding);
 
         TypeReference[][] typeReferences = new TypeReference[path.length][];
-        typeReferences[path.length - 1] = new TypeReference[]{Testability.typeReferenceFromTypeBinding(Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment))};
+
+        typeReferences[path.length - 1] = new TypeReference[]{Testability.typeReferenceFromTypeBinding(resultingTypeBinding)};
 
         ParameterizedQualifiedTypeReference parameterizedQualifiedTypeReference = new ParameterizedQualifiedTypeReference(
                 path,
@@ -1341,7 +1415,7 @@ public class Testability {
                 fieldDeclaration,
                 typeBinding,
                 fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic,
-                typeDeclaration.binding);
+                typeDeclaration.binding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
@@ -1351,7 +1425,7 @@ public class Testability {
         Argument[] arguments = new Argument[1]; //TODO use this method in other make..FieldDeclaration
         TypeReference typeReference =
                 Testability.typeReferenceFromTypeBinding(
-                        Testability.boxIfApplicable(typeDeclaration.binding, lookupEnvironment));
+                        resultingTypeBinding);
 
         arguments[0] = new Argument((" arg" + 0).toCharArray(), 0, typeReference, 0);
 
@@ -1418,7 +1492,7 @@ public class Testability {
                 fieldDeclaration,
                 typeBinding,
                 fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic  /*| ExtraCompilerModifiers.AccUnresolved*/,
-                typeDeclaration.binding);//sourceType);
+                typeDeclaration.binding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
 //        fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
@@ -1455,6 +1529,10 @@ public class Testability {
                     wildcard.bound = typeReferenceFromTypeBinding(((WildcardBinding) typeBinding).bound);
                     return wildcard;
                 }
+
+//                if (binaryTypeBinding instanceof CaptureBinding){ //TODO causing type mismatch
+//                    return typeReferenceFromTypeBinding(((CaptureBinding) binaryTypeBinding).sourceType);
+//                }
 
                 char[][] compoundName = expandInternalName(binaryTypeBinding.compoundName);
 
@@ -1842,13 +1920,13 @@ public class Testability {
                 constructorDeclaration,
                 typeDeclaration,
                 "accept",
-                "$$preCreate");
+                "preCreate");
 
         newStatements[newStatements.length - 1] = statementForListenerCall(
                 constructorDeclaration,
                 typeDeclaration,
                 "accept",
-                "$$postCreate");
+                "postCreate");
 
         constructorDeclaration.statements = newStatements;
 
@@ -1858,19 +1936,32 @@ public class Testability {
             ConstructorDeclaration constructorDeclaration,
             TypeDeclaration typeDeclaration,
             String methodNameInListenerField,
-            String targetFieldNameInThis) {
+            String targetFieldNameSuffix) {
+
+        LookupEnvironment lookupEnvironment = typeDeclaration.scope.environment();
+
+        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeDeclaration.binding), lookupEnvironment);
 
         MessageSend messageToFieldApply = new MessageSend();
 
         messageToFieldApply.selector = methodNameInListenerField.toCharArray();
 
+        ReferenceBinding outerTypeBinding = typeDeclaration.binding.outermostEnclosingType();
+
+        String supertypeName =
+                typeDeclaration.binding.isLocalType()?
+                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) + "$" :
+                        "";
+
+        String targetFieldName = "$$" + supertypeName + targetFieldNameSuffix;
+
         NameReference fieldNameReference = makeQualifiedNameReference(
-                new String(typeDeclaration.name),
-                targetFieldNameInThis);
+                new String(outerTypeBinding.sourceName()),
+                targetFieldName);
 
         messageToFieldApply.receiver = fieldNameReference;
 
-        messageToFieldApply.actualReceiverType = messageToFieldApply.receiver.resolvedType;
+        messageToFieldApply.actualReceiverType = resultingTypeBinding;//messageToFieldApply.receiver.resolvedType;
 
         messageToFieldApply.arguments = new Expression[]{new ThisReference(0,0)};
 
@@ -1879,11 +1970,23 @@ public class Testability {
                 messageToFieldApply, 0, 0);
 
         labeledStatement.targetLabel = new BranchLabel(); //normally done in analyseCode
-        labeledStatement.resolve(constructorDeclaration.scope);
+
+        { //for some reason lambda constructor scope is static, but we need to use this to register instance with pre/post listeners
+            boolean originalIsStatic = constructorDeclaration.scope.isStatic;
+
+            constructorDeclaration.scope.isStatic = false;
+
+            labeledStatement.resolve(constructorDeclaration.scope);
+            constructorDeclaration.scope.isStatic = originalIsStatic;
+        }
 
         if (null == messageToFieldApply.receiver.resolvedType)
             throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);
 
         return labeledStatement;
+    }
+
+    public static boolean codeContainsSyntaxErrors(CompilationResult fullParseUnitResult) {
+        return fullParseUnitResult.hasSyntaxError;
     }
 }

@@ -80,6 +80,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
     // testability
     public List<Map.Entry<Expression, TypeDeclaration>> allCallsToRedirect = new ArrayList<>(); //expression to type containing expression (e.g. inner)
     public Map<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
+    public List<Map.Entry<TypeDeclaration, TypeDeclaration>> anonymousTypes = new ArrayList<>(); //AnonymousType to type containing expression (e.g. inner)
     public boolean methodsResolved = false; //flag indicating method resolution phase is over
 
     // 1.5 support
@@ -576,8 +577,15 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             classFile.setForMethodInfos();
             if (this.methods != null) {
                 for (int i = 0, max = this.methods.length; i < max; i++) {
-                    if (this.methods[i] instanceof ConstructorDeclaration && compilationResult.instrumentForTestability)
-                        Testability.addListenerCallsToConstructor((ConstructorDeclaration)this.methods[i], this);
+                    if (this.methods[i] instanceof ConstructorDeclaration && compilationResult.instrumentForTestability) {
+                        try {
+                            Testability.addListenerCallsToConstructor((ConstructorDeclaration) this.methods[i], this);
+                        } catch(Exception ex) {
+                            ex.printStackTrace(System.out);
+                            this.scope.referenceCompilationUnit().problemReporter.testabilityInstrumentationError(
+                                    "could not add listener calls to constructor", ex);
+                        }
+                    }
                     this.methods[i].generateCode(this.scope, classFile);
                 }
             }
