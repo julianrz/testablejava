@@ -85,6 +85,18 @@ public class Testability {
                 }
 
             }, methodScope.methodScope());
+        } else if (methodScope.referenceContext instanceof TypeDeclaration) {
+            TypeDeclaration declaration = (TypeDeclaration) methodScope.referenceContext;
+
+            declaration.traverse(new ASTVisitor() {
+                @Override
+                public void endVisit(LabeledStatement labeledStatement, BlockScope scope) {
+                    if (new String(labeledStatement.label).startsWith(DONTREDIRECT))
+                        labelledStatementsDontRedirect.add(labeledStatement);
+                    super.endVisit(labeledStatement, scope);
+                }
+
+            }, methodScope.classScope());
         } else {
             return false;
         }
@@ -225,7 +237,7 @@ public class Testability {
     static AllocationExpression makeCallSiteExpression(MessageSend messageSend, BlockScope currentScope) {
         AllocationExpression allocationExpression = new AllocationExpression();
 
-        SourceTypeBinding callingTypeBinding = currentScope.classScope().referenceContext.binding;
+        TypeBinding callingTypeBinding = convertIfAnonymous(currentScope.classScope().referenceContext.binding);//)convertIfLocal
         TypeBinding calledTypeBinding = messageSend.actualReceiverType;
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
@@ -265,7 +277,7 @@ public class Testability {
     static AllocationExpression makeCallSiteExpression(AllocationExpression messageSend, BlockScope currentScope) {
         AllocationExpression allocationExpression = new AllocationExpression();
 
-        SourceTypeBinding callingTypeBinding = currentScope.classScope().referenceContext.binding;
+        TypeBinding callingTypeBinding = convertIfAnonymous(currentScope.classScope().referenceContext.binding);
         TypeBinding calledTypeBinding = messageSend.type.resolvedType;//actualReceiverType;
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
@@ -573,11 +585,19 @@ public class Testability {
                 map(fieldDeclaration -> {
                     try {
                         fieldDeclaration.resolve(typeDeclaration.initializerScope);
+//TODO reen
+//                        if (!validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
+//                            lookupEnvironment.problemReporter.
+//                                    testabilityInstrumentationError(
+//                                            "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name));
+//                            return null;
+//                        }
+
                         return fieldDeclaration;
                     } catch (Exception ex){
                         lookupEnvironment.problemReporter.
                                 testabilityInstrumentationError(
-                                        "field cannot be resolved: " + fieldDeclaration, ex);
+                                        "The field cannot be resolved: " + new String(fieldDeclaration.name), ex);
 
                         return null;
                     }
@@ -585,6 +605,30 @@ public class Testability {
                 filter(Objects::nonNull).
                 collect(toList());
 
+    }
+
+    static boolean validateMessageSendsInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
+
+        try {
+            fieldDeclaration.traverse(new ASTVisitor() {
+                @Override
+                public boolean visit(MessageSend m, BlockScope scope) {
+                    if (m.binding() instanceof ProblemMethodBinding)
+                        throw exceptionVisitorInterrupted;
+                    return true;
+                }
+                @Override
+                public boolean visit(QualifiedTypeReference r, BlockScope scope) {
+                    if (r.resolvedType == null || r.resolvedType instanceof ProblemReferenceBinding)
+                        throw exceptionVisitorInterrupted;
+                    return true;
+                }
+            }, scope);
+        } catch(Exception e){
+            if (e == exceptionVisitorInterrupted)
+                return false;
+        }
+        return true;
     }
 
     static RuntimeException exceptionVisitorInterrupted = new RuntimeException();
@@ -891,8 +935,8 @@ public class Testability {
         TypeBinding receiverResolvedType = originalMessageSend.receiver.resolvedType;
 
         typeArgumentsForFunction[iArg++] = bindingForCallContextType(
-                convertIfLocal(typeDeclarationContainingCall.binding),
-                convertIfLocal(receiverResolvedType), //this should be apparent compile type called
+                convertIfAnonymous(typeDeclarationContainingCall.binding),
+                convertIfAnonymous(receiverResolvedType), //this should be apparent compile type called
                 lookupEnvironment);
 
         TypeBinding[] originalBindingParameters = originalMessageSend.binding.parameters;
@@ -1092,6 +1136,12 @@ public class Testability {
 
         fieldDeclaration.initialization = lambdaExpression;
         return fieldDeclaration;
+    }
+
+    static TypeBinding convertIfAnonymous(TypeBinding binding) {
+        if (!binding.isAnonymousType())
+            return binding;
+        return convertIfLocal(binding);
     }
 
     /**
@@ -1534,7 +1584,7 @@ public class Testability {
 //                    return typeReferenceFromTypeBinding(((CaptureBinding) binaryTypeBinding).sourceType);
 //                }
 
-                char[][] compoundName = expandInternalName(binaryTypeBinding.compoundName);
+                char[][] compoundName = expandInternalName(removeLocalPrefix(binaryTypeBinding.compoundName));
 
                 if (!typeBinding.isParameterizedType()) {
                     return new QualifiedTypeReference(compoundName, new long[compoundName.length]);
@@ -1608,6 +1658,28 @@ public class Testability {
                     poss
             );
         }
+    }
+
+    static char[][] removeLocalPrefix(char[][] compoundName) {
+        return Arrays.stream(compoundName).
+                map(chunk -> removeLocalPrefix(chunk)).
+                collect(toList()).
+                toArray(new char[][]{});
+    }
+
+    /**
+     *
+     * @param name
+     * @return name without the $Local$ prefix. The prefix appears for local classes
+     */
+    static char[] removeLocalPrefix(char[] name) {
+        String internalNameStr = new String(name);
+        String localPrefix = "$Local$";
+        if (internalNameStr.startsWith(localPrefix)) {
+            return internalNameStr.substring(localPrefix.length()).toCharArray();
+        }
+
+        return name;
     }
 
     /**
