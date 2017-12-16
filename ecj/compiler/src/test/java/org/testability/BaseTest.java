@@ -390,13 +390,16 @@ public class BaseTest {
     Object invokeCompiledMethod(String className, String methodName, Object... args) throws Exception {
         URLClassLoader cl = new URLClassLoader(new URL[]{classStoreDir.toURL()}, this.getClass().getClassLoader());
         Class<?> clazz = cl.loadClass(className);
-        Method[] main = clazz.getDeclaredMethods();
+        Method[] methods = clazz.getDeclaredMethods();
 
-        Optional<Method> optMethod = Arrays.stream(main).filter(m -> m.getName().equals(methodName)).findFirst();
+        Optional<Method> optMethod = Arrays.stream(methods).
+                filter(m -> m.getName().equals(methodName)).
+                findFirst();
 
         Method method = optMethod.orElseThrow(()->new RuntimeException("method not found: " + methodName));
         method.setAccessible(true);
-        return method.invoke(clazz.newInstance(), args);
+        Object instance = clazz.newInstance();
+        return method.invoke(instance, args);
     }
 }
 
