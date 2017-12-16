@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.junit.Test;
+import testablejava.CallContext;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -3084,7 +3085,124 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ReproductionObjectCallerInsideInnerClass() throws Exception {
+
+            String[] task = {
+                    "X.java",
+                    "class X {\n" +
+                    "                public void getRequiredBridges() {\n" +
+                    "\n" +
+                    "                    class BridgeCollector {\n" +
+                    "\n" +
+                    "                        BridgeCollector() {\n" +
+                    "                            collectBridges();\n" +
+                    "                        }\n" +
+                    "\n" +
+                    "                        void collectBridges() {\n" +
+                    "                        }\n" +
+                    "                    }\n" +
+                    "                }\n" +
+                    "            }"
+            };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_DontRedirectInBlock() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.concurrent.atomic.*;" +
+                        "public class X {\n" +
+                        "  AtomicInteger ret;\n" +
+                        "  {dontredirect: ret = new AtomicInteger();}\n" +
+                        "}"
+        };
+
+        String expectedOutput =
+                "import java.util.concurrent.atomic.AtomicInteger;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   AtomicInteger ret = new AtomicInteger();\n" +
+                "}";
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
 
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideNamedInnerClass() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.concurrent.atomic.*;" +
+                "public class X {\n" +
+                "    AtomicInteger ret;\n" +
+                "    {dontredirect: ret = new AtomicInteger();}\n" +
+                "    public int getRequiredBridges() {\n" +
+                "\n" +
+                "       int i=2;\n" +
+                "       int j=3;\n" +
+                "       int k=4;\n" +
+                "       class BridgeCollector {\n" +
+                "\n" +
+                "           BridgeCollector() {\n" +
+                "              int c = collectBridges(i, j, k);\n" +
+                "              dontredirect: ret.set(c);\n" +
+                "           }\n" +
+                "\n" +
+                "           int collectBridges(int i, int j, int k) {\n" +
+                "               return i + 10 * j + 100 * k;" +
+                "           }\n" +
+                "       }\n" +
+                "       dontredirect: new BridgeCollector();" +
+                "       dontredirect2: return ret.get();" +
+                "   }\n" +
+                "}\n",
+
+                "Y.java",
+                "import java.util.concurrent.atomic.*;" +
+                "import testablejava.CallContext;" +
+                "public class Y {" +
+                "    CallContext<?, ?>[] ctx={null};\n" +
+                "    int getRequiredBridgesWithRedirect() {\n" +
+                "        X.$$BridgeCollector$collectBridges$$I$I$I = (a1, a2, a3, a4) -> 0;\n " +
+                "        dontredirect: return new X().getRequiredBridges();\n" +
+                "    }\n" +
+                "    CallContext<?, ?> getRequiredBridgesCaptureCallContext() {\n" +
+                "        X.$$BridgeCollector$collectBridges$$I$I$I = (a1, a2, a3, a4) -> {ctx[0] = a1; return 0;};\n " +
+                "        dontredirect: {new X().getRequiredBridges();return ctx[0];}\n" +
+                "    }\n" +
+                "}"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(432, invokeCompiledMethod("X", "getRequiredBridges"));
+        assertEquals(0, invokeCompiledMethod("Y", "getRequiredBridgesWithRedirect"));
+        CallContext ctx = (CallContext) invokeCompiledMethod("Y", "getRequiredBridgesCaptureCallContext");
+        assertEquals("BridgeCollector", ctx.calledClass);
+        assertEquals("BridgeCollector", ctx.callingClass);
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_Repro_nested_call() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.concurrent.atomic.*;" +
+                        "public class X {\n" +
+                        "    void fn(){" +
+                        "      AtomicInteger ret;" +
+                        "      dontredirect: ret = new AtomicInteger();" +
+                        "      ret.set(intReturn());\n" +
+                        "    }\n" +
+                        "    int intReturn() {return 0;}\n" +
+                        "}"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        invokeCompiledMethod("X", "fn");
+    }
 
  }
