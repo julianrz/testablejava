@@ -563,6 +563,14 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                 }
             }
 
+            //make local types available for redirector fields to resolve
+            LocalTypeBinding[] localTypes = scope.compilationUnitScope().referenceContext.localTypes;
+            if (localTypes != null) {
+                Arrays.stream(localTypes).
+                        filter(Objects::nonNull).
+                        forEach(localTypeBinding -> this.initializerScope.addSubscope(localTypeBinding.scope));
+            }
+
             // generate all fiels
             classFile.addFieldInfos(false);
 
