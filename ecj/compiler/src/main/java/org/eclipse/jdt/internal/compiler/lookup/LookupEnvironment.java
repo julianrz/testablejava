@@ -1005,6 +1005,9 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
     public ReferenceBinding createMemberType(ReferenceBinding memberType, ReferenceBinding enclosingType) {
         return this.typeSystem.getMemberType(memberType, enclosingType);
     }
+    public TypeBinding[] getDerivedTypes(TypeBinding genericType) {
+        return this.typeSystem.getDerivedTypes(genericType);
+    }
     public ParameterizedTypeBinding createParameterizedType(ReferenceBinding genericType, TypeBinding[] typeArguments, ReferenceBinding enclosingType) {
         AnnotationBinding[] annotations = genericType.typeAnnotations;
         if (annotations != Binding.NO_ANNOTATIONS)

@@ -587,7 +587,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                 for (int i = 0, max = this.methods.length; i < max; i++) {
                     if (this.methods[i] instanceof ConstructorDeclaration && compilationResult.instrumentForTestability) {
                         try {
-                            Testability.addListenerCallsToConstructor((ConstructorDeclaration) this.methods[i], this);
+                            Testability.addListenerCallsToConstructor((ConstructorDeclaration) this.methods[i], this.binding);
                         } catch(Exception ex) {
                             ex.printStackTrace(System.out);
                             this.scope.referenceCompilationUnit().problemReporter.testabilityInstrumentationError(

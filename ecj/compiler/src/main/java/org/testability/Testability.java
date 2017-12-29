@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
@@ -173,7 +174,8 @@ public class Testability {
         messageToFieldApply.receiver = qualifiedNameReference;
 
         //use the field's binding directly
-        messageToFieldApply.binding = redirectorFieldDeclaration.type.resolvedType.getMethods(selector.toCharArray())[0];
+        messageToFieldApply.binding = //redirectorFieldDeclaration.type.resolvedType.getMethods(selector.toCharArray())[0];
+                redirectorFieldDeclaration.binding.type.getMethods(selector.toCharArray())[0];
 
         if (null == messageToFieldApply.receiver.resolvedType) {
             currentScope.problemReporter().testabilityInstrumentationError(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + qualifiedNameReference);
@@ -235,10 +237,17 @@ public class Testability {
     }
 
     static AllocationExpression makeCallSiteExpression(MessageSend messageSend, BlockScope currentScope) {
+
+        LookupEnvironment lookupEnvironment = currentScope.environment();
+
         AllocationExpression allocationExpression = new AllocationExpression();
 
-        TypeBinding callingTypeBinding = convertIfAnonymous(currentScope.classScope().referenceContext.binding);//)convertIfLocal
+        TypeBinding callingTypeBinding = convertIfAnonymous(currentScope.classScope().referenceContext.binding);
+
+        callingTypeBinding = convertToLocalIfGeneric(callingTypeBinding, lookupEnvironment);
+
         TypeBinding calledTypeBinding = messageSend.actualReceiverType;
+        calledTypeBinding = convertToLocalIfGeneric(calledTypeBinding, lookupEnvironment);
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
                 callingTypeBinding,
@@ -250,17 +259,25 @@ public class Testability {
 
         allocationExpression.type = callSiteType;
 
-        Expression exprGetCallingClass = new StringLiteral(callingTypeBinding.readableName(), 0,0,0);
+        Expression exprGetCallingClass = new StringLiteral(removeLocalPrefix(callingTypeBinding.readableName()), 0,0,0);
 
-        Expression exprGetCalledClass = new StringLiteral(calledTypeBinding.readableName(), 0,0,0);
+        Expression exprGetCalledClass = new StringLiteral(removeLocalPrefix(calledTypeBinding.readableName()), 0,0,0);
+
+        TypeReference callingTypeReference = typeReferenceFromTypeBinding(callingTypeBinding);
+
+        TypeReference calledTypeReference = typeReferenceFromTypeBinding(calledTypeBinding);
 
         Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
-                new CastExpression(new NullLiteral(0,0), typeReferenceFromTypeBinding(callingTypeBinding)) :
-                new ThisReference(0,0);
+                new CastExpression(new NullLiteral(0,0), callingTypeReference) :
+                new ThisReference(0, 0);//new QualifiedThisReference(callingTypeReference,0,0);
 
         Expression exprGetCalledClassInstance = messageSend.binding.isStatic()?
-                new CastExpression(new NullLiteral(0,0), typeReferenceFromTypeBinding(calledTypeBinding)):
-                messageSend.receiver;
+                new CastExpression(new NullLiteral(0,0), calledTypeReference):
+                (messageSend.receiver instanceof ThisReference && messageSend.receiver.resolvedType.id !=
+                        calledTypeBinding.id)?
+                        new QualifiedThisReference(calledTypeReference,0,0) : messageSend.receiver;
+        //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference poimnitng to inner class and MessageSend magically fixes this
+        //in its actualReceiverType)
 
         Expression[] argv = {
                 exprGetCallingClass,
@@ -268,6 +285,7 @@ public class Testability {
                 exprGetCallingClassInstance,
                 exprGetCalledClassInstance
         };
+        //TODO apply on other makeCallSiteExpression
 
         allocationExpression.arguments = argv;
 
@@ -275,10 +293,21 @@ public class Testability {
         return allocationExpression;
     }
     static AllocationExpression makeCallSiteExpression(AllocationExpression messageSend, BlockScope currentScope) {
+        LookupEnvironment lookupEnvironment = currentScope.environment();
+
         AllocationExpression allocationExpression = new AllocationExpression();
 
         TypeBinding callingTypeBinding = convertIfAnonymous(currentScope.classScope().referenceContext.binding);
+
+        callingTypeBinding = convertToLocalIfGeneric(callingTypeBinding, lookupEnvironment);
+
         TypeBinding calledTypeBinding = messageSend.type.resolvedType;//actualReceiverType;
+
+        calledTypeBinding = convertToLocalIfGeneric(calledTypeBinding, lookupEnvironment);
+
+        TypeReference callingTypeReference = typeReferenceFromTypeBinding(callingTypeBinding);
+
+        TypeReference calledTypeReference = typeReferenceFromTypeBinding(calledTypeBinding);
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
                 callingTypeBinding,
@@ -290,16 +319,16 @@ public class Testability {
 
         allocationExpression.type = callSiteType;
 
-        Expression exprGetCallingClass = new StringLiteral(callingTypeBinding.readableName(), 0,0,0);
+        Expression exprGetCallingClass = new StringLiteral(removeLocalPrefix(callingTypeBinding.readableName()), 0,0,0);
 
-        Expression exprGetCalledClass = new StringLiteral(calledTypeBinding.readableName(), 0,0,0);
+        Expression exprGetCalledClass = new StringLiteral(removeLocalPrefix(calledTypeBinding.readableName()), 0,0,0);
 
         Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
-                new CastExpression(new NullLiteral(0,0), typeReferenceFromTypeBinding(callingTypeBinding)) :
-                new ThisReference(0,0);
+                new CastExpression(new NullLiteral(0,0), callingTypeReference) :
+                new ThisReference(0,0);//new QualifiedThisReference(callingTypeReference,0,0);
 
         Expression exprGetCalledClassInstance = //no instance yet
-                new CastExpression(new NullLiteral(0,0), typeReferenceFromTypeBinding(calledTypeBinding));
+                new CastExpression(new NullLiteral(0,0), calledTypeReference);
 
         Expression[] argv = {
                 exprGetCallingClass,
@@ -556,8 +585,33 @@ public class Testability {
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
                 !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
 
-            if (!typeDeclaration.binding.isLocalType()) //otherwise they are on outer class
-                ret.addAll(makeTestabilityListenerFields(typeDeclaration, referenceBinding));
+            if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
+                //TODO for all instantiated types if typeDeclaration is generic
+
+                ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
+
+                //find all local type declarations and add corresponding fields
+                List<TypeDeclaration> localTypeDeclarations = findTypeDeclarations(typeDeclaration, null);
+
+                //note: only instantiated generic types should be included
+                List<ParameterizedTypeBinding> instantiatedTypeDeclarations =
+                        getInstantiatedTypeBindings(
+                                localTypeDeclarations.stream().
+                                        map(decl -> decl.binding).
+                                        map(SourceTypeBinding.class::cast).
+                                        collect(toList()),
+                                lookupEnvironment);
+                //parameterized type binding is not source type binding, but that is what is needed??
+                Stream.concat(
+                        localTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
+                        instantiatedTypeDeclarations.stream()).
+//                        map(Testability::convertIfLocal).
+                        forEach(typeBinding -> {
+                    ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
+                });
+
+            }
+
         }
 
         if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
@@ -606,6 +660,59 @@ public class Testability {
                 collect(toList());
 
     }
+
+    /**
+     *
+     * @param genericTypeBindings
+     * @param environment
+     * @return all instantiations of the type
+     */
+
+    static List<ParameterizedTypeBinding> getInstantiatedTypeBindings(List<ReferenceBinding> genericTypeBindings, LookupEnvironment environment) {
+        return genericTypeBindings.stream().
+                filter(Testability::isGenericType).
+                flatMap(t -> findTypeInstantiations(t, environment).stream()).
+                collect(toList());
+    }
+
+    /**
+     *
+     * @param typeBinding
+     * @return if it is genetic type (not instance)
+     */
+    static boolean isGenericType(TypeBinding typeBinding) {
+        return !typeBinding.isParameterizedType() &&
+                typeBinding.typeVariables() != null && typeBinding.typeVariables().length > 0;
+    }
+
+    static List<TypeDeclaration> findTypeDeclarations(TypeDeclaration typeDeclaration, ClassScope classScope) {
+
+        List<TypeDeclaration> ret = new ArrayList<>();
+
+        typeDeclaration.traverse(new ASTVisitor() {
+            @Override
+            public boolean visit(TypeDeclaration m, BlockScope scope) {
+                ret.add(m);
+                return true;
+            }
+        }, classScope);
+
+        return ret;
+
+    }
+    static List<ParameterizedTypeBinding> findTypeInstantiations(ReferenceBinding typeBinding, LookupEnvironment environment) {
+        TypeBinding[] derivedTypes = environment.getDerivedTypes(typeBinding);
+
+        return Arrays.stream(derivedTypes).
+                filter(t -> (t instanceof ParameterizedTypeBinding)).
+                map(t -> (ParameterizedTypeBinding)t).
+                filter(t -> t.arguments != null).
+                filter(t ->
+                        !Arrays.stream(t.arguments).anyMatch(a->a instanceof TypeVariableBinding)).//any arg is a type variable, not actual type
+
+                collect(toList());
+    }
+
 
     static boolean validateMessageSendsInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
 
@@ -681,33 +788,38 @@ public class Testability {
     }
 
     public static List<FieldDeclaration> makeTestabilityListenerFields(
-            TypeDeclaration typeDeclaration,
+            CompilationResult compilationResult,
+            ReferenceBinding typeBinding,
             SourceTypeBinding referenceBinding) {
 
-        String supertypeName =
-                typeDeclaration.binding.isLocalType()?
-                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) +"$" :
-                        "";
+//        String supertypeName =
+//                typeDeclaration.binding.isLocalType()?
+//                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) +"$" :
+//                        "";
+//
 
         FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
-                typeDeclaration,
+                compilationResult,
+                typeBinding,
                 referenceBinding,
-                "$$"+supertypeName+"preCreate");
+                makeListenerFieldName(typeBinding, "preCreate"));//"$$"+supertypeName+"preCreate");
+
         FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
-                typeDeclaration,
+                compilationResult,
+                typeBinding,
                 referenceBinding,
-                "$$"+supertypeName+"postCreate");
+                makeListenerFieldName(typeBinding, "postCreate"));//"$$"+supertypeName+"postCreate");
 
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
 
         ret.add(fieldDeclarationPreCreate);
         ret.add(fieldDeclarationPostCreate);
 
-        typeDeclaration.anonymousTypes.forEach( entry -> {
-            TypeDeclaration anonType = entry.getKey();
-            TypeDeclaration originType = entry.getValue();
-            ret.addAll(makeTestabilityListenerFields(anonType, referenceBinding));
-        });
+//        typeDeclaration.anonymousTypes.forEach( entry -> {
+//            TypeDeclaration anonType = entry.getKey();
+//            TypeDeclaration originType = entry.getValue();
+//            ret.addAll(makeTestabilityListenerFields(anonType, referenceBinding));
+//        });
         return ret;
     }
 
@@ -852,7 +964,7 @@ public class Testability {
     static LambdaExpression makeLambdaExpression(
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
-            ParameterizedQualifiedTypeReference typeReferenceForFunction,
+//            ParameterizedQualifiedTypeReference typeReferenceForFunction,
             LookupEnvironment lookupEnvironment,
             TypeBinding[] typeArgumentsForFunction,
             ParameterizedTypeBinding typeBindingForFunction) {
@@ -877,7 +989,7 @@ public class Testability {
 
         lambdaExpression.setExpressionContext(originalMessageSend.expressionContext);
 
-        lambdaExpression.setExpectedType(typeReferenceForFunction.resolvedType);
+//TODO reen or allways null?        lambdaExpression.setExpectedType(typeReferenceForFunction.resolvedType);
 
         return lambdaExpression;
     }
@@ -932,11 +1044,21 @@ public class Testability {
 
         int iArg = 0;
 
-        TypeBinding receiverResolvedType = originalMessageSend.receiver.resolvedType;
+        TypeBinding receiverResolvedType = originalMessageSend.actualReceiverType;//originalMessageSend.receiver.resolvedType;
+
+        TypeBinding callingType = convertIfAnonymous(typeDeclarationContainingCall.binding);
+
+        //TODO apply elsewhere too, factor out a method:
+
+        callingType = convertToLocalIfGeneric(callingType, lookupEnvironment);
+
+        TypeBinding calledType = convertIfAnonymous(receiverResolvedType);
+
+        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
 
         typeArgumentsForFunction[iArg++] = bindingForCallContextType(
-                convertIfAnonymous(typeDeclarationContainingCall.binding),
-                convertIfAnonymous(receiverResolvedType), //this should be apparent compile type called
+                callingType,
+                calledType, //this should be apparent compile type called
                 lookupEnvironment);
 
         TypeBinding[] originalBindingParameters = originalMessageSend.binding.parameters;
@@ -1061,7 +1183,7 @@ public class Testability {
         LambdaExpression lambdaExpression = makeLambdaExpression(
                 originalMessageSend,
                 typeDeclarationContainingCall,
-                parameterizedQualifiedTypeReferenceForFunction,
+//                parameterizedQualifiedTypeReferenceForFunction,
                 lookupEnvironment,
                 typeArgumentsForFunction,
                 typeBindingForFunction);
@@ -1138,6 +1260,43 @@ public class Testability {
         return fieldDeclaration;
     }
 
+    private static TypeBinding convertToLocalIfGeneric(TypeBinding callingType, LookupEnvironment lookupEnvironment) {
+        if (callingType.isGenericType())
+            callingType = lookupEnvironment.convertToRawType(callingType, false);
+        return callingType;
+    }
+
+//    /**
+//     * make any parameterized type variables wildcards
+//     * @param typeBinding
+//     * @param lookupEnvironment
+//     * @return
+//     */
+//    static TypeBinding removeAnyTypeVariables(TypeBinding typeBinding, LookupEnvironment lookupEnvironment) {
+//
+//        if (typeBinding instanceof ParameterizedTypeBinding) {
+//            return lookupEnvironment.createRawType(((ParameterizedTypeBinding) typeBinding).genericType(), typeBinding.enclosingType());
+//        }
+//
+////        TypeBinding[] types = lookupEnvironment.getDerivedTypes(typeBinding);
+////        TypeBinding retTypeBinding = typeBinding.clone(typeBinding.enclosingType());
+////
+////        if (retTypeBinding instanceof SourceTypeBinding) {
+////            TypeVariableBinding[] newTypeVariables = ((SourceTypeBinding) retTypeBinding).typeVariables;
+////
+////            IntStream.range(0, newTypeVariables.length).
+////                    forEach(i-> newTypeVariables[i] = new WildcardBinding(Wildcard.UNBOUND));
+////
+////            ((SourceTypeBinding) retTypeBinding).typeVariables = newTypeVariables;
+////
+////        } else if (retTypeBinding instanceof ParameterizedTypeBinding) {
+////            ((ParameterizedTypeBinding) retTypeBinding).arguments = null;
+////        }
+////
+////        return retTypeBinding;
+//
+//    }
+
     static TypeBinding convertIfAnonymous(TypeBinding binding) {
         if (!binding.isAnonymousType())
             return binding;
@@ -1166,7 +1325,7 @@ public class Testability {
             return ((CaptureBinding) typeBinding).sourceType;
 //            return typeBinding.clone(typeBinding.enclosingType());
         }
-        if (typeBinding instanceof ParameterizedTypeBinding) {
+        if (typeBinding instanceof ParameterizedTypeBinding && !typeBinding.isRawType()) {
             ParameterizedTypeBinding typeBindingParameterized =
                     (ParameterizedTypeBinding) typeBinding;
             TypeBinding[] originalArgs = typeBindingParameterized.arguments;
@@ -1209,9 +1368,15 @@ public class Testability {
 
         TypeBinding[] typeArguments = new TypeBinding[typeArgsCount];
 
+        TypeBinding callingType = convertIfLocal(typeDeclarationContainingCall.binding);
+        callingType = convertToLocalIfGeneric(callingType, lookupEnvironment);
+
+        TypeBinding calledType = convertIfLocal(originalMessageSend.resolvedType);
+        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
+
         typeArguments[0] = bindingForCallContextType(
-                convertIfLocal(typeDeclarationContainingCall.binding),
-                convertIfLocal(originalMessageSend.resolvedType),
+                callingType,
+                calledType,
                 lookupEnvironment);
 
         int iArg = 1;
@@ -1417,7 +1582,8 @@ public class Testability {
         return true;
     }
     static FieldDeclaration makeListenerFieldDeclaration(
-            TypeDeclaration typeDeclaration,
+            CompilationResult compilationResult,
+            ReferenceBinding typeDeclarationBinding,
             SourceTypeBinding referenceBinding,
             String fieldName) {
 
@@ -1438,7 +1604,7 @@ public class Testability {
             throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
         }
 
-        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeDeclaration.binding), lookupEnvironment);
+        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfAnonymous(typeDeclarationBinding), lookupEnvironment);
 
         TypeBinding[] typeArguments //class
                 = {resultingTypeBinding};
@@ -1465,12 +1631,12 @@ public class Testability {
                 fieldDeclaration,
                 typeBinding,
                 fieldDeclaration.modifiers | ClassFileConstants.AccStatic | ClassFileConstants.AccPublic,
-                typeDeclaration.binding.outermostEnclosingType());
+                typeDeclarationBinding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
 
-        LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
+        LambdaExpression lambdaExpression = new LambdaExpression(compilationResult, false);
 
         Argument[] arguments = new Argument[1]; //TODO use this method in other make..FieldDeclaration
         TypeReference typeReference =
@@ -1572,6 +1738,12 @@ public class Testability {
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
         int dim = typeBinding.dimensions();
         if (dim == 0){
+            if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
+                //replace with ?
+                Wildcard wildcard = new Wildcard(Wildcard.UNBOUND);
+                wildcard.bound = null;
+                return wildcard;
+            }
             if (typeBinding instanceof ReferenceBinding) {
                 ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;
                 if (typeBinding instanceof WildcardBinding) {
@@ -1973,7 +2145,7 @@ public class Testability {
      */
     public static void addListenerCallsToConstructor(
             ConstructorDeclaration constructorDeclaration,
-            TypeDeclaration typeDeclaration) {
+            ReferenceBinding typeBinding) {
 
         Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(constructorDeclaration.scope.classScope());
 
@@ -1983,6 +2155,15 @@ public class Testability {
         if (constructorDeclaration.statements == null)
             constructorDeclaration.statements = new Statement[]{};
 
+        List<ParameterizedTypeBinding> typeInstances = getInstantiatedTypeBindings(
+                Arrays.asList(typeBinding),
+                constructorDeclaration.scope.environment());
+
+        if (!typeInstances.isEmpty()){ //TODO form pre-post lists and update type once
+            typeInstances.forEach(typeInstance -> addListenerCallsToConstructor(constructorDeclaration, typeInstance));
+            return;
+        }
+
         int originalStatementsCount = constructorDeclaration.statements.length;
 
         Statement [] newStatements = Arrays.copyOf(constructorDeclaration.statements, originalStatementsCount +2);
@@ -1990,13 +2171,13 @@ public class Testability {
 
         newStatements[0] = statementForListenerCall(
                 constructorDeclaration,
-                typeDeclaration,
+                typeBinding,
                 "accept",
                 "preCreate");
 
         newStatements[newStatements.length - 1] = statementForListenerCall(
                 constructorDeclaration,
-                typeDeclaration,
+                typeBinding,
                 "accept",
                 "postCreate");
 
@@ -2006,26 +2187,21 @@ public class Testability {
 
     static Statement statementForListenerCall(
             ConstructorDeclaration constructorDeclaration,
-            TypeDeclaration typeDeclaration,
+            ReferenceBinding typeBinding,
             String methodNameInListenerField,
             String targetFieldNameSuffix) {
 
-        LookupEnvironment lookupEnvironment = typeDeclaration.scope.environment();
+        LookupEnvironment lookupEnvironment = constructorDeclaration.scope.environment();//typeDeclaration.scope.environment();
 
-        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeDeclaration.binding), lookupEnvironment);
+        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeBinding), lookupEnvironment);
 
         MessageSend messageToFieldApply = new MessageSend();
 
         messageToFieldApply.selector = methodNameInListenerField.toCharArray();
 
-        ReferenceBinding outerTypeBinding = typeDeclaration.binding.outermostEnclosingType();
+        ReferenceBinding outerTypeBinding = typeBinding.outermostEnclosingType();
 
-        String supertypeName =
-                typeDeclaration.binding.isLocalType()?
-                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) + "$" :
-                        "";
-
-        String targetFieldName = "$$" + supertypeName + targetFieldNameSuffix;
+        String targetFieldName = makeListenerFieldName(typeBinding, targetFieldNameSuffix);
 
         NameReference fieldNameReference = makeQualifiedNameReference(
                 new String(outerTypeBinding.sourceName()),
@@ -2035,7 +2211,12 @@ public class Testability {
 
         messageToFieldApply.actualReceiverType = resultingTypeBinding;//messageToFieldApply.receiver.resolvedType;
 
-        messageToFieldApply.arguments = new Expression[]{new ThisReference(0,0)};
+        messageToFieldApply.arguments = new Expression[]{
+                new CastExpression(
+                        new ThisReference(0,0),
+                        typeReferenceFromTypeBinding(resultingTypeBinding)
+                )
+        };
 
         LabeledStatement labeledStatement = new LabeledStatement(
                 (DONTREDIRECT + "top" + System.nanoTime()).toCharArray(),
@@ -2056,6 +2237,24 @@ public class Testability {
             throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);
 
         return labeledStatement;
+    }
+
+    static String makeListenerFieldName(TypeBinding typeBinding, String targetFieldNameSuffix) {
+        String typeNamePrefix = "";
+        if (typeBinding.isAnonymousType()) {
+            LocalTypeBinding localTypeBinding = (LocalTypeBinding) typeBinding;
+            QualifiedAllocationExpression allocation = localTypeBinding.scope.referenceContext.allocation.anonymousType.allocation;
+            typeNamePrefix = escapeTypeArgsInTypeName(allocation.type.toString());//typeDeclaration.allocation.anonymousType.allocation.type.toString()) + "$";
+        } else if (typeBinding.isLocalType()) {
+            typeNamePrefix = escapeTypeArgsInTypeName(
+                    new String(
+                            removeLocalPrefix(typeBinding.readableName()))); //TODO type variables //TODO correct name
+        }
+
+        return "$$" +
+                (typeNamePrefix.isEmpty() ? "" : typeNamePrefix + "$") +
+                targetFieldNameSuffix;
+
     }
 
     public static boolean codeContainsSyntaxErrors(CompilationResult fullParseUnitResult) {

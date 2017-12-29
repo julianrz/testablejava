@@ -159,6 +159,70 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
     @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorCallbackFromNamedInnerClass() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.Comparator;\n" +
+                        "import java.util.function.Consumer;\n\n" +
+                        "public class X {\n" +
+                        "	public X() {dontredirect:System.out.println();}\n"+
+                        "	void fn() {" +
+                        "      class C<T> implements Comparator<T> {\n" +
+                        "         @Override\n" +
+                        "         public int compare(T o1, T o2) {\n" +
+                        "            return -1;\n" +
+                        "         }\n" +
+                        "      };\n" +
+                        "      new C<String>();" +
+                        "   }\n" +
+                        "}\n",
+                "Y.java",
+                "import java.util.List;\n" +
+                "import java.util.ArrayList;\n" +
+                        "public class Y {\n" +
+                        "	static List<Object> instances = new ArrayList<>();\n" +
+                        "	static List<Object> setAndTest() {\n" +
+                        "     X.$$C_java$lang$String_$postCreate = inst -> instances.add(inst);\n" +
+                        "     new X().fn();\n" +
+                        "     return instances;\n" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "import X.1C;\n" +
+                        "import java.util.function.Consumer;\n\n" +
+                        "public class X {\n" +
+                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<1C<String>> $$C_java$lang$String_$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<1C<String>> $$C_java$lang$String_$postCreate = (var0) -> {\n" +
+                        "   };\n\n" +
+                        "   public X() {\n" +
+                        "      $$preCreate.accept(this);\n" +
+                        "      System.out.println();\n" +
+                        "      $$postCreate.accept(this);\n" +
+                        "   }\n\n" +
+                        "   void fn() {\n" +
+                        "      new 1C(this);\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
+
+        invokeCompiledMethod("X", "fn");
+        List<Object> instances = (List<Object>) invokeCompiledMethod("Y", "setAndTest");
+        assertEquals(1, instances.size());
+        assertEquals("C", instances.get(0).getClass().getSimpleName());
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+
+    @Test
     public void testTestabilityInjectFunctionField_NotExpandingInsideRedirectedFields() throws Exception {
 
         String[] task = {
@@ -355,7 +419,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, X>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                        "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -659,6 +723,56 @@ public class TestabilityTest extends BaseTest {
         invokeCompiledMethod("X","fn");
 
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForLocalCallNoArgsInsideGenericType() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.Comparator;\n" +
+                "public class X {\n" +
+                        "   int callee(){return 1;}\n" +
+                        "	int fn(){\n" +
+                        "      class C<T> implements Comparator<T> {\n" +
+                        "         @Override\n" +
+                        "         public int compare(T o1, T o2) {\n" +
+                        "            return callee();\n" +
+                        "         }\n" +
+                        "      };\n" +
+                        "      dontredirect: return new C<String>().compare(\"a\",\"b\");\n" +
+                        "   }\n" +
+                        "}\n",
+                "Y.java",
+                        "public class Y {\n" +
+                        "   static int mockAndTest(){" +
+                        "     X.$$X$callee = (ctx) -> 2;" +
+                        "     return new X().fn();" +
+                        "   }" +
+                        "}"
+        };
+        String expectedOutput =
+                "import X.1C;\n"+
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n\n" +
+                "public class X {\n" +
+                "   public static Function1<CallContext<1C, X>, Integer> $$X$callee = (var0) -> {\n" +
+                "      return Integer.valueOf(((X)var0.calledClassInstance).callee());\n" +
+                "   };\n\n" +
+                "   int callee() {\n" +
+                "      return 1;\n" +
+                "   }\n\n" +
+                "   int fn() {\n" +
+                "      return (new 1C(this)).compare(\"a\", \"b\");\n" +
+                "   }\n" +
+                "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+
+        assertEquals(1, invokeCompiledMethod("X", "fn"));
+        assertEquals(2, invokeCompiledMethod("Y", "mockAndTest"));
+
+    }
+
     @Test
     public void testHasUniqueMatrix() throws Exception {
 //TODO move to Util test
@@ -3185,24 +3299,25 @@ public class TestabilityTest extends BaseTest {
         assertEquals("BridgeCollector", ctx.callingClass);
 
     }
-    @Test
-    public void testTestabilityInjectFunctionField_Repro_nested_call() throws Exception {
-
-        String[] task = {
-                "X.java",
-                "import java.util.concurrent.atomic.*;" +
-                        "public class X {\n" +
-                        "    void fn(){" +
-                        "      AtomicInteger ret;" +
-                        "      dontredirect: ret = new AtomicInteger();" +
-                        "      ret.set(intReturn());\n" +
-                        "    }\n" +
-                        "    int intReturn() {return 0;}\n" +
-                        "}"
-        };
-
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        invokeCompiledMethod("X", "fn");
-    }
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_Repro_nested_call() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "import java.util.concurrent.atomic.*;" +
+//                        "public class X {\n" +
+//                        "    void fn(){" +
+//                        "      AtomicInteger ret;" +
+//                        "      dontredirect: ret = new AtomicInteger();" +
+//                        "      ret.set(intReturn());\n" +
+//                        "    }\n" +
+//                        "    int intReturn() {return 0;}\n" +
+//                        "}"
+//        };
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//        invokeCompiledMethod("X", "fn");
+//    }
 
  }
