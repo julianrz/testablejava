@@ -3299,25 +3299,24 @@ public class TestabilityTest extends BaseTest {
         assertEquals("BridgeCollector", ctx.callingClass);
 
     }
-    //TODO reen
-//    @Test
-//    public void testTestabilityInjectFunctionField_Repro_nested_call() throws Exception {
-//
-//        String[] task = {
-//                "X.java",
-//                "import java.util.concurrent.atomic.*;" +
-//                        "public class X {\n" +
-//                        "    void fn(){" +
-//                        "      AtomicInteger ret;" +
-//                        "      dontredirect: ret = new AtomicInteger();" +
-//                        "      ret.set(intReturn());\n" +
-//                        "    }\n" +
-//                        "    int intReturn() {return 0;}\n" +
-//                        "}"
-//        };
-//
-//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-//        invokeCompiledMethod("X", "fn");
-//    }
+    @Test
+    public void testTestabilityInjectFunctionField_Repro_nested_call() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.concurrent.atomic.*;" +
+                        "public class X {\n" +
+                        "    void fn(){" +
+                        "      AtomicInteger ret;" +
+                        "      dontredirect: ret = new AtomicInteger();" +
+                        "      ret.set(intReturn());\n" +
+                        "    }\n" +
+                        "    int intReturn() {return 0;}\n" +
+                        "}"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        invokeCompiledMethod("X", "fn");
+    }
 
  }

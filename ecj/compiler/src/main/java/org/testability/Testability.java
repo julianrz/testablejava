@@ -13,7 +13,6 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -153,6 +152,8 @@ public class Testability {
         FieldDeclaration redirectorFieldDeclaration = typeDeclaration.callExpressionToRedirectorField.get(messageSend);
 
         MessageSend messageToFieldApply = new MessageSend();
+
+        messageToFieldApply.implicitConversion = messageSend.implicitConversion; //TODO experiment
 
         String targetFieldNameInThis = new String(redirectorFieldDeclaration.name);//testabilityFieldNameForExternalAccess(methodClassName, messageSend.selector);
 
@@ -344,19 +345,11 @@ public class Testability {
         return allocationExpression;
     }
 
-    static String fieldNamesFromScope(BlockScope currentScope, String delimiter, Predicate<? super String> filt) {
-        return Arrays.stream(currentScope.methodScope().classScope().referenceContext.fields).
-                map(f -> new String(f.name)).
-                filter(filt).
-                collect(joining(delimiter));
-    }
-
     static void ensureImplicitConversion(Expression arg, TypeBinding targetParamType) {
         removeCharToIntImplicitConversionIfNeeded(arg);
 
         addImplicitBoxingIfNeeded(arg, arg.resolvedType.equals(targetParamType)? arg.resolvedType : targetParamType);
     }
-
 
     static boolean diagnoseBinding(MessageSend messageSend, MethodScope methodScope, FieldDeclaration redirectorFieldDeclaration) {
         MethodBinding binding = messageSend.binding;
@@ -601,11 +594,9 @@ public class Testability {
                                         map(SourceTypeBinding.class::cast).
                                         collect(toList()),
                                 lookupEnvironment);
-                //parameterized type binding is not source type binding, but that is what is needed??
                 Stream.concat(
                         localTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
                         instantiatedTypeDeclarations.stream()).
-//                        map(Testability::convertIfLocal).
                         forEach(typeBinding -> {
                     ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
                 });
@@ -792,12 +783,6 @@ public class Testability {
             ReferenceBinding typeBinding,
             SourceTypeBinding referenceBinding) {
 
-//        String supertypeName =
-//                typeDeclaration.binding.isLocalType()?
-//                        escapeTypeArgsInTypeName(typeDeclaration.allocation.anonymousType.allocation.type.toString()) +"$" :
-//                        "";
-//
-
         FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
                 compilationResult,
                 typeBinding,
@@ -815,11 +800,6 @@ public class Testability {
         ret.add(fieldDeclarationPreCreate);
         ret.add(fieldDeclarationPostCreate);
 
-//        typeDeclaration.anonymousTypes.forEach( entry -> {
-//            TypeDeclaration anonType = entry.getKey();
-//            TypeDeclaration originType = entry.getValue();
-//            ret.addAll(makeTestabilityListenerFields(anonType, referenceBinding));
-//        });
         return ret;
     }
 
@@ -964,7 +944,6 @@ public class Testability {
     static LambdaExpression makeLambdaExpression(
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
-//            ParameterizedQualifiedTypeReference typeReferenceForFunction,
             LookupEnvironment lookupEnvironment,
             TypeBinding[] typeArgumentsForFunction,
             ParameterizedTypeBinding typeBindingForFunction) {
@@ -1165,8 +1144,6 @@ public class Testability {
                 0,
                 new long[path.length]);
 
-        //TODO maketypereference
-
         fieldDeclaration.type = parameterizedQualifiedTypeReferenceForFunction;
 
         fieldDeclaration.modifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccStatic;
@@ -1183,7 +1160,6 @@ public class Testability {
         LambdaExpression lambdaExpression = makeLambdaExpression(
                 originalMessageSend,
                 typeDeclarationContainingCall,
-//                parameterizedQualifiedTypeReferenceForFunction,
                 lookupEnvironment,
                 typeArgumentsForFunction,
                 typeBindingForFunction);
@@ -1575,12 +1551,6 @@ public class Testability {
                 !messageSend.binding.isConstructor(); //somehow constructors have void return type
     }
 
-    static boolean receiverPrecedesParameters(MessageSend messageSend) {
-
-        if (messageSend.binding.isStatic() /*|| messageSend.receiver instanceof ThisReference*/) //receiver is hardcoded in lambda implementation
-            return false;
-        return true;
-    }
     static FieldDeclaration makeListenerFieldDeclaration(
             CompilationResult compilationResult,
             ReferenceBinding typeDeclarationBinding,
@@ -2125,7 +2095,6 @@ public class Testability {
     public static boolean isTestabilityFieldAccess(Expression receiver) {
         String fieldName = "";
         if (receiver instanceof FieldReference) {
-
             FieldReference fieldReference = (FieldReference) receiver;
             fieldName = new String(fieldReference.token);
         } else if (receiver instanceof MessageSend) { //e.g. when it is not known yet to be field access
@@ -2141,7 +2110,7 @@ public class Testability {
     /**
      * modify its statements in place: insert static calls to listeners before and after
      * @param constructorDeclaration
-     * @param typeDeclaration
+     * @param typeBinding
      */
     public static void addListenerCallsToConstructor(
             ConstructorDeclaration constructorDeclaration,
