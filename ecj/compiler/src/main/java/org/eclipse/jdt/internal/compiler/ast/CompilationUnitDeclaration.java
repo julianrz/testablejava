@@ -31,7 +31,7 @@ import org.eclipse.jdt.internal.compiler.util.HashSetOfInt;
 import java.util.Arrays;
 import java.util.Comparator;
 
-@SuppressWarnings({ "rawtypes", "unchecked" })
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class CompilationUnitDeclaration extends ASTNode implements ProblemSeverities, ReferenceContext {
 
     private static final Comparator STRING_LITERAL_COMPARATOR = new Comparator() {
@@ -88,11 +88,11 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
      */
     public void abort(int abortLevel, CategorizedProblem problem) {
         switch (abortLevel) {
-            case AbortType :
+            case AbortType:
                 throw new AbortType(this.compilationResult, problem);
-            case AbortMethod :
+            case AbortMethod:
                 throw new AbortMethod(this.compilationResult, problem);
-            default :
+            default:
                 throw new AbortCompilationUnit(this.compilationResult, problem);
         }
     }
@@ -156,7 +156,7 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
 
     private void cleanUp(TypeDeclaration type) {
         if (type.memberTypes != null) {
-            for (int i = 0, max = type.memberTypes.length; i < max; i++){
+            for (int i = 0, max = type.memberTypes.length; i < max; i++) {
                 cleanUp(type.memberTypes[i]);
             }
         }
@@ -168,12 +168,12 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
         }
     }
 
-    public void checkUnusedImports(){
-        if (this.scope.imports != null){
-            for (int i = 0, max = this.scope.imports.length; i < max; i++){
+    public void checkUnusedImports() {
+        if (this.scope.imports != null) {
+            for (int i = 0, max = this.scope.imports.length; i < max; i++) {
                 ImportBinding importBinding = this.scope.imports[i];
                 ImportReference importReference = importBinding.reference;
-                if (importReference != null && ((importReference.bits & ASTNode.Used) == 0)){
+                if (importReference != null && ((importReference.bits & ASTNode.Used) == 0)) {
                     this.scope.problemReporter().unusedImport(importReference);
                 }
             }
@@ -216,7 +216,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
         IrritantSet[] foundIrritants = new IrritantSet[this.suppressWarningsCount];
         CompilerOptions options = this.scope.compilerOptions();
         boolean hasMandatoryErrors = false;
-        nextProblem: for (int iProblem = 0, length = problemCount; iProblem < length; iProblem++) {
+        nextProblem:
+        for (int iProblem = 0, length = problemCount; iProblem < length; iProblem++) {
             CategorizedProblem problem = problems[iProblem];
             int problemID = problem.getID();
             int irritant = ProblemReporter.getIrritant(problemID);
@@ -233,7 +234,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
             }
             int start = problem.getSourceStart();
             int end = problem.getSourceEnd();
-            nextSuppress: for (int iSuppress = 0, suppressCount = this.suppressWarningsCount; iSuppress < suppressCount; iSuppress++) {
+            nextSuppress:
+            for (int iSuppress = 0, suppressCount = this.suppressWarningsCount; iSuppress < suppressCount; iSuppress++) {
                 long position = this.suppressWarningScopePositions[iSuppress];
                 int startSuppress = (int) (position >>> 32);
                 int endSuppress = (int) position;
@@ -245,7 +247,7 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                 removed++;
                 problems[iProblem] = null;
                 this.compilationResult.removeProblem(problem);
-                if (foundIrritants[iSuppress] == null){
+                if (foundIrritants[iSuppress] == null) {
                     foundIrritants[iSuppress] = new IrritantSet(irritant);
                 } else {
                     foundIrritants[iSuppress].set(irritant);
@@ -275,10 +277,12 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                     Annotation annotation = this.suppressWarningAnnotations[iSuppress];
                     if (annotation == null) continue; // implicit annotation
                     IrritantSet irritants = this.suppressWarningIrritants[iSuppress];
-                    if (unusedWarningTokenIsWarning && irritants.areAllSet()) continue; // @SuppressWarnings("all") also suppresses unused warning token
+                    if (unusedWarningTokenIsWarning && irritants.areAllSet())
+                        continue; // @SuppressWarnings("all") also suppresses unused warning token
                     if (irritants != foundIrritants[iSuppress]) { // mismatch, some warning tokens were unused
                         MemberValuePair[] pairs = annotation.memberValuePairs();
-                        pairLoop: for (int iPair = 0, pairCount = pairs.length; iPair < pairCount; iPair++) {
+                        pairLoop:
+                        for (int iPair = 0, pairCount = pairs.length; iPair < pairCount; iPair++) {
                             MemberValuePair pair = pairs[iPair];
                             if (CharOperation.equals(pair.name, TypeConstants.VALUE)) {
                                 Expression value = pair.value;
@@ -296,13 +300,15 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                                                         && (foundIrritants[iSuppress] == null || !foundIrritants[iSuppress].isAnySet(tokenIrritants))) { // if irritant had no matching problem
                                                     if (unusedWarningTokenIsWarning) {
                                                         int start = value.sourceStart, end = value.sourceEnd;
-                                                        nextSuppress: for (int jSuppress = iSuppress - 1; jSuppress >= 0; jSuppress--) {
+                                                        nextSuppress:
+                                                        for (int jSuppress = iSuppress - 1; jSuppress >= 0; jSuppress--) {
                                                             long position = this.suppressWarningScopePositions[jSuppress];
                                                             int startSuppress = (int) (position >>> 32);
                                                             int endSuppress = (int) position;
                                                             if (start < startSuppress) continue nextSuppress;
                                                             if (end > endSuppress) continue nextSuppress;
-                                                            if (this.suppressWarningIrritants[jSuppress].areAllSet()) break pairLoop; // suppress all?
+                                                            if (this.suppressWarningIrritants[jSuppress].areAllSet())
+                                                                break pairLoop; // suppress all?
                                                         }
                                                     }
                                                     this.scope.problemReporter().unusedWarningToken(inits[iToken]);
@@ -320,13 +326,15 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                                                 && (foundIrritants[iSuppress] == null || !foundIrritants[iSuppress].isAnySet(tokenIrritants))) { // if irritant had no matching problem
                                             if (unusedWarningTokenIsWarning) {
                                                 int start = value.sourceStart, end = value.sourceEnd;
-                                                nextSuppress: for (int jSuppress = iSuppress - 1; jSuppress >= 0; jSuppress--) {
+                                                nextSuppress:
+                                                for (int jSuppress = iSuppress - 1; jSuppress >= 0; jSuppress--) {
                                                     long position = this.suppressWarningScopePositions[jSuppress];
                                                     int startSuppress = (int) (position >>> 32);
                                                     int endSuppress = (int) position;
                                                     if (start < startSuppress) continue nextSuppress;
                                                     if (end > endSuppress) continue nextSuppress;
-                                                    if (this.suppressWarningIrritants[jSuppress].areAllSet()) break pairLoop; // suppress all?
+                                                    if (this.suppressWarningIrritants[jSuppress].areAllSet())
+                                                        break pairLoop; // suppress all?
                                                 }
                                             }
                                             this.scope.problemReporter().unusedWarningToken(value);
@@ -406,7 +414,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
         if (irritant == 0) return false;
         int start = problem.getSourceStart();
         int end = problem.getSourceEnd();
-        nextSuppress: for (int iSuppress = 0, suppressCount = this.suppressWarningsCount; iSuppress < suppressCount; iSuppress++) {
+        nextSuppress:
+        for (int iSuppress = 0, suppressCount = this.suppressWarningsCount; iSuppress < suppressCount; iSuppress++) {
             long position = this.suppressWarningScopePositions[iSuppress];
             int startSuppress = (int) (position >>> 32);
             int endSuppress = (int) position;
@@ -503,11 +512,11 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
             this.suppressWarningAnnotations = new Annotation[3];
             this.suppressWarningScopePositions = new long[3];
         } else if (this.suppressWarningIrritants.length == this.suppressWarningsCount) {
-            System.arraycopy(this.suppressWarningIrritants, 0,this.suppressWarningIrritants = new IrritantSet[2*this.suppressWarningsCount], 0, this.suppressWarningsCount);
-            System.arraycopy(this.suppressWarningAnnotations, 0,this.suppressWarningAnnotations = new Annotation[2*this.suppressWarningsCount], 0, this.suppressWarningsCount);
-            System.arraycopy(this.suppressWarningScopePositions, 0,this.suppressWarningScopePositions = new long[2*this.suppressWarningsCount], 0, this.suppressWarningsCount);
+            System.arraycopy(this.suppressWarningIrritants, 0, this.suppressWarningIrritants = new IrritantSet[2 * this.suppressWarningsCount], 0, this.suppressWarningsCount);
+            System.arraycopy(this.suppressWarningAnnotations, 0, this.suppressWarningAnnotations = new Annotation[2 * this.suppressWarningsCount], 0, this.suppressWarningsCount);
+            System.arraycopy(this.suppressWarningScopePositions, 0, this.suppressWarningScopePositions = new long[2 * this.suppressWarningsCount], 0, this.suppressWarningsCount);
         }
-        final long scopePositions = ((long)scopeStart<<32) + scopeEnd;
+        final long scopePositions = ((long) scopeStart << 32) + scopeEnd;
         for (int i = 0, max = this.suppressWarningsCount; i < max; i++) {
             if (this.suppressWarningAnnotations[i] == annotation
                     && this.suppressWarningScopePositions[i] == scopePositions
@@ -559,7 +568,7 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                 syntheticTypeDeclaration.javadoc = new Javadoc(syntheticTypeDeclaration.declarationSourceStart, syntheticTypeDeclaration.declarationSourceStart);
             }
             syntheticTypeDeclaration.resolve(this.scope);
-		/*
+        /*
 		 * resolve javadoc package if any, skip this step if we don't have a valid scope due to an earlier error (bug 252555)
 		 * we do it now as the javadoc in the fake type won't be resolved. The peculiar usage of MethodScope to resolve the
 		 * package level javadoc is because the CU level resolve method	is a NOP to mimic Javadoc's behavior and can't be used
@@ -625,7 +634,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                 StringLiteral literal = null;
                 int index = 0;
                 int i = 0;
-                stringLiteralsLoop: for (; i < stringLiteralsLength; i++) {
+                stringLiteralsLoop:
+                for (; i < stringLiteralsLength; i++) {
                     literal = this.stringLiterals[i];
                     final int literalLineNumber = literal.lineNumber;
                     if (lastLineNumber != literalLineNumber) {
@@ -635,7 +645,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                         indexInLine++;
                     }
                     if (index < nlsTagsLength) {
-                        nlsTagsLoop: for (; index < nlsTagsLength; index++) {
+                        nlsTagsLoop:
+                        for (; index < nlsTagsLength; index++) {
                             NLSTag tag = this.nlsTags[index];
                             if (tag == null) continue nlsTagsLoop;
                             int tagLineNumber = tag.lineNumber;
@@ -648,7 +659,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
                                     index++;
                                     continue stringLiteralsLoop;
                                 } else {
-                                    nlsTagsLoop2: for (int index2 = index + 1; index2 < nlsTagsLength; index2++) {
+                                    nlsTagsLoop2:
+                                    for (int index2 = index + 1; index2 < nlsTagsLength; index2++) {
                                         NLSTag tag2 = this.nlsTags[index2];
                                         if (tag2 == null) continue nlsTagsLoop2;
                                         int tagLineNumber2 = tag2.lineNumber;
@@ -702,6 +714,7 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
     public void traverse(ASTVisitor visitor, CompilationUnitScope unitScope) {
         traverse(visitor, unitScope, true);
     }
+
     public void traverse(ASTVisitor visitor, CompilationUnitScope unitScope, boolean skipOnError) {
         if (skipOnError && this.ignoreFurtherInvestigation)
             return;
