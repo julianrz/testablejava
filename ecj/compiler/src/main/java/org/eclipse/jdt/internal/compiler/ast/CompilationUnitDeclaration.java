@@ -371,6 +371,7 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
             }
         } catch (AbortCompilationUnit e) {
             // ignore
+            e.printStackTrace(System.out);
         }
     }
 
