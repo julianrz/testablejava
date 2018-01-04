@@ -196,8 +196,7 @@ public class Testability {
         try {
             callSiteExpression = makeCallSiteExpression(messageSend, currentScope);
         } catch (Exception ex) {
-            currentScope.problemReporter().testabilityInstrumentationError(
-                    TESTABLEJAVA_INTERNAL_ERROR + ": makeCallSiteExpression", ex);
+            testabilityInstrumentationError(currentScope, "makeCallSiteExpression", ex);
             return null;
         }
 
@@ -439,8 +438,7 @@ public class Testability {
         try {
             callSiteExpression = makeCallSiteExpression(allocationExpression, currentScope);
         } catch (Exception ex) {
-            currentScope.problemReporter().testabilityInstrumentationError(
-                    TESTABLEJAVA_INTERNAL_ERROR + ": makeCallSiteExpression", ex);
+            testabilityInstrumentationError(currentScope, "makeCallSiteExpression", ex);
             return null;
         }
         messageToFieldApply.arguments[0] = callSiteExpression;
@@ -455,6 +453,12 @@ public class Testability {
             messageToFieldApply.valueCast = allocationExpression.resolvedType;
 
         return messageToFieldApply;
+    }
+
+    static public void testabilityInstrumentationError(Scope currentScope, String message, Exception ex) {
+        currentScope.problemReporter().testabilityInstrumentationError(
+                TESTABLEJAVA_INTERNAL_ERROR + ": " + message,
+                ex);
     }
 
     static void addImplicitBoxingIfNeeded(Expression expression, TypeBinding targetType) {
@@ -573,63 +577,64 @@ public class Testability {
 
         ArrayList<FieldDeclaration> ret = new ArrayList<>();
 
-        Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(lookupEnvironment);
+        try {
 
-        if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
-                !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
+            Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(lookupEnvironment);
 
-            if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
-                //TODO for all instantiated types if typeDeclaration is generic
+            if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
+                    !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
 
-                ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
+                if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
+                    //TODO for all instantiated types if typeDeclaration is generic
 
-                //find all local type declarations and add corresponding fields
-                List<TypeDeclaration> localTypeDeclarations = findTypeDeclarations(typeDeclaration, null);
+                    ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
 
-                //note: only instantiated generic types should be included
-                List<ParameterizedTypeBinding> instantiatedTypeDeclarations =
-                        getInstantiatedTypeBindings(
-                                localTypeDeclarations.stream().
-                                        map(decl -> decl.binding).
-                                        map(SourceTypeBinding.class::cast).
-                                        collect(toList()),
-                                lookupEnvironment);
-                Stream.concat(
-                        localTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
-                        instantiatedTypeDeclarations.stream()).
-                        forEach(typeBinding -> {
-                    ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
-                });
+                    //find all local type declarations and add corresponding fields
+                    List<TypeDeclaration> localTypeDeclarations = findTypeDeclarations(typeDeclaration, null);
+
+                    //note: only instantiated generic types should be included
+                    List<ParameterizedTypeBinding> instantiatedTypeDeclarations =
+                            getInstantiatedTypeBindings(
+                                    localTypeDeclarations.stream().
+                                            map(decl -> decl.binding).
+                                            map(SourceTypeBinding.class::cast).
+                                            collect(toList()),
+                                    lookupEnvironment);
+                    Stream.concat(
+                            localTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
+                            instantiatedTypeDeclarations.stream()).
+                            forEach(typeBinding -> {
+                                ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
+                            });
+
+                }
 
             }
 
-        }
+            if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
 
-        if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
-
-            try {
-                List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
-                        typeDeclaration,
-                        referenceBinding,
-                        lookupEnvironment,
-                        expressionToRedirectorField);
-                ret.addAll(redirectorFields);
-            } catch (Exception ex) {
-                lookupEnvironment.problemReporter.
-                        testabilityInstrumentationError("a field cannot be created", ex);
+                try {
+                    List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
+                            typeDeclaration,
+                            referenceBinding,
+                            lookupEnvironment,
+                            expressionToRedirectorField);
+                    ret.addAll(redirectorFields);
+                } catch (Exception ex) {
+                    testabilityInstrumentationError(typeDeclaration.scope,"a field cannot be created", ex);
+                }
             }
-        }
 
-        lookupEnvironment.setStepResolveTestabilityFields();
+            lookupEnvironment.setStepResolveTestabilityFields();
 
-        return ret.stream().
-                filter(Objects::nonNull).
-                peek(fieldDeclaration -> {
-                    System.out.println("injected field: " + fieldDeclaration);
-                }).
-                map(fieldDeclaration -> {
-                    try {
-                        fieldDeclaration.resolve(typeDeclaration.initializerScope);
+            return ret.stream().
+                    filter(Objects::nonNull).
+                    peek(fieldDeclaration -> {
+                        System.out.println("injected field: " + fieldDeclaration);
+                    }).
+                    map(fieldDeclaration -> {
+                        try {
+                            fieldDeclaration.resolve(typeDeclaration.initializerScope);
 //TODO reen
 //                        if (!validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
 //                            lookupEnvironment.problemReporter.
@@ -638,18 +643,23 @@ public class Testability {
 //                            return null;
 //                        }
 
-                        return fieldDeclaration;
-                    } catch (Exception ex){
-                        lookupEnvironment.problemReporter.
-                                testabilityInstrumentationError(
-                                        "The field cannot be resolved: " + new String(fieldDeclaration.name), ex);
+                            return fieldDeclaration;
+                        } catch (Exception ex) {
+                            testabilityInstrumentationError(
+                                    typeDeclaration.scope,
+                                    "The field cannot be resolved: " + new String(fieldDeclaration.name),
+                                    ex);
 
-                        return null;
-                    }
-                }).
-                filter(Objects::nonNull).
-                collect(toList());
+                            return null;
+                        }
+                    }).
+                    filter(Objects::nonNull).
+                    collect(toList());
 
+        } catch (Exception ex) {
+            testabilityInstrumentationError(typeDeclaration.scope,"unexpected", ex);
+            return ret;
+        }
     }
 
     /**
@@ -898,9 +908,10 @@ public class Testability {
                             );
                         }
                     } catch(Exception ex){
-                        lookupEnvironment.problemReporter.
-                                testabilityInstrumentationError(
-                                        "field " + fieldName + " cannot be created for expression " + originalCall, ex);
+                        testabilityInstrumentationError(
+                                typeDeclaration.scope,
+                                "field " + fieldName + " cannot be created for expression " + originalCall,
+                                ex);
                         return null;
                     }
                     return fieldDeclaration;
@@ -1708,11 +1719,17 @@ public class Testability {
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
         int dim = typeBinding.dimensions();
         if (dim == 0){
+//            if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
+//                //replace with ?
+//                Wildcard wildcard = new Wildcard(Wildcard.UNBOUND);
+//                wildcard.bound = null;
+//                return wildcard;
+//            }
             if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
-                //replace with ?
-                Wildcard wildcard = new Wildcard(Wildcard.UNBOUND);
-                wildcard.bound = null;
-                return wildcard;
+                //replace with Object, if replacing with ?, will get declarations like '? arg'
+                SingleTypeReference objectTypeReference = new SingleTypeReference("Object".toCharArray(), 0);
+
+                return objectTypeReference;
             }
             if (typeBinding instanceof ReferenceBinding) {
                 ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;

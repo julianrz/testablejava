@@ -590,15 +590,22 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                             Testability.addListenerCallsToConstructor((ConstructorDeclaration) this.methods[i], this.binding);
                         } catch(Exception ex) {
                             ex.printStackTrace(System.out);
-                            this.scope.referenceCompilationUnit().problemReporter.testabilityInstrumentationError(
-                                    "could not add listener calls to constructor", ex);
+                            Testability.testabilityInstrumentationError(
+                                    this.scope,
+                                    "could not add listener calls to constructor",
+                                    ex);
                         }
                     }
                     this.methods[i].generateCode(this.scope, classFile);
                 }
             }
             // generate all synthetic and abstract methods
-            classFile.addSpecialMethods();
+            try {
+                classFile.addSpecialMethods();
+            } catch(Exception ex) {
+                //in generating lambda code
+                Testability.testabilityInstrumentationError( this.scope, "", ex);
+            }
 
             if (this.ignoreFurtherInvestigation) { // trigger problem type generation for code gen errors
                 throw new AbortType(this.scope.referenceCompilationUnit().compilationResult, null);
