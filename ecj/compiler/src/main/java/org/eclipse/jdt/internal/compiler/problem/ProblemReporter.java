@@ -672,7 +672,7 @@ public class ProblemReporter extends ProblemHandler {
                 IProblem.Unclassified,
                 arguments,
                 arguments,
-                ProblemSeverities.Error,
+                ProblemSeverities.Fatal | ProblemSeverities.Error | ProblemSeverities.AbortType, //all of this results in throwing of AbortType, so that compilation of other modules continue
                 location == null ? 0 : location.sourceStart,
                 location == null ? 0 : location.sourceEnd);
     }
