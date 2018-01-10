@@ -13,6 +13,7 @@ import org.eclipse.jdt.internal.compiler.flow.InitializationFlowContext;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.eclipse.jdt.internal.compiler.problem.AbortType;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -463,6 +464,10 @@ public class Testability {
         currentScope.problemReporter().testabilityInstrumentationError(
                 TESTABLEJAVA_INTERNAL_ERROR + ": " + message,
                 ex);
+    }
+    static public void testabilityInstrumentationError(Scope currentScope, String message) {
+        currentScope.problemReporter().testabilityInstrumentationError(
+                TESTABLEJAVA_INTERNAL_ERROR + ": " + message);
     }
     static public void testabilityInstrumentationWarning(Scope currentScope, String message) {
         if (currentScope != null)
@@ -934,6 +939,12 @@ public class Testability {
                                     fieldName
                             );
                         }
+                    } catch(AbortType ex){
+                        testabilityInstrumentationError(
+                                typeDeclaration.scope,
+                                "field " + fieldName + " cannot be created for expression " + originalCall +" due to prior errors");
+                        return null;
+
                     } catch(Exception ex){
                         testabilityInstrumentationError(
                                 typeDeclaration.scope,
@@ -1168,7 +1179,12 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
+            Testability.testabilityInstrumentationError(
+                    typeDeclaration.scope,
+                    "missing helper type: " +
+                            Arrays.stream(path).
+                                    map(String::new).
+                                    collect(joining(".")));
         }
 
         ParameterizedTypeBinding typeBindingForFunction =
@@ -1539,7 +1555,14 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
+            if (genericType == null) {
+                Testability.testabilityInstrumentationError(
+                        typeDeclaration.scope,
+                        "missing helper type: " +
+                                Arrays.stream(path).
+                                        map(String::new).
+                                        collect(joining(".")));
+            }
         }
 
         ParameterizedTypeBinding typeBinding =
