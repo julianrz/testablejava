@@ -1346,18 +1346,7 @@ public class Testability {
 
             anonymousType.name = CharOperation.NO_CHAR;
             anonymousType.bits |= (ASTNode.IsAnonymousType|ASTNode.IsLocalType);
-//            anonymousType.bits |= (typeReference.bits & ASTNode.HasTypeAnnotations);
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
-//            markEnclosingMemberWithLocalType();
-//            pushOnAstStack(anonymousType);
-
-            //no, there is no arg0
-//            char[][] receiverPathDynamicCall = { " arg0".toCharArray(), "callingClassInstance".toCharArray()};
-//
-//            Expression enclosingInstanceCall =
-//                    new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
-//
-//            alloc.enclosingInstance = enclosingInstanceCall; //TODO needed?
 
             alloc.type = typeReferenceFromTypeBinding(typeBindingForFunction);
 
@@ -1520,6 +1509,14 @@ public class Testability {
         //truncate the rest
         typeArguments = Arrays.copyOf(typeArguments, iArg);
 
+        //replace references to type arguments with Object type
+        ReferenceBinding objectTypeBinding = lookupEnvironment.askForType(new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()});
+        for (int iType = 0; iType <typeArguments.length;iType++){
+            if (typeArguments[iType] instanceof TypeVariableBinding){
+                typeArguments[iType] = objectTypeBinding;
+            }
+        }
+
         //rewire anonymous inner classes to their parents
         for (int iTypeArg=0; iTypeArg<typeArguments.length; iTypeArg++){
             TypeBinding typeBinding = typeArguments[iTypeArg];
@@ -1641,24 +1638,37 @@ public class Testability {
         }
         messageSendInLambdaBody.type = originalMessageSend.type;
         messageSendInLambdaBody.setExpectedType(originalMessageSend.invocationTargetType());
-        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
+//        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = originalMessageSend.binding;//TODO null to match MessageSend version? see "fixed static import case' commit
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 
         int parameterShift = 1; //arg 0 sent in is context, skip
 
-        Expression[] argv = new SingleNameReference[argc - parameterShift];
+        Expression[] argv = new Expression[argc - parameterShift];
+        int iArgCastTypeVar = 0;
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + parameterShift)).toCharArray();
 
             SingleNameReference singleNameReference = new SingleNameReference(name, 0);
 
             singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
-            argv[i] = singleNameReference;
-        }
 
-        messageSendInLambdaBody.arguments = argv;
+            if (originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
+                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
+                TypeReference typeReference = new SingleTypeReference(
+                        sourceName, 0);
+
+                CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
+                argv[i] = castExpression;
+            }
+            else {
+                argv[i] = singleNameReference;
+            }
+        }
+        if (argv.length != 0) {
+            messageSendInLambdaBody.arguments = argv;
+        }
 
         Block block = new Block(2);
         LabeledStatement labeledStatement = new LabeledStatement(
@@ -1675,7 +1685,49 @@ public class Testability {
 
         lambdaExpression.setBody(block);
 
-        fieldDeclaration.initialization = lambdaExpression;
+        if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
+            fieldDeclaration.initialization = lambdaExpression;
+        } else {
+            TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
+
+            if (anonymousType.methods == null)
+                anonymousType.methods = new MethodDeclaration[]{};
+            anonymousType.methods = Arrays.copyOf(anonymousType.methods, anonymousType.methods.length + 1);
+            MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaration.compilationResult);
+
+            anonymousType.methods[anonymousType.methods.length - 1] = methodDeclaration;
+
+            methodDeclaration.binding = typeBinding.getSingleAbstractMethod(typeDeclaration.scope, true);
+            methodDeclaration.binding.modifiers ^= ClassFileConstants.AccAbstract;
+            methodDeclaration.binding.modifiers |= ClassFileConstants.AccPublic;
+            methodDeclaration.selector = methodDeclaration.binding.selector;
+            methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
+
+            methodDeclaration.arguments = lambdaExpression.arguments;
+            methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
+            methodDeclaration.statements = block.statements;
+
+            //each type parameter on method used to cast an argument of original call, and they are named E1...N where N is number of original call arguments
+            if (additionalTypeVarCountForMethod > 0) {
+                methodDeclaration.typeParameters = IntStream.range(0, additionalTypeVarCountForMethod).
+                        mapToObj(iTypeParameter -> {
+                            TypeParameter ret = new TypeParameter();
+                            ret.name = ("E" + (iTypeParameter + 1)).toCharArray();
+                            return ret;
+                        }).
+                        collect(toList()).
+                        toArray(new TypeParameter[0]);
+            }
+
+            anonymousType.name = CharOperation.NO_CHAR;
+            anonymousType.bits |= (ASTNode.IsAnonymousType|ASTNode.IsLocalType);
+
+            QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
+
+            alloc.type = typeReferenceFromTypeBinding(typeBinding);
+
+            fieldDeclaration.initialization = alloc;
+        }
         return fieldDeclaration;
     }
 

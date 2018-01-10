@@ -2814,6 +2814,64 @@ public class TestabilityTest extends BaseTest {
         Object className = invokeCompiledMethod("Y", "fn");
         assertEquals("java.lang.String", className);
     }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectGenericToGenericAllocation() throws Exception {
+        String[] task = {
+                "Called.java",
+                "class Called {\n" +
+                "	public <T> Called(Y y, T t){\n" +
+                "   }" +
+                "}",
+                "Y.java",
+                "import java.util.*;\n" +
+                        "public class Y {\n" +
+                        "   public <T> T accept(List<T> lst, T t) {\n" +
+                        "     new Called(this, t);" +
+                        "     return t;\n" + //this call is to generic function passing generic arg
+                        "   }\n" +
+                        "	public String fn(){" +
+                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                        "   }" +
+                        "}\n"
+        };
+
+        String expectedOutputY =
+                "import Y.1;\n" +
+                        "import helpers.Function3_1;\n" +
+                        "import java.util.ArrayList;\n" +
+                        "import java.util.List;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "   public static Function3_1<CallContext<Y, Called>, Y, Object, Called> $$Called$new$$YObject = new 1();\n" +
+                        "\n" +
+                        "   public <T> T accept(List<T> var1, T var2) {\n" +
+                        "      $$Called$new$$YObject.apply(new CallContext(\"Y\", \"Called\", this, (Object)null), this, var2);\n" +
+                        "      return var2;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public String fn() {\n" +
+                        "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
+                        "   }\n" +
+                        "}";
+
+        String expectedOutputInner =
+                "import helpers.Function3_1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y$1 implements Function3_1<CallContext<Y, Called>, Y, Object, Called> {\n" +
+                        "   public <E1> Called apply(CallContext<Y, Called> var1, Y var2, Object var3) {\n" +
+                        "      return new Called(var2, var3);\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("Y$1").stream().collect(joining("\n")));
+
+        Object className = invokeCompiledMethod("Y", "fn");
+        assertEquals("java.lang.String", className);
+    }
 
 
     @Test
