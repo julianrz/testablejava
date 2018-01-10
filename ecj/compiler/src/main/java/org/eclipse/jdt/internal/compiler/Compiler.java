@@ -424,29 +424,12 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
         compile(sourceUnits, false);
     }
 
-    ICompilationUnit[] sourceUnitsInjected = {};//Testability.makeInjectedCompilationUnits();
-
     /**
      * General API
      * -> compile each of supplied files
      * -> recompile any required types for which we have an incomplete principle structure
      */
-    private void compile(ICompilationUnit[] sourceUnitsInitial, boolean lastRound) {
-
-//        ICompilationUnit[] sourceUnits = Arrays.copyOf(sourceUnitsInitial, sourceUnitsInitial.length + sourceUnitsInjected.length);
-//        for (int i = 0; i < sourceUnitsInjected.length; i++) {
-//            sourceUnits[sourceUnitsInitial.length + i] = sourceUnitsInjected[i];
-//        }
-        //injected units first, since they contain dependencies
-        ICompilationUnit[] sourceUnits;
-        if (this.lookupEnvironment.instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) { //assuming only redirectors need FunctionN
-            sourceUnits = new ICompilationUnit[sourceUnitsInjected.length + sourceUnitsInitial.length];
-            System.arraycopy(sourceUnitsInjected, 0, sourceUnits, 0, sourceUnitsInjected.length);
-            System.arraycopy(sourceUnitsInitial, 0, sourceUnits, sourceUnitsInjected.length, sourceUnitsInitial.length);
-        } else {
-            sourceUnits = new ICompilationUnit[sourceUnitsInitial.length];
-            System.arraycopy(sourceUnitsInitial, 0, sourceUnits, 0, sourceUnitsInitial.length);
-        }
+    private void compile(ICompilationUnit[] sourceUnits, boolean lastRound) {
 
         this.stats.startTime = System.currentTimeMillis();
         try {
