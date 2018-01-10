@@ -54,34 +54,39 @@ public class HelpersInstrumenter {
         }
     }
 
+    static int maxArgs = 255; //change this to 20 or so for practical reasons when running in dev environment
+
     public static void main(String[] args) throws Exception {
         String targetDir = args[0];
+
         System.out.println("instrumenting Helpers.uncheckedThrow into " + targetDir);
         rewriteUncheckedThrow(targetDir);
 
         new File(targetDir, "helpers").mkdir();
+
+        if (maxArgs == 255)
+            System.out.println("\nWarning: will emit functions up to 255 arguments which will take awhile, modify the HelpersInstrumenter.maxArgs value to ~20 in dev environment" + targetDir);
+
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         try {
             forkJoinPool.submit(() -> {
-                try {
-                    long t0 = System.currentTimeMillis();
-                    System.out.println("emitting Consumers into " + targetDir);
+                        try {
+                            long t0 = System.currentTimeMillis();
+                            System.out.println("emitting Consumers into " + targetDir);
 
+                            emitConsumers(targetDir, maxArgs);
+                            long t1 = System.currentTimeMillis();
+                            System.out.printf("->%2.2f sec\n", (t1 - t0) / 1000.0);
 
-                    emitConsumers(targetDir);
-                    long t1 = System.currentTimeMillis();
-                    System.out.printf("->%2.2f sec\n", (t1-t0)/1000.0);
+                            System.out.println("emitting Functions into " + targetDir);
 
-                    System.out.println("emitting Functions into " + targetDir);
+                            emitFunctions(targetDir, maxArgs);
+                            long t2 = System.currentTimeMillis();
+                            System.out.printf("->%2.2f sec\n", (t2 - t1) / 1000.0);
 
-                    emitFunctions(targetDir);
-                    long t2 = System.currentTimeMillis();
-                    System.out.printf("->%2.2f sec\n", (t2-t1)/1000.0);
-
-
-                } catch(Exception ex){
-                    ex.printStackTrace(); //should not happen
-                }
+                        } catch (Exception ex) {
+                            ex.printStackTrace(); //should not happen
+                        }
                     }
             ).get();
         } finally {
@@ -90,21 +95,21 @@ public class HelpersInstrumenter {
 
     }
 
-    static void emitFunctions(String targetDir) throws Exception {
+    static void emitFunctions(String targetDir, int maxArgs) throws Exception {
 
-        int nExtraTypeVariablesRange = 255; //TODO total variables <255
+        int nExtraTypeVariablesRange = 255;
 
         for (int i = 0; i < nExtraTypeVariablesRange; i++) {
 
             int nExtraTypeVariables = i;
 
-            Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
+            Optional<Exception> oneFailure = IntStream.range(0, maxArgs).parallel().
                     mapToObj(iFunction -> {
                         try {
                             emitFunction(iFunction, nExtraTypeVariables, targetDir);
                         } catch (Exception e) {
                             return Optional.of(e);
-                       } catch (Throwable throwable) {
+                        } catch (Throwable throwable) {
                             throwable.printStackTrace();
                         }
                         return Optional.<Exception>empty();
@@ -116,26 +121,37 @@ public class HelpersInstrumenter {
                 throw oneFailure.get();
         }
     }
-    static void emitConsumers(String targetDir) throws Exception {
-        Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
-                mapToObj(iFunction -> {
-                    try {
-                        emitConsumer(iFunction, targetDir);
-                    } catch (Exception e) {
-                        return Optional.of(e);
-                    } catch (Throwable throwable){
-                        throwable.printStackTrace();
-                    }
-                    return Optional.<Exception>empty();
-                }).
-                filter(Optional::isPresent).
-                map(Optional::get).
-                findFirst();
-        if (oneFailure.isPresent())
-            throw oneFailure.get();
+
+    static void emitConsumers(String targetDir, int maxArgs) throws Exception {
+        int nExtraTypeVariablesRange = 255;
+
+        for (int i = 0; i < nExtraTypeVariablesRange; i++) {
+
+            int nExtraTypeVariables = i;
+
+            Optional<Exception> oneFailure = IntStream.range(0, maxArgs).parallel().
+                    mapToObj(iFunction -> {
+                        try {
+                            emitConsumer(iFunction, nExtraTypeVariables, targetDir);
+                        } catch (Exception e) {
+                            return Optional.of(e);
+                        } catch (Throwable throwable) {
+                            throwable.printStackTrace();
+                        }
+                        return Optional.<Exception>empty();
+                    }).
+                    filter(Optional::isPresent).
+                    map(Optional::get).
+                    findFirst();
+            if (oneFailure.isPresent())
+                throw oneFailure.get();
+        }
     }
 
     static void emitFunction(int iFunction, int nExtraTypeVars, String targetDir) throws IOException {
+
+        if (nExtraTypeVars > iFunction || iFunction + nExtraTypeVars>255)
+            return; //pragmatically since extra type vars needed to cast existing vars, never need more than args
 
         String name = "helpers.Function" + iFunction + (nExtraTypeVars>0? "_" + nExtraTypeVars : "");
 
@@ -193,12 +209,14 @@ public class HelpersInstrumenter {
                 .make()
                 .saveIn(new File(targetDir));
     }
-    static void emitConsumer(int iFunction, String targetDir) throws IOException {
+    static void emitConsumer(int iFunction, int nExtraTypeVars, String targetDir) throws IOException {
 
-        String name = "helpers.Consumer" + iFunction;
+        if (nExtraTypeVars > iFunction || iFunction + nExtraTypeVars>255)
+            return; //pragmatically since extra type vars needed to cast existing vars, never need more than args
+
+        String name = "helpers.Consumer" + iFunction + (nExtraTypeVars>0? "_" + nExtraTypeVars : "");
         if (new File(targetDir +"/" + name.replace(".","/") + ".class").exists())
             return;
-
 
         DynamicType.Builder<?> builder = new ByteBuddy()
                 .makeInterface()
@@ -227,12 +245,29 @@ public class HelpersInstrumenter {
                             collect(toList()).
                             toArray(new TypeDescription.Generic[iFunction]);
 
-            soFar
+            DynamicType.Builder.MethodDefinition.ExceptionDefinition<?> methodDefinition = soFar
                     .defineMethod("accept",
                             TypeDescription.VOID,
                             Visibility.PUBLIC) //irrelevant for interfaces
-                    .withParameters(parameters)
-                    .withoutCode()
+                    .withParameters(parameters);
+
+            DynamicType.Builder.MethodDefinition.ReceiverTypeDefinition<?> readyToMake;
+
+            if (nExtraTypeVars > 0) {
+                DynamicType.Builder.MethodDefinition.TypeVariableDefinition.Annotatable<?> methodDefinitionWithTypeVars =
+                        methodDefinition.typeVariable("E1");
+
+                for (int i = 1; i < nExtraTypeVars; i++)
+                    methodDefinitionWithTypeVars = methodDefinitionWithTypeVars.typeVariable("E" + (i + 1));
+
+                readyToMake = methodDefinitionWithTypeVars
+                        .withoutCode();
+            } else {
+                readyToMake = methodDefinition
+                        .withoutCode();
+            }
+
+            readyToMake
                     .make()
                     .saveIn(new File(targetDir));
         }
