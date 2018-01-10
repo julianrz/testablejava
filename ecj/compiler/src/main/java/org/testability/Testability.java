@@ -7,6 +7,10 @@ import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.BranchLabel;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.flow.InitializationFlowContext;
+import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -460,6 +464,12 @@ public class Testability {
                 TESTABLEJAVA_INTERNAL_ERROR + ": " + message,
                 ex);
     }
+    static public void testabilityInstrumentationWarning(Scope currentScope, String message) {
+        if (currentScope != null)
+            currentScope.problemReporter().testabilityInstrumentationWarning(message);
+        else
+            System.out.println("WARN: " + message);
+    }
 
     static void addImplicitBoxingIfNeeded(Expression expression, TypeBinding targetType) {
         if (expression.resolvedType instanceof BaseTypeBinding) //Function.apply always takes boxed types
@@ -635,13 +645,24 @@ public class Testability {
                     map(fieldDeclaration -> {
                         try {
                             fieldDeclaration.resolve(typeDeclaration.initializerScope);
-//TODO reen
-//                        if (!validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
-//                            lookupEnvironment.problemReporter.
-//                                    testabilityInstrumentationError(
-//                                            "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name));
-//                            return null;
-//                        }
+
+                            if (!validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
+                                Testability.testabilityInstrumentationWarning(
+                                        typeDeclaration.initializerScope,
+                                        "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
+                                );
+                                return null;
+                            }
+
+                            UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
+                            FlowContext flowContext = null;
+                            InitializationFlowContext staticInitializerContext = new InitializationFlowContext(null,
+                                    typeDeclaration,
+                                    flowInfo,
+                                    flowContext,
+                                    typeDeclaration.staticInitializerScope);
+
+                            fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
 
                             return fieldDeclaration;
                         } catch (Exception ex) {
@@ -717,6 +738,11 @@ public class Testability {
 
     static boolean validateMessageSendsInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
 
+        if (fieldDeclaration.binding == null)
+            return false;
+
+        if ((fieldDeclaration.initialization instanceof FunctionalExpression && ((FunctionalExpression) fieldDeclaration.initialization).binding == null))
+            return false;
         try {
             fieldDeclaration.traverse(new ASTVisitor() {
                 @Override
@@ -725,12 +751,13 @@ public class Testability {
                         throw exceptionVisitorInterrupted;
                     return true;
                 }
-                @Override
-                public boolean visit(QualifiedTypeReference r, BlockScope scope) {
-                    if (r.resolvedType == null || r.resolvedType instanceof ProblemReferenceBinding)
-                        throw exceptionVisitorInterrupted;
-                    return true;
-                }
+                //TODO re-enable
+//                @Override
+//                public boolean visit(QualifiedTypeReference r, BlockScope scope) {
+//                    if (r.resolvedType == null || r.resolvedType instanceof ProblemReferenceBinding)
+//                        throw exceptionVisitorInterrupted;
+//                    return true;
+//                }
             }, scope);
         } catch(Exception e){
             if (e == exceptionVisitorInterrupted)
@@ -1087,6 +1114,14 @@ public class Testability {
         //truncate the rest
         typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
 
+        //replace references to type arguments with Object type
+        ReferenceBinding objectTypeBinding = lookupEnvironment.askForType(new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()});
+        for (int iType = 0; iType <typeArgumentsForFunction.length;iType++){
+            if (typeArgumentsForFunction[iType] instanceof TypeVariableBinding){
+                typeArgumentsForFunction[iType] = objectTypeBinding;
+            }
+        }
+
         //rewire anonymous inner classes to their parents
         for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
             TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
@@ -1115,11 +1150,19 @@ public class Testability {
 
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
 
+        int additionalTypeVarCountForMethod = originalMessageSend.arguments==null?
+                0 :
+                (int) Arrays.stream(originalMessageSend.binding.parameters).
+                        filter(TypeVariableBinding.class::isInstance).
+                        count();
+
         char[][] path = {
-            "helpers".toCharArray(),
-            functionNameForArgs(
-                    returnsVoid,
-                    functionArgCount).toCharArray()
+                "helpers".toCharArray(),
+                functionNameForArgs(
+                        returnsVoid,
+                        functionArgCount,
+                        additionalTypeVarCountForMethod).toCharArray()
+
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
@@ -1168,6 +1211,7 @@ public class Testability {
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
 
+
         LambdaExpression lambdaExpression = makeLambdaExpression(
                 originalMessageSend,
                 typeDeclarationContainingCall,
@@ -1191,14 +1235,15 @@ public class Testability {
                     newReceiverDynamicCall;
         }
 
-        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
+//        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = null;//this is to resolve expression without apparent receiver
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
 
         int methodSendInLambdaBodyArgCount = typeArgumentsForFunction.length - 1 - (returnsVoid ? 0 : 1);
 
-        Expression[] argv = new SingleNameReference[methodSendInLambdaBodyArgCount];
+        Expression[] argv = new Expression[methodSendInLambdaBodyArgCount];
+        int iArgCastTypeVar = 0;
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + 1)).toCharArray();
 
@@ -1206,11 +1251,33 @@ public class Testability {
 
             singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
 
-            argv[i] = singleNameReference;
+            if (originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
+                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
+                TypeReference typeReference = new SingleTypeReference(
+                        sourceName, 0);
+
+                CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
+                argv[i] = castExpression;
+            }
+            else {
+                argv[i] = singleNameReference;
+            }
         }
 
-        if (argv.length != 0)
+        if (argv.length != 0) {
             messageSendInLambdaBody.arguments = argv; //otherwise stays 0, resolution logic depends on it
+//            //make type variables available on field class binding
+//            //TODO exper
+//            List<Expression> typeVars = Arrays.stream(originalMessageSend.arguments).
+//                    map(ex -> ex.resolvedType).
+//                    filter(TypeVariableBinding.class::isInstance).
+//                    map(type -> type.sourceName()).
+//                    map(sourceName -> new SingleTypeReference(sourceName, 0)).
+//                    collect(toList());
+//            if (!typeVars.isEmpty())
+//                messageSendInLambdaBody.typeArguments = typeVars.toArray(new TypeReference[0]);
+        }
+
 
         //TODO needed?
         if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
@@ -1242,8 +1309,60 @@ public class Testability {
         }
 
         lambdaExpression.setBody(block);
+        if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
+            fieldDeclaration.initialization = lambdaExpression;
+        } else {
 
-        fieldDeclaration.initialization = lambdaExpression;
+            TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
+
+            if (anonymousType.methods == null)
+                anonymousType.methods = new MethodDeclaration[]{};
+            anonymousType.methods = Arrays.copyOf(anonymousType.methods, anonymousType.methods.length + 1);
+            MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaration.compilationResult);
+
+            anonymousType.methods[anonymousType.methods.length - 1] = methodDeclaration;
+
+            methodDeclaration.binding = typeBindingForFunction.getSingleAbstractMethod(typeDeclaration.scope, true);
+            methodDeclaration.binding.modifiers ^= ClassFileConstants.AccAbstract;
+            methodDeclaration.binding.modifiers |= ClassFileConstants.AccPublic;
+            methodDeclaration.selector = methodDeclaration.binding.selector;
+            methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
+
+            methodDeclaration.arguments = lambdaExpression.arguments;
+            methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
+            methodDeclaration.statements = block.statements;
+
+            //each type parameter on method used to cast an argument of original call, and they are named E1...N where N is number of original call arguments
+            if (additionalTypeVarCountForMethod > 0) {
+                methodDeclaration.typeParameters = IntStream.range(0, additionalTypeVarCountForMethod).
+                        mapToObj(iTypeParameter -> {
+                            TypeParameter ret = new TypeParameter();
+                            ret.name = ("E" + (iTypeParameter + 1)).toCharArray();
+                            return ret;
+                        }).
+                        collect(toList()).
+                        toArray(new TypeParameter[0]);
+            }
+
+            anonymousType.name = CharOperation.NO_CHAR;
+            anonymousType.bits |= (ASTNode.IsAnonymousType|ASTNode.IsLocalType);
+//            anonymousType.bits |= (typeReference.bits & ASTNode.HasTypeAnnotations);
+            QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
+//            markEnclosingMemberWithLocalType();
+//            pushOnAstStack(anonymousType);
+
+            //no, there is no arg0
+//            char[][] receiverPathDynamicCall = { " arg0".toCharArray(), "callingClassInstance".toCharArray()};
+//
+//            Expression enclosingInstanceCall =
+//                    new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
+//
+//            alloc.enclosingInstance = enclosingInstanceCall; //TODO needed?
+
+            alloc.type = typeReferenceFromTypeBinding(typeBindingForFunction);
+
+            fieldDeclaration.initialization = alloc;
+        }
         return fieldDeclaration;
     }
 
@@ -1410,11 +1529,14 @@ public class Testability {
 
         int functionArgCount = typeArguments.length - 1;
 
+        int additionalTypeVarCountForMethod = (int) Arrays.stream(originalMessageSend.binding.parameters).filter(TypeVariableBinding.class::isInstance).count();
+
         char[][] path = {
                 "helpers".toCharArray(),
                 functionNameForArgs(
                         false,
-                        functionArgCount).toCharArray()
+                        functionArgCount,
+                        additionalTypeVarCountForMethod).toCharArray()
         };
 
         ReferenceBinding genericType = lookupEnvironment.getType(path);
@@ -1704,14 +1826,19 @@ public class Testability {
      * @param functionArgCount actual number of arguments passed to the function,
      *                         e.g. one less than type arguments for Function
      *                         and exactly the count of type args for Consumer
+     * @param additionalTypeVarCountForMethod
      * @return
      */
-    static String functionNameForArgs(boolean returnsVoid, int functionArgCount) {
+    static String functionNameForArgs(boolean returnsVoid, int functionArgCount, int additionalTypeVarCountForMethod) {
         String name = (
                 returnsVoid ?
                         "Consumer" :
                         "Function"
-        ) + functionArgCount;
+                ) +
+                functionArgCount +
+                (additionalTypeVarCountForMethod>0 ?
+                        "_"+additionalTypeVarCountForMethod :
+                        "");
 
         return name;
     }
@@ -1743,7 +1870,12 @@ public class Testability {
 //                    return typeReferenceFromTypeBinding(((CaptureBinding) binaryTypeBinding).sourceType);
 //                }
 
-                char[][] compoundName = expandInternalName(removeLocalPrefix(binaryTypeBinding.compoundName));
+                char[][] compoundName = binaryTypeBinding.compoundName!=null?
+                        expandInternalName(removeLocalPrefix(binaryTypeBinding.compoundName)) :
+                        new char[][]{binaryTypeBinding.sourceName}
+                        ;
+                if (binaryTypeBinding.compoundName == null && !(binaryTypeBinding instanceof TypeVariableBinding))
+                    Testability.testabilityInstrumentationWarning(null,"binding has null compound name: " + binaryTypeBinding.getClass().getName());
 
                 if (!typeBinding.isParameterizedType()) {
                     return new QualifiedTypeReference(compoundName, new long[compoundName.length]);

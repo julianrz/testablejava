@@ -64,10 +64,20 @@ public class HelpersInstrumenter {
         try {
             forkJoinPool.submit(() -> {
                 try {
+                    long t0 = System.currentTimeMillis();
                     System.out.println("emitting Consumers into " + targetDir);
+
+
                     emitConsumers(targetDir);
+                    long t1 = System.currentTimeMillis();
+                    System.out.printf("->%2.2f sec\n", (t1-t0)/1000.0);
+
                     System.out.println("emitting Functions into " + targetDir);
+
                     emitFunctions(targetDir);
+                    long t2 = System.currentTimeMillis();
+                    System.out.printf("->%2.2f sec\n", (t2-t1)/1000.0);
+
 
                 } catch(Exception ex){
                     ex.printStackTrace(); //should not happen
@@ -82,23 +92,29 @@ public class HelpersInstrumenter {
 
     static void emitFunctions(String targetDir) throws Exception {
 
+        int nExtraTypeVariablesRange = 255; //TODO total variables <255
 
-        Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
-                mapToObj(iFunction -> {
-                    try {
-                        emitFunction(iFunction, targetDir);
-                    } catch (Exception e) {
-                        return Optional.of(e);
-                    } catch (Throwable throwable){
-                        throwable.printStackTrace();
-                    }
-                    return Optional.<Exception>empty();
-                }).
-                filter(Optional::isPresent).
-                map(Optional::get).
-                findFirst();
-        if (oneFailure.isPresent())
-            throw oneFailure.get();
+        for (int i = 0; i < nExtraTypeVariablesRange; i++) {
+
+            int nExtraTypeVariables = i;
+
+            Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
+                    mapToObj(iFunction -> {
+                        try {
+                            emitFunction(iFunction, nExtraTypeVariables, targetDir);
+                        } catch (Exception e) {
+                            return Optional.of(e);
+                       } catch (Throwable throwable) {
+                            throwable.printStackTrace();
+                        }
+                        return Optional.<Exception>empty();
+                    }).
+                    filter(Optional::isPresent).
+                    map(Optional::get).
+                    findFirst();
+            if (oneFailure.isPresent())
+                throw oneFailure.get();
+        }
     }
     static void emitConsumers(String targetDir) throws Exception {
         Optional<Exception> oneFailure = IntStream.range(0, 255).parallel().
@@ -119,12 +135,12 @@ public class HelpersInstrumenter {
             throw oneFailure.get();
     }
 
-    static void emitFunction(int iFunction, String targetDir) throws IOException {
+    static void emitFunction(int iFunction, int nExtraTypeVars, String targetDir) throws IOException {
 
-        String name = "helpers.Function" + iFunction;
+        String name = "helpers.Function" + iFunction + (nExtraTypeVars>0? "_" + nExtraTypeVars : "");
+
         if (new File(targetDir +"/" + name.replace(".","/") + ".class").exists())
             return;
-
 
         DynamicType.Builder<?> builder = new ByteBuddy()
                 .makeInterface()
@@ -150,15 +166,30 @@ public class HelpersInstrumenter {
                 IntStream.range(0, iFunction).
                         mapToObj(iArg -> TypeDescription.Generic.Builder.typeVariable("T" + (1 + iArg)).build()).
                         collect(toList()).
-                        toArray(new TypeDescription.Generic[iFunction]);
+                        toArray(new TypeDescription.Generic[0]);
 
-        soFar
+        DynamicType.Builder.MethodDefinition.ExceptionDefinition<?> methodDefinition = soFar
                 .defineMethod("apply",
                         TypeDescription.Generic.Builder.typeVariable("R").build(),
                         Visibility.PUBLIC) //irrelevant for interfaces
-                .withParameters(parameters)
-                .withoutCode()
+                .withParameters(parameters);
 
+        DynamicType.Builder.MethodDefinition.ReceiverTypeDefinition<?> readyToMake;
+
+        if (nExtraTypeVars > 0) {
+            DynamicType.Builder.MethodDefinition.TypeVariableDefinition.Annotatable<?> methodDefinitionWithTypeVars =
+                    methodDefinition.typeVariable("E1");
+
+            for (int i = 1; i < nExtraTypeVars; i++)
+                methodDefinitionWithTypeVars = methodDefinitionWithTypeVars.typeVariable("E" + (i + 1));
+
+            readyToMake = methodDefinitionWithTypeVars
+                    .withoutCode();
+        } else {
+            readyToMake = methodDefinition
+                    .withoutCode();
+        }
+        readyToMake
                 .make()
                 .saveIn(new File(targetDir));
     }

@@ -665,6 +665,16 @@ public class ProblemReporter extends ProblemHandler {
     public void testabilityInstrumentationError(String errorMessage, Exception ex) {
         this.testabilityInstrumentationError(errorMessage, ex, null);
     }
+    public void testabilityInstrumentationWarning(String warningMessage) {
+        String[] arguments = new String[]{warningMessage};
+        this.handle(
+                IProblem.Unclassified,
+                arguments,
+                arguments,
+                ProblemSeverities.Warning,
+                0,
+                0);
+    }
 
     public void testabilityInstrumentationError(String errorMessage, ASTNode location) {
         String[] arguments = new String[]{errorMessage};
