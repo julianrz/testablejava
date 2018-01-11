@@ -168,10 +168,6 @@ public class TestabilityTest extends BaseTest {
                         "public class X {\n" +
                         "	void fn() {" +
                         "     new Comparator<Object>() {\n" +
-                        //works with dontredirect here,
-                        //without that Pb(400) The type new Comparator(){} must implement the inherited abstract method
-                        //when code is inlined, The method sort(List<T>, Comparator<? super T>) in the type Collections is not applicable for the arguments (List<TypeBinding>, Object)
-
                         "                public int compare(Object o1, Object o2) {\n" +
                         "                    return -1;\n" +
                         "                }\n" +
@@ -180,9 +176,89 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        String expectedOutput = "";
+        String expectedOutput = "import X.1;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   void fn() {\n" +
+                "      new 1(this);\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "import java.util.Comparator;\n" +
+                "\n" +
+                "class X$1 implements Comparator<Object> {\n" +
+                "   X$1(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   public int compare(Object var1, Object var2) {\n" +
+                "      return -1;\n" +
+                "   }\n" +
+                "}";
 
-        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideAnonymousInnerClass() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "	int fn() {" +
+                        "     Comparator c;" +
+                        "     dontredirect: c = " +
+                        "            new Comparator<Object>() {\n" +
+                        "                public int compare(Object o1, Object o2) {\n" +
+                        "                    return myCompare(o1, o2);\n" +
+                        "                }\n" +
+                        "            };" +
+                        "     dontredirect2: return c.compare(\"\",\"\"); " +
+                        "   }" +
+                        "	int myCompare(Object o1, Object o2) {return 1;}" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import X.1;\n" +
+                "import helpers.Function3;\n" +
+                "import java.util.Comparator;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function3<CallContext<Comparator<Object>, X>, Object, Object, Integer> $$X$myCompare$$Object$Object = (var0, var1, var2) -> {\n" +
+                "      return Integer.valueOf(((X)var0.calledClassInstance).myCompare(var1, var2));\n" +
+                "   };\n" +
+                "\n" +
+                "   int fn() {\n" +
+                "      1 var1 = new 1(this);\n" +
+                "      return var1.compare(\"\", \"\");\n" +
+                "   }\n" +
+                "\n" +
+                "   int myCompare(Object var1, Object var2) {\n" +
+                "      return 1;\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "import java.util.Comparator;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "class X$1 implements Comparator<Object> {\n" +
+                "   X$1(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   public int compare(Object var1, Object var2) {\n" +
+                "      return ((Integer)X.$$X$myCompare$$Object$Object.apply(new CallContext(\"java.util.Comparator<java.lang.Object>\", \"X\", this, this.this$0), var1, var2)).intValue();\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(1, invokeCompiledMethod("X","fn"));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
     }
 
     @Test
@@ -1625,17 +1701,17 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function0;\n" +
                 "import helpers.Function1;\n" +
+                "import helpers.Function19;\n" +
                 "import helpers.Function2;\n" +
-                "import helpers.Function21;\n" +
                 "import helpers.Function3;\n\n" +
                 "public class X {\n" +
                 "   Function0<Boolean> x0;\n" +
                 "   Function1<Integer, Boolean> x1;\n" +
                 "   Function2<Integer, String, Boolean> x2;\n" +
                 "   Function3<Integer, String, Float, Boolean> x3;\n" +
-                "   Function21<Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
-                "Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
-                "Integer, Integer, Integer, Boolean> x21;\n" +
+                "   Function19<Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
+                "Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, " +
+                "Integer, Integer, Boolean> x19;\n" +
                 "}"
         };
 
@@ -2861,20 +2937,20 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutputY =
                 "import Y.1;\n" +
-                        "import helpers.Function3_1;\n" +
+                        "import helpers.Consumer3_1;\n" +
                         "import java.util.ArrayList;\n" +
                         "import java.util.List;\n" +
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "public class Y {\n" +
-                        "   public static Function3_1<CallContext<Y, Y>, Y, Object, Object> $$Y$called$$Y$Object = new 1();\n" +
+                        "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
                         "\n" +
                         "   public <T> T accept(List<T> var1, T var2) {\n" +
-                        "      return (Object)$$Y$called$$Y$Object.apply(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
+                        "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
+                        "      return var2;\n" +
                         "   }\n" +
                         "\n" +
-                        "   public <T> T called(Y var1, T var2) {\n" +
-                        "      return var2;\n" +
+                        "   public <T> void called(Y var1, T var2) {\n" +
                         "   }\n" +
                         "\n" +
                         "   public String fn() {\n" +
@@ -2883,12 +2959,12 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         String expectedOutputInner =
-                "import helpers.Function3_1;\n" +
+                "import helpers.Consumer3_1;\n" +
                         "import testablejava.CallContext;\n" +
                         "\n" +
-                        "class Y$1 implements Function3_1<CallContext<Y, Y>, Y, Object, Object> {\n" +
-                        "   public <E1> Object apply(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
-                        "      return ((Y)var1.calledClassInstance).called(var2, var3);\n" + //note: var3 is actually casted to E1 in source
+                        "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
+                        "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                        "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
                         "   }\n" +
                         "}";
 

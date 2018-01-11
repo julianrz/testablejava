@@ -1640,21 +1640,8 @@ public class Testability {
         } else {
 
             if (originalMessageSend instanceof QualifiedAllocationExpression) {
-//            QualifiedAllocationExpression originalQualifiedAllocationExpression = (QualifiedAllocationExpression) originalMessageSend;
-//
-//            TypeDeclaration anonymousType = originalQualifiedAllocationExpression.anonymousType;
-//
-//            anonymousType.binding = null;
-//
-//            QualifiedAllocationExpression inLambdaBodyQualifiedAllocationExpression =
-//                    new QualifiedAllocationExpression(anonymousType);
-//            //TODO where set?
-//            inLambdaBodyQualifiedAllocationExpression.enclosingInstance = originalQualifiedAllocationExpression.enclosingInstance;
-//            messageSendInLambdaBody = inLambdaBodyQualifiedAllocationExpression;
-
-                messageSendInLambdaBody = originalMessageSend; //TODO issues re-resolving code with new X(){} anonymous class
-                messageSendInLambdaBody.constant = null;
-//                ((QualifiedAllocationExpression) messageSendInLambdaBody).anonymousType.methods = null;//TODO review
+                Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect anonymous class allocation: " + originalMessageSend);
+                return null;
             } else {
                 messageSendInLambdaBody = new AllocationExpression();
             }
