@@ -200,17 +200,13 @@ public class TestabilityTest extends BaseTest {
 
     }
     @Test
-    public void testTestabilityInjectFunctionField_ReproNullPtr() throws Exception {
-        //java.lang.NullPointerException
-//        at org.testability.Testability.testabilityFieldName(Testability.java:2152)
-//        at org.testability.Testability.testabilityFieldDescriptorUniqueInOverload(Testability.java:2214)
-//        at org.testability.Testability.lambda$makeTestabilityRedirectorFields$13(Testability.java:866)
+    public void testTestabilityInjectFunctionField_CompilationError() throws Exception {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
                         "public class X {\n" +
                         "	void fn() {" +
-                        "     new Comparator<>() {\n" +
+                        "     new Comparator<>() {\n" + //<> is syntax error
                         "                public int compare(Object o1, Object o2) {\n" +
                         "                    return -1;\n" +
                         "                }\n" +
@@ -219,28 +215,11 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        String expectedOutput = "import X.1;\n" +
-                "\n" +
-                "public class X {\n" +
-                "   void fn() {\n" +
-                "      new 1(this);\n" +
-                "   }\n" +
-                "}";
-        String expectedOutputInner = "import java.util.Comparator;\n" +
-                "\n" +
-                "class X$1 implements Comparator<Object> {\n" +
-                "   X$1(X var1) {\n" +
-                "      this.this$0 = var1;\n" +
-                "   }\n" +
-                "\n" +
-                "   public int compare(Object var1, Object var2) {\n" +
-                "      return -1;\n" +
-                "   }\n" +
-                "}";
-
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
-        assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
+        try {
+            compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        } catch(Exception ex){
+            assertFalse("should not continue instrumentation after compiler error", ex.getMessage().contains("a field cannot be created"));
+        }
 
     }
     @Test

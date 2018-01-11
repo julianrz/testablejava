@@ -544,8 +544,15 @@ public class ClassFile implements TypeConstants, TypeIds {
 
         List<FieldDeclaration> testabilityFieldDeclarations;
 
-        if (forProblemType || !typeDeclaration.compilationResult.instrumentForTestability)
+        if (forProblemType
+                ||
+                !typeDeclaration.compilationResult.instrumentForTestability ||
+                typeDeclaration.compilationResult.hasMandatoryErrors()
+                ) {
             testabilityFieldDeclarations = Collections.emptyList();
+            if (typeDeclaration.compilationResult.hasMandatoryErrors())
+                Testability.testabilityInstrumentationWarning(typeDeclaration.scope, "instrumentation aborted due to compilation errors");
+        }
         else
             testabilityFieldDeclarations =
                 Testability.makeTestabilityFields(
