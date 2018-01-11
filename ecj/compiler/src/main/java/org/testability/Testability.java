@@ -1137,7 +1137,7 @@ public class Testability {
         for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
             TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
             if (typeBinding.isAnonymousType())
-                typeArgumentsForFunction[iTypeArg] = typeArgumentsForFunction[iTypeArg].superclass();
+                typeArgumentsForFunction[iTypeArg] = convertIfAnonymous(typeArgumentsForFunction[iTypeArg]);
         }
         //TODO test!
         for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
@@ -1537,7 +1537,7 @@ public class Testability {
         for (int iTypeArg=0; iTypeArg<typeArguments.length; iTypeArg++){
             TypeBinding typeBinding = typeArguments[iTypeArg];
             if (typeBinding.isAnonymousType())
-                typeArguments[iTypeArg] = typeArguments[iTypeArg].superclass();
+                typeArguments[iTypeArg] = convertIfAnonymous(typeArguments[iTypeArg]);
         }
 
         int functionArgCount = typeArguments.length - 1;

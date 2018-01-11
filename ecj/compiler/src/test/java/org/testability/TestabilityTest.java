@@ -160,8 +160,7 @@ public class TestabilityTest extends BaseTest {
     }
 
     @Test
-    public void testTestabilityInjectFunctionField_ReproductionErrorMethodNotApplicable() throws Exception {
-//TODO Pb(111) Return type for the method is missing - for method x()
+    public void testTestabilityInjectFunctionField_AnonymousTypeNewOperatorNotRedirected() throws Exception {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
@@ -186,6 +185,101 @@ public class TestabilityTest extends BaseTest {
         String expectedOutputInner = "import java.util.Comparator;\n" +
                 "\n" +
                 "class X$1 implements Comparator<Object> {\n" +
+                "   X$1(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   public int compare(Object var1, Object var2) {\n" +
+                "      return -1;\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ReproNullPtr() throws Exception {
+        //java.lang.NullPointerException
+//        at org.testability.Testability.testabilityFieldName(Testability.java:2152)
+//        at org.testability.Testability.testabilityFieldDescriptorUniqueInOverload(Testability.java:2214)
+//        at org.testability.Testability.lambda$makeTestabilityRedirectorFields$13(Testability.java:866)
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "	void fn() {" +
+                        "     new Comparator<>() {\n" +
+                        "                public int compare(Object o1, Object o2) {\n" +
+                        "                    return -1;\n" +
+                        "                }\n" +
+                        "            };" +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import X.1;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   void fn() {\n" +
+                "      new 1(this);\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "import java.util.Comparator;\n" +
+                "\n" +
+                "class X$1 implements Comparator<Object> {\n" +
+                "   X$1(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   public int compare(Object var1, Object var2) {\n" +
+                "      return -1;\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ReproductionErrorMethodNotApplicable() throws Exception {
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "	void fn() {" +
+                        "     List missingTypes = null;\n" +
+                        "     Collections.sort(missingTypes, new Comparator() {\n" +
+                        "                public int compare(Object o1, Object o2) {\n" +
+                        "                    return -1;\n" +
+                        "                }\n" +
+                        "            });" +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput =
+                "import X.1;\n" +
+                "import X.2;\n" +
+                "import helpers.Consumer3;\n" +
+                "import java.util.Collections;\n" +
+                "import java.util.Comparator;\n" +
+                "import java.util.List;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Consumer3<CallContext<X, Collections>, List, Comparator> $$Collections$sort$$List$X$1 = new 2();\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      Object var1 = null;\n" +
+                "      $$Collections$sort$$List$X$1.accept(new CallContext(\"X\", \"java.util.Collections\", this, (Object)null), var1, new 1(this));\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "import java.util.Comparator;\n" +
+                "\n" +
+                "class X$1 implements Comparator {\n" +
                 "   X$1(X var1) {\n" +
                 "      this.this$0 = var1;\n" +
                 "   }\n" +
