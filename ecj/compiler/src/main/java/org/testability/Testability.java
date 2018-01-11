@@ -1654,7 +1654,7 @@ public class Testability {
 
                 messageSendInLambdaBody = originalMessageSend; //TODO issues re-resolving code with new X(){} anonymous class
                 messageSendInLambdaBody.constant = null;
-                ((QualifiedAllocationExpression) messageSendInLambdaBody).anonymousType.methods = null;//TODO review
+//                ((QualifiedAllocationExpression) messageSendInLambdaBody).anonymousType.methods = null;//TODO review
             } else {
                 messageSendInLambdaBody = new AllocationExpression();
             }

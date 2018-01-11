@@ -158,6 +158,33 @@ public class TestabilityTest extends BaseTest {
                         "}";
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ReproductionErrorMethodNotApplicable() throws Exception {
+//TODO Pb(111) Return type for the method is missing - for method x()
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "	void fn() {" +
+                        "     new Comparator<Object>() {\n" +
+                        //works with dontredirect here,
+                        //without that Pb(400) The type new Comparator(){} must implement the inherited abstract method
+                        //when code is inlined, The method sort(List<T>, Comparator<? super T>) in the type Collections is not applicable for the arguments (List<TypeBinding>, Object)
+
+                        "                public int compare(Object o1, Object o2) {\n" +
+                        "                    return -1;\n" +
+                        "                }\n" +
+                        "            };" +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+    }
+
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorCallbackFromNamedInnerClass() throws Exception {
 
