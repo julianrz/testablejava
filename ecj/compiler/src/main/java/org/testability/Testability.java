@@ -1125,20 +1125,10 @@ public class Testability {
         //truncate the rest
         typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
 
-        //replace references to type arguments with Object type
-        ReferenceBinding objectTypeBinding = lookupEnvironment.askForType(new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()});
-        for (int iType = 0; iType <typeArgumentsForFunction.length;iType++){
-            if (typeArgumentsForFunction[iType] instanceof TypeVariableBinding){
-                typeArgumentsForFunction[iType] = objectTypeBinding;
-            }
-        }
+        typeArgumentsForFunction = convertToObjectIfTypeVariables(lookupEnvironment, typeArgumentsForFunction);
 
-        //rewire anonymous inner classes to their parents
-        for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
-            TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
-            if (typeBinding.isAnonymousType())
-                typeArgumentsForFunction[iTypeArg] = convertIfAnonymous(typeArgumentsForFunction[iTypeArg]);
-        }
+        typeArgumentsForFunction = convertToParentsIfAnonymousInnerClasses(typeArgumentsForFunction);
+
         //TODO test!
         for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
             TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
@@ -1371,7 +1361,25 @@ public class Testability {
         return fieldDeclaration;
     }
 
-    private static TypeBinding convertToLocalIfGeneric(TypeBinding callingType, LookupEnvironment lookupEnvironment) {
+    static TypeBinding[] convertToObjectIfTypeVariables(LookupEnvironment lookupEnvironment, TypeBinding[] typeArgumentsForFunction) {
+        //replace references to type arguments with Object type
+        ReferenceBinding objectTypeBinding = lookupEnvironment.askForType(new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()});
+        return Arrays.stream(typeArgumentsForFunction).
+                map(typeBinding -> typeBinding instanceof TypeVariableBinding ? objectTypeBinding : typeBinding).
+                collect(toList()).
+                toArray(new TypeBinding[typeArgumentsForFunction.length]);
+    }
+
+
+    static TypeBinding[] convertToParentsIfAnonymousInnerClasses(TypeBinding[] typeArgumentsForFunction) {
+        //rewire anonymous inner classes to their parents
+        return Arrays.stream(typeArgumentsForFunction).
+                map(Testability::convertIfAnonymous).
+                collect(toList()).
+                toArray(new TypeBinding[typeArgumentsForFunction.length]);
+    }
+
+    static TypeBinding convertToLocalIfGeneric(TypeBinding callingType, LookupEnvironment lookupEnvironment) {
         if (callingType.isGenericType())
             callingType = lookupEnvironment.convertToRawType(callingType, false);
         return callingType;
@@ -1459,6 +1467,11 @@ public class Testability {
             SourceTypeBinding referenceBinding,
             String fieldName) {
 
+        if (originalMessageSend instanceof QualifiedAllocationExpression) {
+            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect anonymous class allocation: " + originalMessageSend);
+            return null;
+        }
+
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
 
@@ -1526,19 +1539,10 @@ public class Testability {
         typeArguments = Arrays.copyOf(typeArguments, iArg);
 
         //replace references to type arguments with Object type
-        ReferenceBinding objectTypeBinding = lookupEnvironment.askForType(new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()});
-        for (int iType = 0; iType <typeArguments.length;iType++){
-            if (typeArguments[iType] instanceof TypeVariableBinding){
-                typeArguments[iType] = objectTypeBinding;
-            }
-        }
+        typeArguments = convertToObjectIfTypeVariables(lookupEnvironment, typeArguments);
 
         //rewire anonymous inner classes to their parents
-        for (int iTypeArg=0; iTypeArg<typeArguments.length; iTypeArg++){
-            TypeBinding typeBinding = typeArguments[iTypeArg];
-            if (typeBinding.isAnonymousType())
-                typeArguments[iTypeArg] = convertIfAnonymous(typeArguments[iTypeArg]);
-        }
+        typeArguments = convertToParentsIfAnonymousInnerClasses(typeArguments);
 
         int functionArgCount = typeArguments.length - 1;
 
@@ -1638,13 +1642,7 @@ public class Testability {
             inLambdaBodyQualifiedAllocationExpression.enclosingInstance = enclosingInstanceCall;
             messageSendInLambdaBody = inLambdaBodyQualifiedAllocationExpression;
         } else {
-
-            if (originalMessageSend instanceof QualifiedAllocationExpression) {
-                Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect anonymous class allocation: " + originalMessageSend);
-                return null;
-            } else {
-                messageSendInLambdaBody = new AllocationExpression();
-            }
+            messageSendInLambdaBody = new AllocationExpression();
         }
         messageSendInLambdaBody.type = originalMessageSend.type;
         messageSendInLambdaBody.setExpectedType(originalMessageSend.invocationTargetType());
