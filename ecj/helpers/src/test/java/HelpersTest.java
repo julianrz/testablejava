@@ -1,5 +1,6 @@
 import org.junit.Test;
 import testablejava.Helpers;
+import testablejava.HelpersInstrumenter;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -22,7 +23,7 @@ public class HelpersTest {
     @Test
     public void emitFunctions() throws Exception {
         Map<String, Optional<Class<?>>> nameToClass =
-                IntStream.range(0, 255).
+                IntStream.range(0, HelpersInstrumenter.maxArgs).
                         mapToObj(iArity -> "helpers.Function" + iArity).
                         collect(toMap(
                                 interfaceName -> interfaceName,
@@ -71,7 +72,7 @@ public class HelpersTest {
     @Test
     public void emitConsumers() throws Exception {
         Map<String, Optional<Class<?>>> nameToClass =
-                IntStream.range(0, 255).
+                IntStream.range(0, HelpersInstrumenter.maxArgs).
                         mapToObj(iArity -> "helpers.Consumer" + iArity).
                         collect(toMap(
                                 interfaceName -> interfaceName,
