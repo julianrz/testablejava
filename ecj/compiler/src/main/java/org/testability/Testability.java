@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
+
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
 
 //TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
@@ -1008,9 +1009,8 @@ public class Testability {
 
         Argument[] lambdaArguments = new Argument[argc];
         for (int i = 0; i < argc; i++) { //type args has return at the end, method args do not
-            TypeBinding typeBindingForArg = boxIfApplicable(typeBindingForFunction.arguments[i], lookupEnvironment);
-            TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
-            lambdaArguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
+            Argument argument = new Argument((" arg" + i).toCharArray(), 0, null, 0, true);
+            lambdaArguments[i] = argument;
         }
 
         lambdaExpression.setArguments(lambdaArguments);
@@ -1129,7 +1129,8 @@ public class Testability {
 
         typeArgumentsForFunction = convertToParentsIfAnonymousInnerClasses(typeArgumentsForFunction);
 
-        //TODO test!
+        //TODO test! see testTestabilityInjectFunctionField_getClass
+        //when disabled: Lambda expression's parameter  arg0 is expected to be of type CallContext<X,Class<capture#2-of ?>>
         for (int iTypeArg=0; iTypeArg<typeArgumentsForFunction.length; iTypeArg++){
             TypeBinding typeBinding = typeArgumentsForFunction[iTypeArg];
 
@@ -1318,7 +1319,7 @@ public class Testability {
         if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
-
+            //anonymous type instead of lambda, since method has type variables
             TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
 
             if (anonymousType.methods == null)
@@ -1334,7 +1335,19 @@ public class Testability {
             methodDeclaration.selector = methodDeclaration.binding.selector;
             methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
 
-            methodDeclaration.arguments = lambdaExpression.arguments;
+            int argc = returnsVoid?
+                    typeArgumentsForFunction.length :
+                    typeArgumentsForFunction.length - 1;
+
+            Argument[] anonInitializerArguments = new Argument[argc];
+            for (int i = 0; i < argc; i++) { //type args has return at the end, method args do not
+                TypeBinding typeBindingForArg = boxIfApplicable(typeBindingForFunction.arguments[i], lookupEnvironment);
+                TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
+                Argument argument = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
+                anonInitializerArguments[i] = argument;
+            }
+
+            methodDeclaration.arguments = anonInitializerArguments;
             methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
             methodDeclaration.statements = block.statements;
 
@@ -1441,7 +1454,11 @@ public class Testability {
 
     static TypeBinding convertCaptureBinding(TypeBinding typeBinding) {
         if (typeBinding instanceof CaptureBinding) {
-            return ((CaptureBinding) typeBinding).sourceType;
+            TypeBinding bound = ((CaptureBinding) typeBinding).wildcard.bound;//TODO will superclass always work instead?
+            if (bound == null){
+                return ((CaptureBinding) typeBinding).superclass;
+            }
+            return bound;
 //            return typeBinding.clone(typeBinding.enclosingType());
         }
         if (typeBinding instanceof ParameterizedTypeBinding && !typeBinding.isRawType()) {
@@ -1617,9 +1634,7 @@ public class Testability {
         int argc = typeArguments.length - 1; //type args has return at the end, method args do not
         Argument[] arguments = new Argument[argc];
         for (int i = 0; i < argc; i++) {
-            TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
-            TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
-            arguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
+            arguments[i] = new Argument((" arg" + i).toCharArray(), 0, null, 0, true);
         }
 
         lambdaExpression.setArguments(arguments);
@@ -1711,7 +1726,14 @@ public class Testability {
             methodDeclaration.selector = methodDeclaration.binding.selector;
             methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
 
-            methodDeclaration.arguments = lambdaExpression.arguments;
+            Argument[] anonInitializerArguments = new Argument[argc];
+            for (int i = 0; i < argc; i++) {
+                TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
+                TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
+                anonInitializerArguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0, true);
+            }
+
+            methodDeclaration.arguments = anonInitializerArguments;
             methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
             methodDeclaration.statements = block.statements;
 
@@ -1802,11 +1824,10 @@ public class Testability {
         LambdaExpression lambdaExpression = new LambdaExpression(compilationResult, false);
 
         Argument[] arguments = new Argument[1]; //TODO use this method in other make..FieldDeclaration
-        TypeReference typeReference =
-                Testability.typeReferenceFromTypeBinding(
-                        resultingTypeBinding);
 
-        arguments[0] = new Argument((" arg" + 0).toCharArray(), 0, typeReference, 0);
+        Argument argument = new Argument((" arg" + 0).toCharArray(), 0, null, 0, true);
+
+        arguments[0] = argument;
 
         lambdaExpression.setArguments(arguments);
 
