@@ -2435,7 +2435,10 @@ public class Testability {
         if (typeBinding.isAnonymousType()) {
             LocalTypeBinding localTypeBinding = (LocalTypeBinding) typeBinding;
             QualifiedAllocationExpression allocation = localTypeBinding.scope.referenceContext.allocation.anonymousType.allocation;
-            typeNamePrefix = escapeTypeArgsInTypeName(allocation.type.toString());//typeDeclaration.allocation.anonymousType.allocation.type.toString()) + "$";
+
+            String fullName = Arrays.stream(allocation.type.getParameterizedTypeName()).
+                    map(String::new).collect(joining("."));
+            typeNamePrefix = escapeTypeArgsInTypeName(fullName);
         } else if (typeBinding.isLocalType()) {
             typeNamePrefix = escapeTypeArgsInTypeName(
                     new String(
