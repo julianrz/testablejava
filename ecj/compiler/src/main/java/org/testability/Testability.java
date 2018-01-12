@@ -2093,12 +2093,25 @@ public class Testability {
         if (!(lambdaExpression.body instanceof Block))
             return false;
         Block block = (Block) lambdaExpression.body;
-        if (block.statements.length<1)
+        Statement[] statements = block.statements;
+
+        return haveTestabilityLabel(statements);
+    }
+
+    static boolean haveTestabilityLabel(Statement[] statements) {
+        if (statements == null)
             return false;
-        if (!(block.statements[0] instanceof LabeledStatement))
+        if (statements.length<1)
             return false;
-        LabeledStatement labeledStatement = (LabeledStatement) block.statements[0];
-        return new String(labeledStatement.label).equals("testabilitylabel");
+        if (!(statements[0] instanceof LabeledStatement))
+            return false;
+        LabeledStatement labeledStatement = (LabeledStatement) statements[0];
+
+        return new String(labeledStatement.label).equals(TESTABILITYLABEL);
+    }
+
+    public static boolean isTestabilityFieldInitializerUsingSpecialLabel(TypeDeclaration typeDeclaration) {
+        return Arrays.stream(typeDeclaration.methods).anyMatch(method -> haveTestabilityLabel(method.statements));
     }
 
     static public List<String> testabilityFieldName(Expression originalCall, boolean shortClassName) {
@@ -2438,4 +2451,5 @@ public class Testability {
     public static boolean codeContainsSyntaxErrors(CompilationResult fullParseUnitResult) {
         return fullParseUnitResult.hasSyntaxError;
     }
+
 }

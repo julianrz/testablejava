@@ -584,8 +584,16 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             // generate all methods
             classFile.setForMethodInfos();
             if (this.methods != null) {
+
+                boolean thisTypeIsTestabilityFieldInitializer =
+                        this.binding.isLocalType() &&
+                        Testability.isTestabilityFieldInitializerUsingSpecialLabel(this);
+
                 for (int i = 0, max = this.methods.length; i < max; i++) {
-                    if (this.methods[i] instanceof ConstructorDeclaration && compilationResult.instrumentForTestability) {
+                    if (this.methods[i] instanceof ConstructorDeclaration &&
+                            compilationResult.instrumentForTestability &&
+                            !thisTypeIsTestabilityFieldInitializer
+                            ) {
                         try {
                             Testability.addListenerCallsToConstructor((ConstructorDeclaration) this.methods[i], this.binding);
                         } catch(Exception ex) {
@@ -595,6 +603,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                                     "could not add listener calls to constructor",
                                     ex);
                         }
+
                     }
                     this.methods[i].generateCode(this.scope, classFile);
                 }

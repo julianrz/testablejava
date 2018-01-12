@@ -3106,7 +3106,74 @@ public class TestabilityTest extends BaseTest {
         Object className = invokeCompiledMethod("Y", "fn");
         assertEquals("java.lang.String", className);
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ListenersForNonLambdaRedirectors() throws Exception {
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "public class Y {\n" +
+                        "   public <T> T accept(List<T> lst, T t) {\n" +
+                        "     called(this, t);" + //this call is to generic function passing generic arg
+                        "     return t;\n" +
+                        "   }\n" +
+                        "	public <T> void called(Y y, T t){" +
+                        "   }" +
+                        "	public String fn(){" +
+                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                        "   }" +
+                        "}\n"
+        };
 
+        String expectedOutputY =
+                "import Y.1;\n" +
+                        "import helpers.Consumer3_1;\n" +
+                        "import java.util.ArrayList;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.function.Consumer;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "   public static Consumer<Y> $$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<Y> $$postCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
+                        "\n" +
+                        "   public Y() {\n" +
+                        "      $$preCreate.accept(this);\n" +
+                        "      $$postCreate.accept(this);\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> T accept(List<T> var1, T var2) {\n" +
+                        "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
+                        "      return var2;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> void called(Y var1, T var2) {\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public String fn() {\n" +
+                        "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
+                        "   }\n" +
+                        "}";
+
+        String expectedOutputInner =
+                "import helpers.Consumer3_1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
+                        "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                        "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_ALL);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("Y$1").stream().collect(joining("\n")));
+
+        Object className = invokeCompiledMethod("Y", "fn");
+        assertEquals("java.lang.String", className);
+    }
 
     @Test
     public void testErrorPropagation() throws Exception {
