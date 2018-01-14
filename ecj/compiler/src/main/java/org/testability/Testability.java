@@ -1402,64 +1402,62 @@ public class Testability {
                 };
             }
             return block;
-        }
+        } else {
 
+            char[][] exceptionPath = new char[][]{
+                    "java".toCharArray(),
+                    "lang".toCharArray(),
+                    "Exception".toCharArray()};
 
+            Argument catchArgument = new Argument(
+                    "ex".toCharArray(),
+                    0,
+                    new QualifiedTypeReference(exceptionPath, new long[exceptionPath.length]),
+                    0);
 
-        char [][] exceptionPath = new char[][]{
-                "java".toCharArray(),
-                "lang".toCharArray(),
-                "Exception".toCharArray()};
+            MessageSend uncheckedThrowStatement = new MessageSend();//testablejava.Helpers.uncheckedThrow(ex);
 
-        Argument catchArgument = new Argument(
-                "ex".toCharArray(),
-                0,
-                new QualifiedTypeReference(exceptionPath,new long[exceptionPath.length]),
-                0) ;
-        MessageSend uncheckedThrowStatement = new MessageSend();//testablejava.Helpers.uncheckedThrow(ex);
-        uncheckedThrowStatement.receiver =
-                makeQualifiedNameReference(
-                        new String[]{"testablejava", "Helpers"}
-                );
+            uncheckedThrowStatement.receiver =
+                    makeQualifiedNameReference(
+                            new String[]{"testablejava", "Helpers"}
+                    );
 
-        uncheckedThrowStatement.selector = "uncheckedThrow".toCharArray();
-        uncheckedThrowStatement.arguments = new Expression[]{
-                makeSingleNameReference("ex")};
+            uncheckedThrowStatement.selector = "uncheckedThrow".toCharArray();
 
-        if (returnsVoid) {
+            uncheckedThrowStatement.arguments = new Expression[]{
+                    makeSingleNameReference("ex")};
+
+            TryStatement tryStatement = new TryStatement();
+
+            Block tryBlock = new Block(2);
+            tryStatement.tryBlock = tryBlock;
+
+            Block catchBlock = new Block(2);
+            catchBlock.statements = new Statement[]{uncheckedThrowStatement};
+            Block[] catchBlocks = new Block[]{catchBlock};
+            tryStatement.catchBlocks = catchBlocks;
+
+            Argument[] catchArguments = new Argument[]{catchArgument};
+            tryStatement.catchArguments = catchArguments;
+
+            if (returnsVoid) {
 //            try {
 //              ...
 //            } catch (Exception ex) {
 //                testablejava.Helpers.uncheckedThrow(ex);
 //            }
 
-            TryStatement tryStatement  = new TryStatement();
-            Block tryBlock = new Block(2);
-            tryBlock.statements = new Statement[]{messageSendInLambdaBody};
-            tryStatement.tryBlock = tryBlock;
-            Block catchBlock = new Block(2);
+                tryBlock.statements = new Statement[]{messageSendInLambdaBody};
 
-            Block[] catchBlocks = new Block[]{catchBlock};
+                ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
 
+                block.statements = new Statement[]{
+                        labeledStatement,
+                        tryStatement,//messageSendInLambdaBody,
+                        returnStatement
+                };
 
-
-            catchBlock.statements = new Statement[]{uncheckedThrowStatement};
-
-            tryStatement.catchBlocks = catchBlocks;
-
-
-            Argument[] catchArguments = new Argument[]{catchArgument};
-            tryStatement.catchArguments = catchArguments;
-
-            ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
-
-            block.statements = new Statement[]{
-                    labeledStatement,
-                    tryStatement,//messageSendInLambdaBody,
-                    returnStatement
-            };
-
-        } else {
+            } else {
 //            try {
 //                return ...
 //            } catch (Exception ex) {
@@ -1467,33 +1465,20 @@ public class Testability {
 //            }
 //            return null;
 
+                ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
 
-            ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+                tryBlock.statements = new Statement[]{returnStatement};
 
-            TryStatement tryStatement  = new TryStatement();
-            Block tryBlock = new Block(2);
-            tryBlock.statements = new Statement[]{returnStatement};
-            tryStatement.tryBlock = tryBlock;
-            Block catchBlock = new Block(2);
-            Block[] catchBlocks = new Block[]{catchBlock};
+                ReturnStatement dummyReturnStatament = new ReturnStatement(new NullLiteral(0, 0), 0, 0);
 
-            catchBlock.statements = new Statement[]{uncheckedThrowStatement};
-
-            tryStatement.catchBlocks = catchBlocks;
-
-            Argument[] catchArguments = new Argument[]{catchArgument};
-
-            tryStatement.catchArguments = catchArguments;
-
-            ReturnStatement dummyReturnStatament = new ReturnStatement(new NullLiteral(0,0), 0, 0);
-
-            block.statements = new Statement[]{
-                    labeledStatement,
-                    tryStatement,//returnStatement
-                    dummyReturnStatament
-            };
+                block.statements = new Statement[]{
+                        labeledStatement,
+                        tryStatement,//returnStatement
+                        dummyReturnStatament
+                };
+            }
+            return block;
         }
-        return block;
     }
 
     static TypeBinding[] convertToObjectIfTypeVariables(LookupEnvironment lookupEnvironment, TypeBinding[] typeArgumentsForFunction) {
