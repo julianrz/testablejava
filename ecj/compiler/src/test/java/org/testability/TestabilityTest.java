@@ -70,9 +70,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	static int i=1;\n" +
-                        "	X() {dontredirect:System.out.println();}" +
-                        "}"
+                "	static int i=1;\n" +
+                "	X() {dontredirect:System.out.println();}" +
+                "}"
         };
 
         String expectedOutput =
@@ -97,23 +97,23 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.function.Consumer;\n\n" +
                 "public class X {\n" +
-                        "	X() {dontredirect:System.out.println();}" +
-                        "}\n"
+                "	X() {dontredirect:System.out.println();}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import java.util.function.Consumer;\n\n" +
                 "public class X {\n" +
-                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
-                        "   };\n\n" +
-                        "   X() {\n" +
-                        "      $$preCreate.accept(this);\n" +
-                        "      System.out.println();\n" +
-                        "      $$postCreate.accept(this);\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                "   };\n\n" +
+                "   X() {\n" +
+                "      $$preCreate.accept(this);\n" +
+                "      System.out.println();\n" +
+                "      $$postCreate.accept(this);\n" +
+                "   }\n" +
+                "}";
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
     @Test
@@ -123,39 +123,39 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.Comparator;\n" +
                 "import java.util.function.Consumer;\n\n" +
-                        "public class X {\n" +
-                        "	X() {dontredirect:System.out.println();}\n"+
-                        "	void fn() {new Comparator<String>(){\n" +
-                        "            @Override\n" +
-                        "            public int compare(String o1, String o2) {\n" +
-                        "                return o1.compareTo(o2);\n" +
-                        "            }\n" +
-                        "        };}" +
-                        "}\n"
+                "public class X {\n" +
+                "	X() {dontredirect:System.out.println();}\n"+
+                "	void fn() {new Comparator<String>(){\n" +
+                "            @Override\n" +
+                "            public int compare(String o1, String o2) {\n" +
+                "                return o1.compareTo(o2);\n" +
+                "            }\n" +
+                "        };}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import X.1;\n" +
                 "import java.util.Comparator;\n" +
                 "import java.util.function.Consumer;\n\n" +
-                        "public class X {\n" +
-                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<Comparator<String>> $$Comparator_String_$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<Comparator<String>> $$Comparator_String_$postCreate = (var0) -> {\n" +
-                        "   };\n\n" +
-                        "   X() {\n" +
-                        "      $$preCreate.accept(this);\n" +
-                        "      System.out.println();\n" +
-                        "      $$postCreate.accept(this);\n" +
-                        "   }\n\n" +
-                        "   void fn() {\n" +
-                        "      new 1(this);\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<Comparator<String>> $$Comparator_String_$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<Comparator<String>> $$Comparator_String_$postCreate = (var0) -> {\n" +
+                "   };\n\n" +
+                "   X() {\n" +
+                "      $$preCreate.accept(this);\n" +
+                "      System.out.println();\n" +
+                "      $$postCreate.accept(this);\n" +
+                "   }\n\n" +
+                "   void fn() {\n" +
+                "      new 1(this);\n" +
+                "   }\n" +
+                "}";
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
 
@@ -164,15 +164,15 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                        "public class X {\n" +
-                        "	void fn() {" +
-                        "     new Comparator<Object>() {\n" +
-                        "                public int compare(Object o1, Object o2) {\n" +
-                        "                    return -1;\n" +
-                        "                }\n" +
-                        "            };" +
-                        "  }" +
-                        "}\n"
+                "public class X {\n" +
+                "	void fn() {" +
+                "     new Comparator<Object>() {\n" +
+                "                public int compare(Object o1, Object o2) {\n" +
+                "                    return -1;\n" +
+                "                }\n" +
+                "            };" +
+                "  }" +
+                "}\n"
         };
 
         String expectedOutput = "import X.1;\n" +
@@ -204,15 +204,15 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                        "public class X {\n" +
-                        "	void fn() {" +
-                        "     new Comparator<>() {\n" + //<> is syntax error
-                        "                public int compare(Object o1, Object o2) {\n" +
-                        "                    return -1;\n" +
-                        "                }\n" +
-                        "            };" +
-                        "  }" +
-                        "}\n"
+                "public class X {\n" +
+                "	void fn() {" +
+                "     new Comparator<>() {\n" + //<> is syntax error
+                "                public int compare(Object o1, Object o2) {\n" +
+                "                    return -1;\n" +
+                "                }\n" +
+                "            };" +
+                "  }" +
+                "}\n"
         };
 
         try {
@@ -227,16 +227,16 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                        "public class X {\n" +
-                        "	void fn() {" +
-                        "     List missingTypes = null;\n" +
-                        "     Collections.sort(missingTypes, new Comparator() {\n" +
-                        "                public int compare(Object o1, Object o2) {\n" +
-                        "                    return -1;\n" +
-                        "                }\n" +
-                        "            });" +
-                        "  }" +
-                        "}\n"
+                "public class X {\n" +
+                "	void fn() {" +
+                "     List missingTypes = null;\n" +
+                "     Collections.sort(missingTypes, new Comparator() {\n" +
+                "                public int compare(Object o1, Object o2) {\n" +
+                "                    return -1;\n" +
+                "                }\n" +
+                "            });" +
+                "  }" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -279,19 +279,19 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                        "public class X {\n" +
-                        "	int fn() {" +
-                        "     Comparator c;" +
-                        "     dontredirect: c = " +
-                        "            new Comparator<Object>() {\n" +
-                        "                public int compare(Object o1, Object o2) {\n" +
-                        "                    return myCompare(o1, o2);\n" +
-                        "                }\n" +
-                        "            };" +
-                        "     dontredirect2: return c.compare(\"\",\"\"); " +
-                        "   }" +
-                        "	int myCompare(Object o1, Object o2) {return 1;}" +
-                        "}\n"
+                "public class X {\n" +
+                "	int fn() {" +
+                "     Comparator c;" +
+                "     dontredirect: c = " +
+                "            new Comparator<Object>() {\n" +
+                "                public int compare(Object o1, Object o2) {\n" +
+                "                    return myCompare(o1, o2);\n" +
+                "                }\n" +
+                "            };" +
+                "     dontredirect2: return c.compare(\"\",\"\"); " +
+                "   }" +
+                "	int myCompare(Object o1, Object o2) {return 1;}" +
+                "}\n"
         };
 
         String expectedOutput = "import X.1;\n" +
@@ -340,53 +340,53 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.Comparator;\n" +
-                        "import java.util.function.Consumer;\n\n" +
-                        "public class X {\n" +
-                        "	public X() {dontredirect:System.out.println();}\n"+
-                        "	void fn() {" +
-                        "      class C<T> implements Comparator<T> {\n" +
-                        "         @Override\n" +
-                        "         public int compare(T o1, T o2) {\n" +
-                        "            return -1;\n" +
-                        "         }\n" +
-                        "      };\n" +
-                        "      new C<String>();" +
-                        "   }\n" +
-                        "}\n",
+                "import java.util.function.Consumer;\n\n" +
+                "public class X {\n" +
+                "	public X() {dontredirect:System.out.println();}\n"+
+                "	void fn() {" +
+                "      class C<T> implements Comparator<T> {\n" +
+                "         @Override\n" +
+                "         public int compare(T o1, T o2) {\n" +
+                "            return -1;\n" +
+                "         }\n" +
+                "      };\n" +
+                "      new C<String>();" +
+                "   }\n" +
+                "}\n",
                 "Y.java",
                 "import java.util.List;\n" +
                 "import java.util.ArrayList;\n" +
-                        "public class Y {\n" +
-                        "	static List<Object> instances = new ArrayList<>();\n" +
-                        "	static List<Object> setAndTest() {\n" +
-                        "     X.$$C_java$lang$String_$postCreate = inst -> instances.add(inst);\n" +
-                        "     new X().fn();\n" +
-                        "     return instances;\n" +
-                        "   }\n" +
-                        "}\n"
+                "public class Y {\n" +
+                "	static List<Object> instances = new ArrayList<>();\n" +
+                "	static List<Object> setAndTest() {\n" +
+                "     X.$$C_java$lang$String_$postCreate = inst -> instances.add(inst);\n" +
+                "     new X().fn();\n" +
+                "     return instances;\n" +
+                "   }\n" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import X.1C;\n" +
-                        "import java.util.function.Consumer;\n\n" +
-                        "public class X {\n" +
-                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<1C<String>> $$C_java$lang$String_$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<1C<String>> $$C_java$lang$String_$postCreate = (var0) -> {\n" +
-                        "   };\n\n" +
-                        "   public X() {\n" +
-                        "      $$preCreate.accept(this);\n" +
-                        "      System.out.println();\n" +
-                        "      $$postCreate.accept(this);\n" +
-                        "   }\n\n" +
-                        "   void fn() {\n" +
-                        "      new 1C(this);\n" +
-                        "   }\n" +
-                        "}";
+                "import java.util.function.Consumer;\n\n" +
+                "public class X {\n" +
+                "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<1C<String>> $$C_java$lang$String_$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<1C<String>> $$C_java$lang$String_$postCreate = (var0) -> {\n" +
+                "   };\n\n" +
+                "   public X() {\n" +
+                "      $$preCreate.accept(this);\n" +
+                "      System.out.println();\n" +
+                "      $$postCreate.accept(this);\n" +
+                "   }\n\n" +
+                "   void fn() {\n" +
+                "      new 1C(this);\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
 
@@ -405,11 +405,11 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function0;\n\n" +
                 "public class X {\n" +
-                        "   Function0<Void> $$java$io$PrintStream$println = () -> {\n" +
-                        "      System.out.println();\n" +
-                        "      return null;\n" +
-                        "   };\n" +
-                        "}"
+                "   Function0<Void> $$java$io$PrintStream$println = () -> {\n" +
+                "      System.out.println();\n" +
+                "      return null;\n" +
+                "   };\n" +
+                "}"
         };
         String expectedOutput = task[1];
 
@@ -421,8 +421,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){System.out.println();}" +
-                        "}\n"
+                "	void fn(){System.out.println();}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
@@ -446,10 +446,10 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   static int ct=0;" +
-                        "   static {ct++;}" +
-                        "	int fn(){System.out.println();return X.ct;}" +
-                        "}\n"
+                "   static int ct=0;" +
+                "   static {ct++;}" +
+                "	int fn(){System.out.println();return X.ct;}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
@@ -514,29 +514,28 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "X.java",
-
                 "public class X {\n" +
-                        "   static Integer callee(){return 1;}\n" +
-                        "	static Integer fn(){\n" +
-                        "      return callee();" +
-                        "   }\n" +
-                        "}\n"
+                "   static Integer callee(){return 1;}\n" +
+                "	static Integer fn(){\n" +
+                "      return callee();" +
+                "   }\n" +
+                "}\n"
         };
         String expectedOutput =
 
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
-                        "public class X {\n" +
-                        "   public static Function1<CallContext<X, X>, Integer> $$X$callee = (var0) -> {\n" +
-                        "      return callee();\n" +
-                        "   };\n\n" +
-                        "   static Integer callee() {\n" +
-                        "      return Integer.valueOf(1);\n" +
-                        "   }\n\n" +
-                        "   static Integer fn() {\n" +
-                        "      return (Integer)$$X$callee.apply(new CallContext(\"X\", \"X\", (Object)null, (Object)null));\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public static Function1<CallContext<X, X>, Integer> $$X$callee = (var0) -> {\n" +
+                "      return callee();\n" +
+                "   };\n\n" +
+                "   static Integer callee() {\n" +
+                "      return Integer.valueOf(1);\n" +
+                "   }\n\n" +
+                "   static Integer fn() {\n" +
+                "      return (Integer)$$X$callee.apply(new CallContext(\"X\", \"X\", (Object)null, (Object)null));\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
         Object actual = invokeCompiledMethod("X", "fn");
@@ -550,9 +549,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){Integer.valueOf(2);}" +
-                        "   static public void exec() throws Exception {dontredirect: new X().fn();}" +
-                        "}\n"
+                "	void fn(){Integer.valueOf(2);}" +
+                "   static public void exec() throws Exception {dontredirect: new X().fn();}" +
+                "}\n"
         };
         String expectedOutput =
                         "import helpers.Function2;\n" +
@@ -595,16 +594,16 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
-                        "      return Integer.valueOf(var1.intValue());\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      $$Integer$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), Integer.valueOf(2));\n" +
-                        "   }\n\n" +
-                        "   public static void exec() throws Exception {\n" +
-                        "      (new X()).fn();\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                "      return Integer.valueOf(var1.intValue());\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      $$Integer$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), Integer.valueOf(2));\n" +
+                "   }\n\n" +
+                "   public static void exec() throws Exception {\n" +
+                "      (new X()).fn();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -621,30 +620,30 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){Integer.getInteger(\"1\", Integer.valueOf(2));}" +
-                        "}\n"
+                "	void fn(){Integer.getInteger(\"1\", Integer.valueOf(2));}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function2;\n" +
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
-                        "public class X {\n" +
-                        "   public static Function3<CallContext<X, Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
-                        "      return Integer.getInteger(var1, var2);\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
-                        "      return Integer.valueOf(var1.intValue());\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      $$Integer$getInteger$$String$Integer.apply("+
-                        "new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), " +
-                        "\"1\", " +
-                        "(Integer)$$Integer$valueOf$$I.apply(" +
-                        "new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), " +
-                        "Integer.valueOf(2)));\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public static Function3<CallContext<X, Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
+                "      return Integer.getInteger(var1, var2);\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                "      return Integer.valueOf(var1.intValue());\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      $$Integer$getInteger$$String$Integer.apply("+
+                "new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), " +
+                "\"1\", " +
+                "(Integer)$$Integer$valueOf$$I.apply(" +
+                "new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), " +
+                "Integer.valueOf(2)));\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -656,14 +655,13 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.*;\n" +
                 "public class X {\n" +
-
-                        "	void fn(){" +
-                        "       StringBuffer buf0 = new StringBuffer(10);" +
-                        "       StringBuffer buf = new StringBuffer();" +
-                        "       buf.append(\"x\");" +
-                        "       buf.append(1);" +
-                        "   }" +
-                       "}\n"
+                "	void fn(){" +
+                "       StringBuffer buf0 = new StringBuffer(10);" +
+                "       StringBuffer buf = new StringBuffer();" +
+                "       buf.append(\"x\");" +
+                "       buf.append(1);" +
+                "   }" +
+               "}\n"
         };
 
         String expectedOutput =
@@ -671,26 +669,26 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$append$$I = (var0, var1) -> {\n" +
-                        "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, StringBuffer>, String, StringBuffer> $$StringBuffer$append$$String = (var0, var1) -> {\n" +
-                        "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$new$$I = (var0, var1) -> {\n" +
-                        "      return new StringBuffer(var1.intValue());\n" +
-                        "   };\n" +
-                        "   public static Function1<CallContext<X, StringBuffer>, StringBuffer> $$StringBuffer$new = (var0) -> {\n" +
-                        "      return new StringBuffer();\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   void fn() {\n" +
-                        "      $$StringBuffer$new$$I.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, (Object)null), Integer.valueOf(10));\n" +
-                        "      StringBuffer var1 = (StringBuffer)$$StringBuffer$new.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, (Object)null));\n" +
-                        "      $$StringBuffer$append$$String.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, var1), \"x\");\n" +
-                        "      $$StringBuffer$append$$I.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, var1), Integer.valueOf(1));\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$append$$I = (var0, var1) -> {\n" +
+                "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, StringBuffer>, String, StringBuffer> $$StringBuffer$append$$String = (var0, var1) -> {\n" +
+                "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$new$$I = (var0, var1) -> {\n" +
+                "      return new StringBuffer(var1.intValue());\n" +
+                "   };\n" +
+                "   public static Function1<CallContext<X, StringBuffer>, StringBuffer> $$StringBuffer$new = (var0) -> {\n" +
+                "      return new StringBuffer();\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      $$StringBuffer$new$$I.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, (Object)null), Integer.valueOf(10));\n" +
+                "      StringBuffer var1 = (StringBuffer)$$StringBuffer$new.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, (Object)null));\n" +
+                "      $$StringBuffer$append$$String.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, var1), \"x\");\n" +
+                "      $$StringBuffer$append$$I.apply(new CallContext(\"X\", \"java.lang.StringBuffer\", this, var1), Integer.valueOf(1));\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -746,20 +744,19 @@ public class TestabilityTest extends BaseTest {
                 "public class Base {}\n",
                 "T.java",
                 "public class T extends Base {}\n",
-
                 "Y.java",
                 "public class Y {\n" +
-                        "   String fn(Base b){return \"1\";}\n" +
-                        "}",
+                "   String fn(Base b){return \"1\";}\n" +
+                "}",
                 "X.java",
-                        "public class X {\n" +
-                        "	String fn(){\n" +
-                        "       Y y;\n" +
-                        "       dontredirect: y = new Y();\n" +
-                        "       T t = null;\n" +
-                        "       return y.fn(t);\n" +
-                        "   }" +
-                        "}\n"
+                "public class X {\n" +
+                "	String fn(){\n" +
+                "       Y y;\n" +
+                "       dontredirect: y = new Y();\n" +
+                "       T t = null;\n" +
+                "       return y.fn(t);\n" +
+                "   }" +
+                "}\n"
         };
 //NOTE: decompiler somehow reports Object t, its type is lost
         String expectedOutput =
@@ -788,42 +785,42 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Base.java",
                 "public class Base {\n" +
-                        "	String fn(){ return null; }" +
-                        "}\n",
+                "	String fn(){ return null; }" +
+                "}\n",
                 "Derived.java",
                 "public class Derived extends Base {\n" +
-                        "}\n",
+                "}\n",
                 "X.java",
-                        "public class X {\n" +
-                        "	String fn(){" +
-                        "       Derived d;" +
-                        "       dontredirect: d = new Derived();" +
-                        "       return d.fn();" +
-                        "   }" +
-                        "}\n",
+                "public class X {\n" +
+                "	String fn(){" +
+                "       Derived d;" +
+                "       dontredirect: d = new Derived();" +
+                "       return d.fn();" +
+                "   }" +
+                "}\n",
                 "Y.java",
                 "public class Y {\n" +
-                        "	String fn(){" +
-                        "       X.$$Derived$fn = (ctx) -> {return \"\"+ctx.callingClassInstance.getClass()+\",\"+ ctx.calledClassInstance.getClass();};" +
-                        "       return new X().fn();" +
-                        "   }" +
-                        "}\n"
+                "	String fn(){" +
+                "       X.$$Derived$fn = (ctx) -> {return \"\"+ctx.callingClassInstance.getClass()+\",\"+ ctx.calledClassInstance.getClass();};" +
+                "       return new X().fn();" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function1;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "public class X {\n" +
-                        "   public static Function1<CallContext<X, Derived>, String> $$Derived$fn = (var0) -> {\n" +
-                        "      return ((Derived)var0.calledClassInstance).fn();\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   String fn() {\n" +
-                        "      Derived var1 = new Derived();\n" +
-                        "      return (String)$$Derived$fn.apply(new CallContext(\"X\", \"Derived\", this, var1));\n" +
-                        "   }\n" +
-                        "}";
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function1<CallContext<X, Derived>, String> $$Derived$fn = (var0) -> {\n" +
+                "      return ((Derived)var0.calledClassInstance).fn();\n" +
+                "   };\n" +
+                "\n" +
+                "   String fn() {\n" +
+                "      Derived var1 = new Derived();\n" +
+                "      return (String)$$Derived$fn.apply(new CallContext(\"X\", \"Derived\", this, var1));\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -837,18 +834,18 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                        "public class X {\n" +
-                        "	void fn(){" +
-                        "       List<String> var1 = new ArrayList<>();" +
-                        "       var1.add(\"1\");" +
-                        "       List<String> var2 = new ArrayList<>(var1);" +
-                        "       var2.addAll(var1);" +
-                        "       List<Integer> var3 = new ArrayList<>();" +
-                        "       var3.add(2);" +
-                        "       List<Integer> var4 = new ArrayList<>(var3);" +
-                        "       var4.addAll(var3);" +
-                        "   }" +
-                        "}\n"
+                "public class X {\n" +
+                "	void fn(){" +
+                "       List<String> var1 = new ArrayList<>();" +
+                "       var1.add(\"1\");" +
+                "       List<String> var2 = new ArrayList<>(var1);" +
+                "       var2.addAll(var1);" +
+                "       List<Integer> var3 = new ArrayList<>();" +
+                "       var3.add(2);" +
+                "       List<Integer> var4 = new ArrayList<>(var3);" +
+                "       var4.addAll(var3);" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -858,42 +855,42 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.List;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, ArrayList<Integer>>, List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var0, var1) -> {\n" +
-                        "      return new ArrayList(var1);\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
-                        "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
-                        "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, ArrayList<String>>, List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var0, var1) -> {\n" +
-                        "      return new ArrayList(var1);\n" +
-                        "   };\n" +
-                        "   public static Function1<CallContext<X, ArrayList<String>>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = (var0) -> {\n" +
-                        "      return new ArrayList();\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
-                        "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
-                        "   };\n" +
-                        "   public static Function1<CallContext<X, ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
-                        "      return new ArrayList();\n" +
-                        "   };\n" +
-                        "   public static Function2<CallContext<X, List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
-                        "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   void fn() {\n" +
-                        "      ArrayList var1 = (ArrayList)$$java$util$ArrayList_java$lang$String_$new.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.String>\", this, (Object)null));\n" +
-                        "      $$java$util$List_java$lang$String_$add$$String.apply(new CallContext(\"X\", \"java.util.List<java.lang.String>\", this, var1), \"1\");\n" +
-                        "      ArrayList var2 = (ArrayList)$$java$util$ArrayList_java$lang$String_$new$$List.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.String>\", this, (Object)null), var1);\n" +
-                        "      $$java$util$List_java$lang$String_$addAll$$List.apply(new CallContext(\"X\", \"java.util.List<java.lang.String>\", this, var2), var1);\n" +
-                        "      ArrayList var3 = (ArrayList)$$java$util$ArrayList_java$lang$Integer_$new.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.Integer>\", this, (Object)null));\n" +
-                        "      $$java$util$List_java$lang$Integer_$add$$I.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var3), Integer.valueOf(2));\n" +
-                        "      ArrayList var4 = (ArrayList)$$java$util$ArrayList_java$lang$Integer_$new$$List.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.Integer>\", this, (Object)null), var3);\n" +
-                        "      $$java$util$List_java$lang$Integer_$addAll$$List.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var4), var3);\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, ArrayList<Integer>>, List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var0, var1) -> {\n" +
+                "      return new ArrayList(var1);\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, ArrayList<String>>, List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var0, var1) -> {\n" +
+                "      return new ArrayList(var1);\n" +
+                "   };\n" +
+                "   public static Function1<CallContext<X, ArrayList<String>>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = (var0) -> {\n" +
+                "      return new ArrayList();\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
+                "   };\n" +
+                "   public static Function1<CallContext<X, ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
+                "      return new ArrayList();\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<X, List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      ArrayList var1 = (ArrayList)$$java$util$ArrayList_java$lang$String_$new.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.String>\", this, (Object)null));\n" +
+                "      $$java$util$List_java$lang$String_$add$$String.apply(new CallContext(\"X\", \"java.util.List<java.lang.String>\", this, var1), \"1\");\n" +
+                "      ArrayList var2 = (ArrayList)$$java$util$ArrayList_java$lang$String_$new$$List.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.String>\", this, (Object)null), var1);\n" +
+                "      $$java$util$List_java$lang$String_$addAll$$List.apply(new CallContext(\"X\", \"java.util.List<java.lang.String>\", this, var2), var1);\n" +
+                "      ArrayList var3 = (ArrayList)$$java$util$ArrayList_java$lang$Integer_$new.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.Integer>\", this, (Object)null));\n" +
+                "      $$java$util$List_java$lang$Integer_$add$$I.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var3), Integer.valueOf(2));\n" +
+                "      ArrayList var4 = (ArrayList)$$java$util$ArrayList_java$lang$Integer_$new$$List.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.Integer>\", this, (Object)null), var3);\n" +
+                "      $$java$util$List_java$lang$Integer_$addAll$$List.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var4), var3);\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
         invokeCompiledMethod("X","fn");
@@ -907,27 +904,27 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.Comparator;\n" +
                 "public class X {\n" +
-                        "   int callee(){return 1;}\n" +
-                        "	int fn(){\n" +
-                        "      class C<T> implements Comparator<T> {\n" +
-                        "         @Override\n" +
-                        "         public int compare(T o1, T o2) {\n" +
-                        "            return callee();\n" +
-                        "         }\n" +
-                        "      };\n" +
-                        "      dontredirect: return new C<String>().compare(\"a\",\"b\");\n" +
-                        "   }\n" +
-                        "}\n",
+                "   int callee(){return 1;}\n" +
+                "	int fn(){\n" +
+                "      class C<T> implements Comparator<T> {\n" +
+                "         @Override\n" +
+                "         public int compare(T o1, T o2) {\n" +
+                "            return callee();\n" +
+                "         }\n" +
+                "      };\n" +
+                "      dontredirect: return new C<String>().compare(\"a\",\"b\");\n" +
+                "   }\n" +
+                "}\n",
                 "Y.java",
-                        "public class Y {\n" +
-                        "   static int mockAndTest(){" +
-                        "     X.$$X$callee = (ctx) -> 2;" +
-                        "     return new X().fn();" +
-                        "   }" +
-                        "}"
+                "public class Y {\n" +
+                "   static int mockAndTest(){" +
+                "     X.$$X$callee = (ctx) -> 2;" +
+                "     return new X().fn();" +
+                "   }" +
+                "}"
         };
         String expectedOutput =
-                "import X.1C;\n"+
+                "import X.1C;\n" +
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
@@ -1185,23 +1182,23 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	public int fn(){int i1 = Integer.MAX_VALUE; long l2 = 2L; return Long.compare(i1, l2);}" +
-                        "}\n"
+                "	public int fn(){int i1 = Integer.MAX_VALUE; long l2 = 2L; return Long.compare(i1, l2);}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function3<CallContext<X, Long>, Integer, Long, Integer> $$Long$compare$$I$J = (var0, var1, var2) -> {\n" +
-                        "      return Integer.valueOf(Long.compare((long)var1.intValue(), var2.longValue()));\n" +
-                        "   };\n\n" +
-                        "   public int fn() {\n" +
-                        "      int var1 = " + Integer.MAX_VALUE +";\n" +
-                        "      long var2 = 2L;\n" +
-                        "      return ((Integer)$$Long$compare$$I$J.apply(new CallContext(\"X\", \"java.lang.Long\", this, (Object)null), Integer.valueOf(var1), Long.valueOf(var2))).intValue();\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function3<CallContext<X, Long>, Integer, Long, Integer> $$Long$compare$$I$J = (var0, var1, var2) -> {\n" +
+                "      return Integer.valueOf(Long.compare((long)var1.intValue(), var2.longValue()));\n" +
+                "   };\n\n" +
+                "   public int fn() {\n" +
+                "      int var1 = " + Integer.MAX_VALUE +";\n" +
+                "      long var2 = 2L;\n" +
+                "      return ((Integer)$$Long$compare$$I$J.apply(new CallContext(\"X\", \"java.lang.Long\", this, (Object)null), Integer.valueOf(var1), Long.valueOf(var2))).intValue();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1217,29 +1214,28 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	public Long fn(){int i1 = Integer.MAX_VALUE; return Long.valueOf(i1);}" +
-                        "}\n"
+                "	public Long fn(){int i1 = Integer.MAX_VALUE; return Long.valueOf(i1);}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, Long>, Integer, Long> $$Long$valueOf$$I = (var0, var1) -> {\n" +
-                        "      return Long.valueOf((long)var1.intValue());\n" +
-                        "   };\n\n" +
-                        "   public Long fn() {\n" +
-                        "      int var1 = " + Integer.MAX_VALUE + ";\n" +
-                        "      return (Long)$$Long$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.Long\", this, (Object)null), Integer.valueOf(var1));\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, Long>, Integer, Long> $$Long$valueOf$$I = (var0, var1) -> {\n" +
+                "      return Long.valueOf((long)var1.intValue());\n" +
+                "   };\n\n" +
+                "   public Long fn() {\n" +
+                "      int var1 = " + Integer.MAX_VALUE + ";\n" +
+                "      return (Long)$$Long$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.Long\", this, (Object)null), Integer.valueOf(var1));\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         Object actual = invokeCompiledMethod("X", "fn");
 
         assertEquals((long)Integer.MAX_VALUE, actual);
-
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
@@ -1253,23 +1249,23 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	public int fn(){char c1 = '1', c2 = '2'; return Character.compare(c1, c2);}" +
-                        "}\n"
+                "	public int fn(){char c1 = '1', c2 = '2'; return Character.compare(c1, c2);}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function3<CallContext<X, Character>, Character, Character, Integer> $$Character$compare$$C$C = (var0, var1, var2) -> {\n" +
-                        "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
-                        "   };\n\n" +
-                        "   public int fn() {\n" +
-                        "      char var1 = 49;\n" +
-                        "      char var2 = 50;\n" +
-                        "      return ((Integer)$$Character$compare$$C$C.apply(new CallContext(\"X\", \"java.lang.Character\", this, (Object)null), Character.valueOf(var1), Character.valueOf(var2))).intValue();\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function3<CallContext<X, Character>, Character, Character, Integer> $$Character$compare$$C$C = (var0, var1, var2) -> {\n" +
+                "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
+                "   };\n\n" +
+                "   public int fn() {\n" +
+                "      char var1 = 49;\n" +
+                "      char var2 = 50;\n" +
+                "      return ((Integer)$$Character$compare$$C$C.apply(new CallContext(\"X\", \"java.lang.Character\", this, (Object)null), Character.valueOf(var1), Character.valueOf(var2))).intValue();\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1289,27 +1285,27 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "	public char c;" +
-                        "	public Y(char c){this.c = c;}" +
-                        "}\n",
+                "	public char c;" +
+                "	public Y(char c){this.c = c;}" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "	public char fn(){char c1 = '1'; return new Y(c1).c;}" +
-                        "}\n"
+                "	public char fn(){char c1 = '1'; return new Y(c1).c;}" +
+                "}\n"
         };
 
         String expectedOutput =
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, Y>, Character, Y> $$Y$new$$C = (var0, var1) -> {\n" +
-                        "      return new Y(var1.charValue());\n" +
-                        "   };\n\n" +
-                        "   public char fn() {\n" +
-                        "      char var1 = 49;\n" +
-                        "      return ((Y)$$Y$new$$C.apply(new CallContext(\"X\", \"Y\", this, (Object)null), Character.valueOf(var1))).c;\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, Y>, Character, Y> $$Y$new$$C = (var0, var1) -> {\n" +
+                "      return new Y(var1.charValue());\n" +
+                "   };\n\n" +
+                "   public char fn() {\n" +
+                "      char var1 = 49;\n" +
+                "      return ((Y)$$Y$new$$C.apply(new CallContext(\"X\", \"Y\", this, (Object)null), Character.valueOf(var1))).c;\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1328,10 +1324,10 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   static void fn() {\n" +
-                        "      System.out.println();\n" +
-                        "   }\n" +
-                        "}"
+                "   static void fn() {\n" +
+                "      System.out.println();\n" +
+                "   }\n" +
+                "}"
         };
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
@@ -1356,9 +1352,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn1(){System.out.println();}" +
-                        "	void fn2(){System.out.println();}" +
-                        "}\n"
+                "	void fn1(){System.out.println();}" +
+                "	void fn2(){System.out.println();}" +
+                "}\n"
         };
         String expectedOutput =
                         "import helpers.Consumer1;\n" +
@@ -1424,13 +1420,13 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.*;\n" +
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "     List<Integer> lst;\n" +
-                        "     dontredirect: lst = new ArrayList<>();\n" +
-                        "     int i = 434242342;" +
-                        "     lst.add(i);" +
-                        "   }" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "     List<Integer> lst;\n" +
+                "     dontredirect: lst = new ArrayList<>();\n" +
+                "     int i = 434242342;" +
+                "     lst.add(i);" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -1439,15 +1435,15 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.List;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$List$add$$I = (var0, var1) -> {\n" +
-                        "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
-                        "   };\n\n" +
-                        "   void fn() throws Exception {\n" +
-                        "      ArrayList var1 = new ArrayList();\n" +
-                        "      int var2 = 434242342;\n" +
-                        "      $$List$add$$I.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var1), Integer.valueOf(var2));\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$List$add$$I = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
+                "   };\n\n" +
+                "   void fn() throws Exception {\n" +
+                "      ArrayList var1 = new ArrayList();\n" +
+                "      int var2 = 434242342;\n" +
+                "      $$List$add$$I.apply(new CallContext(\"X\", \"java.util.List<java.lang.Integer>\", this, var1), Integer.valueOf(var2));\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1462,11 +1458,11 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.math.BigDecimal;\n" +
                 "public class X {\n" +
-                        "	BigDecimal fn() throws Exception {" +
-                        "     int i = 434242342;" +
-                        "     return new BigDecimal(i);" +
-                        "   }" +
-                        "}\n"
+                "	BigDecimal fn() throws Exception {" +
+                "     int i = 434242342;" +
+                "     return new BigDecimal(i);" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -1496,11 +1492,11 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "     System.out.write(434242342);" +
-                        "   }" +
-                        "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "     System.out.write(434242342);" +
+                "   }" +
+                "   static public void exec() throws Exception {dontredirect: new X().fn();}\n" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -1516,7 +1512,7 @@ public class TestabilityTest extends BaseTest {
                 "   }\n\n" +
                 "   public static void exec() throws Exception {\n" +
                 "      (new X()).fn();\n" +
-                "   }\n"+
+                "   }\n" +
                 "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -1533,10 +1529,10 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.math.BigDecimal;\n" +
                 "public class X {\n" +
-                        "	BigDecimal fn() throws Exception {" +
-                        "     return new BigDecimal(434242342);" +
-                        "   }" +
-                        "}\n"
+                "	BigDecimal fn() throws Exception {" +
+                "     return new BigDecimal(434242342);" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -1566,13 +1562,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "     java.io.PrintStream x = System.out;" +
-                        "     Integer i=0;" +
-                        "     x.write(i);" +
-                        "     x.close();" +
-                        "   }" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "     java.io.PrintStream x = System.out;" +
+                "     Integer i=0;" +
+                "     x.write(i);" +
+                "     x.close();" +
+                "   }" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
@@ -1588,7 +1584,7 @@ public class TestabilityTest extends BaseTest {
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
                 "      PrintStream var1 = System.out;\n" +
-                "      Integer var2 = Integer.valueOf(0);\n"+
+                "      Integer var2 = Integer.valueOf(0);\n" +
                 "      $$PrintStream$write$$Integer.accept(new CallContext(\"X\", \"java.io.PrintStream\", this, var1), var2.intValue());\n" +
                 "      $$PrintStream$close.accept(new CallContext(\"X\", \"java.io.PrintStream\", this, var1));\n" +
                 "   }\n" +
@@ -1602,17 +1598,17 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "a/Y.java",
                 "package a;\n" +
-                        "public class Y {\n" +
-                        "	public void fn() {}" +
-                        "}",
+                "public class Y {\n" +
+                "	public void fn() {}" +
+                "}",
                 "X.java",
                 "public class X {\n" +
-                        "	void fn() throws Exception {" +
-                        "        a.Y ya;\n" +
-                        "        dontredirect:  ya = new a.Y();\n" +
-                        "        ya.fn();\n" +
-                        "   }" +
-                        "}\n"
+                "	void fn() throws Exception {" +
+                "        a.Y ya;\n" +
+                "        dontredirect:  ya = new a.Y();\n" +
+                "        ya.fn();\n" +
+                "   }" +
+                "}\n"
         };
         String expectedOutput =
                 "import a.Y;\n" +
@@ -1638,13 +1634,13 @@ public class TestabilityTest extends BaseTest {
                 "a/Y.java",
                 "package a;\n" +
                 "public class Y {\n" +
-                        "	public void fn() {}" +
-                        "}",
+                "	public void fn() {}" +
+                "}",
                 "b/Y.java",
                 "package b;\n" +
                 "public class Y {\n" +
-                        "	public void fn() {}" +
-                        "}",
+                "	public void fn() {}" +
+                "}",
                 "X.java",
                 "public class X {\n" +
                 "	void fn() throws Exception {" +
@@ -1714,8 +1710,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){System.out.println(\"x\");}" +
-                        "}\n"
+                "	void fn(){System.out.println(\"x\");}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Consumer2;\n" +
@@ -1740,8 +1736,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){System.out.toString();}" +
-                        "}\n"
+                "	void fn(){System.out.toString();}" +
+                "}\n"
         };
 
         String expectedOutput =
@@ -1768,7 +1764,6 @@ public class TestabilityTest extends BaseTest {
      */
     @Test
     public void testTestabilityInjectedFunctions() throws Exception {
-
 
         String[] task = {
                 "X.java",
@@ -1801,24 +1796,24 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){" +
-                        "      String s = \"\";" +
-                        "      s.notify();" +
-                        "   }" +
-                        "}\n"
+                "	void fn(){" +
+                "      String s = \"\";" +
+                "      s.notify();" +
+                "   }" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Consumer1<CallContext<X, String>> $$String$notify = (var0) -> {\n" +
-                        "      ((String)var0.calledClassInstance).notify();\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      String var1 = \"\";\n" +
-                        "      $$String$notify.accept(new CallContext(\"X\", \"java.lang.String\", this, var1));\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Consumer1<CallContext<X, String>> $$String$notify = (var0) -> {\n" +
+                "      ((String)var0.calledClassInstance).notify();\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      String var1 = \"\";\n" +
+                "      $$String$notify.accept(new CallContext(\"X\", \"java.lang.String\", this, var1));\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1829,8 +1824,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){new String();}" +
-                        "}\n"
+                "	void fn(){new String();}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Function1;\n" +
@@ -1854,13 +1849,13 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "   Function1<String, String> $$java$lang$String$new = (s) -> {\n" +
-                        "      return new String(s);\n" +
-                        "   };\n\n" +
-                        "   String fn(String s) {\n" +
-                        "      return this.$$java$lang$String$new.apply(s);\n" +
-                        "   }\n" +
-                        "}"
+                "   Function1<String, String> $$java$lang$String$new = (s) -> {\n" +
+                "      return new String(s);\n" +
+                "   };\n\n" +
+                "   String fn(String s) {\n" +
+                "      return this.$$java$lang$String$new.apply(s);\n" +
+                "   }\n" +
+                "}"
 
         };
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -1873,9 +1868,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	String fn(){return new String(\"x\");}" +
-                        "   public static String exec(){return new X().fn();}" +
-                        "}\n"
+                "	String fn(){return new String(\"x\");}" +
+                "   public static String exec(){return new X().fn();}" +
+                "}\n"
         };
 
 
@@ -1896,16 +1891,16 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	String fn(){return new String(\"x\");}" +
-                        "}\n",
+                "	String fn(){return new String(\"x\");}" +
+                "}\n",
                 "Y.java",
                 "public class Y {\n" +
-                        "	String exec2(){" +
-                        "     X x = new X();\n" +
-                        "     X.$$String$new$$String = (ctx, arg) -> {return new String(\"redirected\");};" +
-                        "     return x.fn();" +
-                        "   }" +
-                        "}"
+                "	String exec2(){" +
+                "     X x = new X();\n" +
+                "     X.$$String$new$$String = (ctx, arg) -> {return new String(\"redirected\");};" +
+                "     return x.fn();" +
+                "   }" +
+                "}"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -1930,14 +1925,14 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "	String fn(){return new String(\"x\");}" +
-                        "}\n",
+                "	String fn(){return new String(\"x\");}" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "	public void fn(){" +
-                        "      dontredirect: Y.$$String$new$$String.apply(null, \"new\");\n" +
-                        "   }\n" +
-                        "}"
+                "	public void fn(){" +
+                "      dontredirect: Y.$$String$new$$String.apply(null, \"new\");\n" +
+                "   }\n" +
+                "}"
         };
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
@@ -1948,19 +1943,19 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	String fn(){return new String(\"x\");}" +
-                        "}\n",
+                "	String fn(){return new String(\"x\");}" +
+                "}\n",
                 "Y.java",
                 "public class Y {\n" +
-                        "	String exec2(){" +
-                        "     X x = new X();\n" +
-                        "     X.$$String$new$$String = (ctx, arg) -> {return new String(\"redirected\");};" +
-                        "     return x.fn();" +
-                        "   }" +
-                        "   public static String exec(){\n" +
-                        "     return new Y().exec2();" +
-                        "   }\n" +
-                        "}"
+                "	String exec2(){" +
+                "     X x = new X();\n" +
+                "     X.$$String$new$$String = (ctx, arg) -> {return new String(\"redirected\");};" +
+                "     return x.fn();" +
+                "   }" +
+                "   public static String exec(){\n" +
+                "     return new Y().exec2();" +
+                "   }\n" +
+                "}"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -1989,16 +1984,15 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.util.function.Function;" +
                 "public class X {\n" +
-
-                        "public Function<String, String> f = (x)->\"\";" +
-                        "	String exec2(){" +
-                        "     Function<String, String> x = (String arg111)->{return String.valueOf(arg111);};"+
-                        "    dontredirect: return x.apply(\"value\");" +
-                        "   }\n" +
-                        "   public static String exec(){\n" +
-                        "     return new X().exec2();" +
-                        "   } "+
-                        "}\n"
+                "public Function<String, String> f = (x)->\"\";" +
+                "	String exec2(){" +
+                "     Function<String, String> x = (String arg111)->{return String.valueOf(arg111);};"+
+                "    dontredirect: return x.apply(\"value\");" +
+                "   }\n" +
+                "   public static String exec(){\n" +
+                "     return new X().exec2();" +
+                "   } "+
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2015,20 +2009,20 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.io.PrintStream;\n" +
-                        "public class X {\n" +
-                        "	PrintStream fn(){return System.out.append('c');}" +
-                        "}\n",
+                "public class X {\n" +
+                "	PrintStream fn(){return System.out.append('c');}" +
+                "}\n",
                 "Y.java",
                 "import java.io.PrintStream;\n" +
-                        "public class Y {\n" +
-                        "   public static void exec(){" +
-                        "      X x = new X(); " +
-                        "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
-                        "        return null;\n" +
-                        "      };" +
-                        "      x.fn();" +
-                        "}   \n" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public static void exec(){" +
+                "      X x = new X(); " +
+                "      x.$$PrintStream$append$$C = (ps, c)-> {\n" +
+                "        return null;\n" +
+                "      };" +
+                "      x.fn();" +
+                "}   \n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2041,22 +2035,22 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.io.PrintStream;\n" +
-                        "import helpers.Function2;\n" +
-                        "import testablejava.CallContext;\n\n" +
-                        "public class X {\n" +
-                        "   Function2<CallContext<X, PrintStream>, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
-                        "     (ps, c)-> {return null;};\n" +
-                        "	PrintStream fn(){return System.out.append('c');}" +
-                        "}\n",
+                "import helpers.Function2;\n" +
+                "import testablejava.CallContext;\n\n" +
+                "public class X {\n" +
+                "   Function2<CallContext<X, PrintStream>, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
+                "     (ps, c)-> {return null;};\n" +
+                "	PrintStream fn(){return System.out.append('c');}" +
+                "}\n",
                 "Y.java",
                 "import java.io.PrintStream;\n" +
-                        "public class Y {\n" +
-                        "   public static void exec(){" +
-                        "      X x = new X(); " +
-                        "      X.$$PrintStream$append$$C = x.newRedirector; \n" +
-                        "      x.fn();" +
-                        "}   \n" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public static void exec(){" +
+                "      X x = new X(); " +
+                "      X.$$PrintStream$append$$C = x.newRedirector; \n" +
+                "      x.fn();" +
+                "}   \n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2071,17 +2065,17 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.function.Function;" +
-                        "public class X {\n" +
+                "public class X {\n" +
 
-                        "Function<String, String> f = (x)->\"\";" +
-                        "	String exec2(){" +
-                        "     Function<String, String> x = (String arg111)->{return new String(arg111);};"+
-                        "    dontredirect: return x.apply(\"value\");" +
-                        "   }\n" +
-                        "   public static String exec(){\n" +
-                        "     return new X().exec2();" +
-                        "   } "+
-                        "}\n"
+                "Function<String, String> f = (x)->\"\";" +
+                "	String exec2(){" +
+                "     Function<String, String> x = (String arg111)->{return new String(arg111);};"+
+                "    dontredirect: return x.apply(\"value\");" +
+                "   }\n" +
+                "   public static String exec(){\n" +
+                "     return new X().exec2();" +
+                "   } "+
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2097,16 +2091,16 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.function.Function;" +
-                        "public class X {\n" +
-                        "static Function<String, String> x = (String arg111)->{return new String(arg111);};"+
-                        "Function<String, String> f = (x)->\"\";" +
-                        "	String exec2(){" +
-                        "    dontredirect: return x.apply(\"value\");" +
-                        "   }\n" +
-                        "   public static String exec(){\n" +
-                        "     return new X().exec2();" +
-                        "   } "+
-                        "}\n"
+                "public class X {\n" +
+                "static Function<String, String> x = (String arg111)->{return new String(arg111);};"+
+                "Function<String, String> f = (x)->\"\";" +
+                "	String exec2(){" +
+                "    dontredirect: return x.apply(\"value\");" +
+                "   }\n" +
+                "   public static String exec(){\n" +
+                "     return new X().exec2();" +
+                "   } "+
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2124,14 +2118,14 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "Function1<String, String> f = (arg) -> {return \"\";};" +
-                        "	String exec2(){" +
-                        "     Function1<String, String> f2 = (arg) -> {dontredirect:return f.apply(\"\");};" +
-                        "    return \"\";" +
-                        "   }\n" +
-                        "   public static String exec(){\n" +
-                        "     return new X().exec2();" +
-                        "   }}\n"
+                "Function1<String, String> f = (arg) -> {return \"\";};" +
+                "	String exec2(){" +
+                "     Function1<String, String> f2 = (arg) -> {dontredirect:return f.apply(\"\");};" +
+                "    return \"\";" +
+                "   }\n" +
+                "   public static String exec(){\n" +
+                "     return new X().exec2();" +
+                "   }}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2147,12 +2141,12 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	String exec2(){" +
-                        "     return String.valueOf(1);};" +
-                        "   public static String exec(){\n" +
-                        "     return new X().exec2();" +
-                        "   }\n" +
-                        "   }"
+                "	String exec2(){" +
+                "     return String.valueOf(1);};" +
+                "   public static String exec(){\n" +
+                "     return new X().exec2();" +
+                "   }\n" +
+                "   }"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2169,18 +2163,18 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function0;\n\n" +
                 "public class X {\n" +
-                        "	String fn(){ " +
-                        "     Function0<String> f = () -> {return new String(\"x\");};\n" +
-                        "     dontredirect: return f.apply();" +
-                        "   }\n" +
-                        "}",
+                "	String fn(){ " +
+                "     Function0<String> f = () -> {return new String(\"x\");};\n" +
+                "     dontredirect: return f.apply();" +
+                "   }\n" +
+                "}",
                 "Y.java",
                 "public class Y {\n" +
-                        "	String test(){ " +
-                        "     X.$$String$new$$String = (ctx, s) -> {return new String(\"y\");};\n" +
-                        "     dontredirect: return new X().fn();" +
-                        "   }" +
-                        "}\n"
+                "	String test(){ " +
+                "     X.$$String$new$$String = (ctx, s) -> {return new String(\"y\");};\n" +
+                "     dontredirect: return new X().fn();" +
+                "   }" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2193,18 +2187,18 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import helpers.Function0;\n\n" +
-                        "public class X {\n" +
-                        "	String fn(Function0<String> f){ " +
-                        "     return f.apply();" +
-                        "   }\n" +
-                        "}",
+                "public class X {\n" +
+                "	String fn(Function0<String> f){ " +
+                "     return f.apply();" +
+                "   }\n" +
+                "}",
                 "Y.java",
                 "public class Y {\n" +
-                        "	String test(){ " +
-                        "     X.$$Function0$apply = (ctx) -> {return \"y\";};\n" +
-                        "     dontredirect: return new X().fn( () -> {return \"z\";});" +
-                        "   }" +
-                        "}\n"
+                "	String test(){ " +
+                "     X.$$Function0$apply = (ctx) -> {return \"y\";};\n" +
+                "     dontredirect: return new X().fn( () -> {return \"z\";});" +
+                "   }" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2219,8 +2213,8 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
-                        "}\n"
+                "	Function1<String, String> f = (arg) -> {return new String(\"x\");};" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2233,12 +2227,12 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "   Function1<String, String> ff = (a) -> a + \"!\";" +
-                        "	String fn(String fnarg){\n" +
-                        "     Function1<String, String> f = (arg) -> {return ff.apply(arg);};\n" +
-                        "     dontredirect: return f.apply(fnarg);" +
-                        "   };" +
-                        "}\n"
+                "   Function1<String, String> ff = (a) -> a + \"!\";" +
+                "	String fn(String fnarg){\n" +
+                "     Function1<String, String> f = (arg) -> {return ff.apply(arg);};\n" +
+                "     dontredirect: return f.apply(fnarg);" +
+                "   };" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2256,11 +2250,11 @@ public class TestabilityTest extends BaseTest {
                 "}",
                 "X.java",
                 "public class X {\n" +
-                        "	public int fn(){\n" +
-                        "     int [] ar = {1, 2};\n" +
-                        "     return Y.arrayArg(ar);\n" +
-                        "   }\n" +
-                        "}\n"
+                "	public int fn(){\n" +
+                "     int [] ar = {1, 2};\n" +
+                "     return Y.arrayArg(ar);\n" +
+                "   }\n" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2278,6 +2272,7 @@ public class TestabilityTest extends BaseTest {
                 "      return ((Integer)$$Y$arrayArg$$ⒶI.apply(new CallContext(\"X\", \"Y\", this, (Object)null), var1)).intValue();\n" +
                 "   }\n" +
                 "}";
+
         Object actual = invokeCompiledMethod("X","fn");
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
@@ -2290,15 +2285,15 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "     public static int arrayArg(String[] ar){ return ar.length;}\n" +
-                        "}",
+                "     public static int arrayArg(String[] ar){ return ar.length;}\n" +
+                "}",
                 "X.java",
                 "public class X {\n" +
-                        "	public int fn(){\n" +
-                        "     String [] ar = {\"1\", \"2\"};\n" +
-                        "     return Y.arrayArg(ar);\n" +
-                        "   }\n" +
-                        "}\n"
+                "	public int fn(){\n" +
+                "     String [] ar = {\"1\", \"2\"};\n" +
+                "     return Y.arrayArg(ar);\n" +
+                "   }\n" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2306,16 +2301,17 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
-                        "public class X {\n" +
-                        "   public static Function2<CallContext<X, Y>, String[], Integer> $$Y$arrayArg$$ⒶString = (var0, var1) -> {\n" +
-                        "      return Integer.valueOf(Y.arrayArg(var1));\n" +
-                        "   };\n" +
-                        "\n" +
-                        "   public int fn() {\n" +
-                        "      String[] var1 = new String[]{\"1\", \"2\"};\n" +
-                        "      return ((Integer)$$Y$arrayArg$$ⒶString.apply(new CallContext(\"X\", \"Y\", this, (Object)null), var1)).intValue();\n" +
-                        "   }\n" +
-                        "}";
+                "public class X {\n" +
+                "   public static Function2<CallContext<X, Y>, String[], Integer> $$Y$arrayArg$$ⒶString = (var0, var1) -> {\n" +
+                "      return Integer.valueOf(Y.arrayArg(var1));\n" +
+                "   };\n" +
+                "\n" +
+                "   public int fn() {\n" +
+                "      String[] var1 = new String[]{\"1\", \"2\"};\n" +
+                "      return ((Integer)$$Y$arrayArg$$ⒶString.apply(new CallContext(\"X\", \"Y\", this, (Object)null), var1)).intValue();\n" +
+                "   }\n" +
+                "}";
+
         Object actual = invokeCompiledMethod("X","fn");
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
@@ -2328,14 +2324,14 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){\n" +
-                        "     int i=3;" +
-                        "     while(i>0){dontredirect:new String(\"a\");i--;}" +
-                        "     dontredirect:while(i>0){new String(\"b\");i--;}" +
-                        "     dontredirectB:new String(\"c\");" +
-                        "     new String(\"d\");" +
-                        "   };" +
-                        "}\n"
+                "	void fn(){\n" +
+                "     int i=3;" +
+                "     while(i>0){dontredirect:new String(\"a\");i--;}" +
+                "     dontredirect:while(i>0){new String(\"b\");i--;}" +
+                "     dontredirectB:new String(\"c\");" +
+                "     new String(\"d\");" +
+                "   };" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2344,24 +2340,24 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
-                        "      return new String(var1);\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      int var1;\n" +
-                        "      for(var1 = 3; var1 > 0; --var1) {\n" +
-                        "         new String(\"a\");\n" +
-                        "      }\n" +
-                        "\n" +
-                        "      while(var1 > 0) {\n" +
-                        "         new String(\"b\");\n" +
-                        "         --var1;\n" +
-                        "      }\n" +
-                        "\n" +
-                        "      new String(\"c\");\n" +
-                        "      $$String$new$$String.apply(new CallContext(\"X\", \"java.lang.String\", this, (Object)null), \"d\");\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
+                "      return new String(var1);\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      int var1;\n" +
+                "      for(var1 = 3; var1 > 0; --var1) {\n" +
+                "         new String(\"a\");\n" +
+                "      }\n" +
+                "\n" +
+                "      while(var1 > 0) {\n" +
+                "         new String(\"b\");\n" +
+                "         --var1;\n" +
+                "      }\n" +
+                "\n" +
+                "      new String(\"c\");\n" +
+                "      $$String$new$$String.apply(new CallContext(\"X\", \"java.lang.String\", this, (Object)null), \"d\");\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
@@ -2372,22 +2368,22 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){\n" +
-                        "     dontredirect:new String(\"c\");" +
-                        "     dontredirect:Integer.parseInt(\"1\");" +
-                        "   };" +
-                        "}\n"
+                "	void fn(){\n" +
+                "     dontredirect:new String(\"c\");" +
+                "     dontredirect:Integer.parseInt(\"1\");" +
+                "   };" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "public class X {\n" +
-                        "   void fn() {\n" +
-                        "      new String(\"c\");\n" +
-                        "      Integer.parseInt(\"1\");\n" +
-                        "   }\n" +
-                        "}";
+                "   void fn() {\n" +
+                "      new String(\"c\");\n" +
+                "      Integer.parseInt(\"1\");\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
@@ -2397,27 +2393,33 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(){\n" +
-                        "     dontredirect:Integer.parseInt(\"0\");" + //corrupt file
-                        "     Integer.parseInt(\"1\");" +
-                        "   };" +
-                        "}\n"
+                "	void fn(){\n" +
+                "     dontredirect:Integer.parseInt(\"0\");" + //corrupt file
+                "     Integer.parseInt(\"1\");" +
+                "   };" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "import helpers.Function2;\n" +
-                "import testablejava.CallContext;\n\n" +
+                "import testablejava.CallContext;\n" +
+                "import testablejava.Helpers;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
-                        "      return Integer.valueOf(Integer.parseInt(var1));\n" +
-                        "   };\n\n" +
-                        "   void fn() {\n" +
-                        "      Integer.parseInt(\"0\");\n" +
-                        "      $$Integer$parseInt$$String.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), \"1\");\n" +
-                        "   }\n" +
-                        "}";
+                "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
+                "      try {\n" +
+                "         return Integer.valueOf(Integer.parseInt(var1));\n" +
+                "      } catch (Exception var3) {\n" +
+                "         Helpers.uncheckedThrow(var3);\n" +
+                "         return null;\n" +
+                "      }\n" +
+                "   };\n\n" +
+                "   void fn() {\n" +
+                "      Integer.parseInt(\"0\");\n" +
+                "      $$Integer$parseInt$$String.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), \"1\");\n" +
+                "   }\n" +
+                "}";
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
@@ -2428,30 +2430,36 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	int fn(){\n" +
-                        "     return Integer.parseInt(\"1\");" +
-                        "   };\n" +
-                        "   public static int exec() {\n" +
-                        "     dontredirect: return new X().fn();\n" +
-                        "   }\n" +
-                        "}\n"
+                "	int fn(){\n" +
+                "     return Integer.parseInt(\"1\");" +
+                "   };\n" +
+                "   public static int exec() {\n" +
+                "     dontredirect: return new X().fn();\n" +
+                "   }\n" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         String expectedOutput =
                 "import helpers.Function2;\n" +
-                "import testablejava.CallContext;\n\n" +
+                "import testablejava.CallContext;\n" +
+                "import testablejava.Helpers;\n\n" +
                 "public class X {\n" +
-                        "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
-                        "      return Integer.valueOf(Integer.parseInt(var1));\n" +
-                        "   };\n\n" +
-                        "   int fn() {\n" +
-                        "      return ((Integer)$$Integer$parseInt$$String.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), \"1\")).intValue();\n" +
-                        "   }\n\n"+
-                        "   public static int exec() {\n" +
-                        "      return (new X()).fn();\n" +
-                        "   }\n" +
+                "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
+                "      try {\n" +
+                "         return Integer.valueOf(Integer.parseInt(var1));\n" +
+                "      } catch (Exception var3) {\n" +
+                "         Helpers.uncheckedThrow(var3);\n" +
+                "         return null;\n" +
+                "      }\n" +
+                "   };\n\n" +
+                "   int fn() {\n" +
+                "      return ((Integer)$$Integer$parseInt$$String.apply(new CallContext(\"X\", \"java.lang.Integer\", this, (Object)null), \"1\")).intValue();\n" +
+                "   }\n\n"+
+                "   public static int exec() {\n" +
+                "      return (new X()).fn();\n" +
+                "   }\n" +
                         "}";
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
@@ -2467,11 +2475,11 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import helpers.Function1;\n\n" +
                 "public class X {\n" +
-                        "	boolean fn(){\n" +
-                        "     Function1<String, String> f = (arg) -> {return new String(\"x\");};\n" +
-                        "     return f != null;" +
-                        "   };\n" +
-                        "}\n"
+                "	boolean fn(){\n" +
+                "     Function1<String, String> f = (arg) -> {return new String(\"x\");};\n" +
+                "     return f != null;" +
+                "   };\n" +
+                "}\n"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2504,9 +2512,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   java.io.PrintStream fn(String x){return System.out.append(x);}\n" +
-                        "   public static java.io.PrintStream exec(){return new X().fn(\"x\");}\n" +
-                        "}\n"
+                "   java.io.PrintStream fn(String x){return System.out.append(x);}\n" +
+                "   public static java.io.PrintStream exec(){return new X().fn(\"x\");}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2524,9 +2532,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   String fn(int x){return String.format(\"%d\", x);}\n" +
-                        "   public static String exec(){dontredirect: return new X().fn(1);}\n" +
-                        "}\n"
+                "   String fn(int x){return String.format(\"%d\", x);}\n" +
+                "   public static String exec(){dontredirect: return new X().fn(1);}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2543,9 +2551,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   String fn(int x, long y){return String.format(\"%d-%d\", x, y);}\n" +
-                        "   public static String exec(){dontredirect: return new X().fn(1, 2L);}\n" +
-                        "}\n"
+                "   String fn(int x, long y){return String.format(\"%d-%d\", x, y);}\n" +
+                "   public static String exec(){dontredirect: return new X().fn(1, 2L);}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2562,13 +2570,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   Y(String f, Object... x){}\n" +
-                        "}\n",
+                "   Y(String f, Object... x){}\n" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "   Y fn(int x){return new Y(\"\", x);}\n" +
-                        "   public static Y exec(){dontredirect: return new X().fn(1);}\n" +
-                        "}\n"
+                "   Y fn(int x){return new Y(\"\", x);}\n" +
+                "   public static Y exec(){dontredirect: return new X().fn(1);}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2585,13 +2593,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   Y(String f, Object... x){}\n" +
-                        "}\n",
+                "   Y(String f, Object... x){}\n" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "   Y fn(int x, long y){return new Y(\"\", x, y);}\n" +
-                        "   public static Y exec(){dontredirect: return new X().fn(1, 2L);}\n" +
-                        "}\n"
+                "   Y fn(int x, long y){return new Y(\"\", x, y);}\n" +
+                "   public static Y exec(){dontredirect: return new X().fn(1, 2L);}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2607,9 +2615,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   String fn(int x){return Integer.toString(x);}\n" +
-                        "   public static String exec(){return new X().fn(1);}\n" +
-                        "}\n"
+                "   String fn(int x){return Integer.toString(x);}\n" +
+                "   public static String exec(){return new X().fn(1);}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2626,9 +2634,9 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   String fn(){return Integer.toString(1);}\n" +
-                        "   public static String exec(){return new X().fn();}\n" +
-                        "}\n"
+                "   String fn(){return Integer.toString(1);}\n" +
+                "   public static String exec(){return new X().fn();}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2649,13 +2657,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   static void takeInt(int i){}\n" +
-                        "}\n",
+                "   static void takeInt(int i){}\n" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "   void fn(){Y.takeInt(1);}\n" +
-                        "   public static void exec(){new X().fn();}\n" +
-                        "}\n"
+                "   void fn(){Y.takeInt(1);}\n" +
+                "   public static void exec(){new X().fn();}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2671,13 +2679,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   static String takeInt(int i){return \"\";}\n" +
-                        "}\n",
+                "   static String takeInt(int i){return \"\";}\n" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "   String fn(){return Y.takeInt(1);}\n" +
-                        "   public static String exec(){return new X().fn();}\n" +
-                        "}\n"
+                "   String fn(){return Y.takeInt(1);}\n" +
+                "   public static String exec(){return new X().fn();}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -2696,8 +2704,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	void fn(StringBuilder x){new String(x);}" +
-                        "}\n"
+                "	void fn(StringBuilder x){new String(x);}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Function2;\n" +
@@ -2719,8 +2727,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	String fn(){ return new String();}" +
-                        "}\n"
+                "	String fn(){ return new String();}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Function1;\n" +
@@ -2744,8 +2752,8 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "import java.io.PrintStream;\n" +
                 "public class X {\n" +
-                        "	PrintStream fn(){return System.out.append('c');}" +
-                        "}\n"
+                "	PrintStream fn(){return System.out.append('c');}" +
+                "}\n"
         };
         String expectedOutput =
                 "import helpers.Function2;\n" +
@@ -2775,13 +2783,13 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.io.PrintStream;\n" +
-                        "public class X {\n" +
-                        "   public class Y {\n" +
-                        "	   PrintStream fn(){return System.out.append('c');}\n" +
-                        "   }\n;" +
-                        "   PrintStream fnX(){dontredirect: return new Y().fn();}\n" +
-                        "}\n"
-        };
+                "public class X {\n" +
+                "   public class Y {\n" +
+                "	   PrintStream fn(){return System.out.append('c');}\n" +
+                "   }\n;" +
+                "   PrintStream fnX(){dontredirect: return new Y().fn();}\n" +
+                "}\n"
+};
         String expectedOutputX =
                 "import X.Y;\n" +
                 "import helpers.Function2;\n" +
@@ -2824,10 +2832,10 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "   static void fn() {\n" +
-                        "      new String();\n" +
-                        "   }\n" +
-                        "}"
+                "   static void fn() {\n" +
+                "      new String();\n" +
+                "   }\n" +
+                "}"
         };
         String expectedOutput =
                 "import helpers.Function1;\n" +
@@ -2845,26 +2853,45 @@ public class TestabilityTest extends BaseTest {
 
     }
     //TODO re-enable
-//    @Test
-//    public void testTestabilityInjectFunctionField_getClass() throws Exception {
-//        //incompatible CaptionBinding generated. getClass is specialcased, should not be bypassed
-//
-//        String[] task = {
-//                "X.java",
-//                "public class X {\n" +
-//                        "	public String fn(){X x = this;" +
-//                        "     Class<?> cl = x.getClass();" +
-//                        "     return cl.getName();" +
-//                        "   }" +
-//                        "}\n"
-//        };
-//
-//        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-//
-//        Object actual = invokeCompiledMethod("X","fn");
-//
-//        assertEquals("X", actual);
-//    }
+    @Test
+    public void testTestabilityInjectFunctionField_getClass() throws Exception {
+        //incompatible CaptionBinding generated. getClass is specialcased, should not be bypassed
+
+        String[] task = {
+                "Y.java",
+                "public class Y {}",
+                "X.java",
+                "public class X {\n" +
+                "	public String fn(){Y y; dontredirect: y = new Y();" +
+                "     Class<?> cl = y.getClass();" +
+                "     return cl.getName();" +
+                "   }" +
+                "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        Object actual = invokeCompiledMethod("X","fn");
+
+        assertEquals("Y", actual);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_experimentElidedLambdaArg() throws Exception {
+
+
+        String[] task = {
+                "X.java",
+                "import helpers.*;" +
+                "import testablejava.CallContext;\n\n" +
+                "public class X {\n" +
+                "   public static Function1<CallContext<X, String>, String> $$String$new = (var0) -> {\n" +
+                "      return new String();\n" +
+                "   };\n\n" +
+                "}\n"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
     //TODO reen
 //    @Test
 //    public void testTestabilityInjectFunctionField_ForNewOperator_ForAnonymousInnerClass() throws Exception {
@@ -2936,18 +2963,18 @@ public class TestabilityTest extends BaseTest {
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericCall() throws Exception {
         String[] task = {
                 "Y.java",
-                        "import java.util.*;\n" +
-                        "public class Y {\n" +
-                        "   public <T> T accept(List<T> lst, T t) {\n" +
-                        "     return called(this, t);\n" + //this call is to generic function passing generic arg
-                        "   }\n" +
-                        "	public <T> T called(Y y, T t){" +
-                        "     return t;\n" +
-                        "   }" +
-                        "	public String fn(){" +
-                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
-                        "   }" +
-                        "}\n"
+                "import java.util.*;\n" +
+                "public class Y {\n" +
+                "   public <T> T accept(List<T> lst, T t) {\n" +
+                "     return called(this, t);\n" + //this call is to generic function passing generic arg
+                "   }\n" +
+                "	public <T> T called(Y y, T t){" +
+                "     return t;\n" +
+                "   }" +
+                "	public String fn(){" +
+                "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutputY =
@@ -2995,51 +3022,51 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "import java.util.*;\n" +
-                        "public class Y {\n" +
-                        "   public <T> T accept(List<T> lst, T t) {\n" +
-                        "     called(this, t);" + //this call is to generic function passing generic arg
-                        "     return t;\n" +
-                        "   }\n" +
-                        "	public <T> void called(Y y, T t){" +
-                        "   }" +
-                        "	public String fn(){" +
-                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
-                        "   }" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public <T> T accept(List<T> lst, T t) {\n" +
+                "     called(this, t);" + //this call is to generic function passing generic arg
+                "     return t;\n" +
+                "   }\n" +
+                "	public <T> void called(Y y, T t){" +
+                "   }" +
+                "	public String fn(){" +
+                "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutputY =
                 "import Y.1;\n" +
-                        "import helpers.Consumer3_1;\n" +
-                        "import java.util.ArrayList;\n" +
-                        "import java.util.List;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "public class Y {\n" +
-                        "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
-                        "\n" +
-                        "   public <T> T accept(List<T> var1, T var2) {\n" +
-                        "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
-                        "      return var2;\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public <T> void called(Y var1, T var2) {\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public String fn() {\n" +
-                        "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Consumer3_1;\n" +
+                "import java.util.ArrayList;\n" +
+                "import java.util.List;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
+                "\n" +
+                "   public <T> T accept(List<T> var1, T var2) {\n" +
+                "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
+                "      return var2;\n" +
+                "   }\n" +
+                "\n" +
+                "   public <T> void called(Y var1, T var2) {\n" +
+                "   }\n" +
+                "\n" +
+                "   public String fn() {\n" +
+                "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
+                "   }\n" +
+                "}";
 
         String expectedOutputInner =
                 "import helpers.Consumer3_1;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
-                        "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
-                        "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
-                        "   }\n" +
-                        "}";
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
+                "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
@@ -3058,46 +3085,46 @@ public class TestabilityTest extends BaseTest {
                 "}",
                 "Y.java",
                 "import java.util.*;\n" +
-                        "public class Y {\n" +
-                        "   public <T> T accept(List<T> lst, T t) {\n" +
-                        "     new Called(this, t);" +
-                        "     return t;\n" + //this call is to generic function passing generic arg
-                        "   }\n" +
-                        "	public String fn(){" +
-                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
-                        "   }" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public <T> T accept(List<T> lst, T t) {\n" +
+                "     new Called(this, t);" +
+                "     return t;\n" + //this call is to generic function passing generic arg
+                "   }\n" +
+                "	public String fn(){" +
+                "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutputY =
                 "import Y.1;\n" +
-                        "import helpers.Function3_1;\n" +
-                        "import java.util.ArrayList;\n" +
-                        "import java.util.List;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "public class Y {\n" +
-                        "   public static Function3_1<CallContext<Y, Called>, Y, Object, Called> $$Called$new$$YObject = new 1();\n" +
-                        "\n" +
-                        "   public <T> T accept(List<T> var1, T var2) {\n" +
-                        "      $$Called$new$$YObject.apply(new CallContext(\"Y\", \"Called\", this, (Object)null), this, var2);\n" +
-                        "      return var2;\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public String fn() {\n" +
-                        "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Function3_1;\n" +
+                "import java.util.ArrayList;\n" +
+                "import java.util.List;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Function3_1<CallContext<Y, Called>, Y, Object, Called> $$Called$new$$YObject = new 1();\n" +
+                "\n" +
+                "   public <T> T accept(List<T> var1, T var2) {\n" +
+                "      $$Called$new$$YObject.apply(new CallContext(\"Y\", \"Called\", this, (Object)null), this, var2);\n" +
+                "      return var2;\n" +
+                "   }\n" +
+                "\n" +
+                "   public String fn() {\n" +
+                "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
+                "   }\n" +
+                "}";
 
         String expectedOutputInner =
                 "import helpers.Function3_1;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "class Y$1 implements Function3_1<CallContext<Y, Called>, Y, Object, Called> {\n" +
-                        "   public <E1> Called apply(CallContext<Y, Called> var1, Y var2, Object var3) {\n" +
-                        "      return new Called(var2, var3);\n" +
-                        "   }\n" +
-                        "}";
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "class Y$1 implements Function3_1<CallContext<Y, Called>, Y, Object, Called> {\n" +
+                "   public <E1> Called apply(CallContext<Y, Called> var1, Y var2, Object var3) {\n" +
+                "      return new Called(var2, var3);\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
@@ -3111,61 +3138,61 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "import java.util.*;\n" +
-                        "public class Y {\n" +
-                        "   public <T> T accept(List<T> lst, T t) {\n" +
-                        "     called(this, t);" + //this call is to generic function passing generic arg
-                        "     return t;\n" +
-                        "   }\n" +
-                        "	public <T> void called(Y y, T t){" +
-                        "   }" +
-                        "	public String fn(){" +
-                        "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
-                        "   }" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public <T> T accept(List<T> lst, T t) {\n" +
+                "     called(this, t);" + //this call is to generic function passing generic arg
+                "     return t;\n" +
+                "   }\n" +
+                "	public <T> void called(Y y, T t){" +
+                "   }" +
+                "	public String fn(){" +
+                "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                "   }" +
+                "}\n"
         };
 
         String expectedOutputY =
                 "import Y.1;\n" +
-                        "import helpers.Consumer3_1;\n" +
-                        "import java.util.ArrayList;\n" +
-                        "import java.util.List;\n" +
-                        "import java.util.function.Consumer;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "public class Y {\n" +
-                        "   public static Consumer<Y> $$preCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer<Y> $$postCreate = (var0) -> {\n" +
-                        "   };\n" +
-                        "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
-                        "\n" +
-                        "   public Y() {\n" +
-                        "      $$preCreate.accept(this);\n" +
-                        "      $$postCreate.accept(this);\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public <T> T accept(List<T> var1, T var2) {\n" +
-                        "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
-                        "      return var2;\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public <T> void called(Y var1, T var2) {\n" +
-                        "   }\n" +
-                        "\n" +
-                        "   public String fn() {\n" +
-                        "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
-                        "   }\n" +
-                        "}";
+                "import helpers.Consumer3_1;\n" +
+                "import java.util.ArrayList;\n" +
+                "import java.util.List;\n" +
+                "import java.util.function.Consumer;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Consumer<Y> $$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<Y> $$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
+                "\n" +
+                "   public Y() {\n" +
+                "      $$preCreate.accept(this);\n" +
+                "      $$postCreate.accept(this);\n" +
+                "   }\n" +
+                "\n" +
+                "   public <T> T accept(List<T> var1, T var2) {\n" +
+                "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
+                "      return var2;\n" +
+                "   }\n" +
+                "\n" +
+                "   public <T> void called(Y var1, T var2) {\n" +
+                "   }\n" +
+                "\n" +
+                "   public String fn() {\n" +
+                "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
+                "   }\n" +
+                "}";
 
         String expectedOutputInner =
                 "import helpers.Consumer3_1;\n" +
-                        "import testablejava.CallContext;\n" +
-                        "\n" +
-                        "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
-                        "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
-                        "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
-                        "   }\n" +
-                        "}";
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
+                "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_ALL);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
@@ -3181,8 +3208,8 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "	public void fn(){someerror}" +
-                        "}\n"
+                "	public void fn(){someerror}" +
+                "}\n"
         };
 
         try {
@@ -3198,16 +3225,16 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "	public void f() {new String();}" +
-                        "}\n",
+                "	public void f() {new String();}" +
+                "}\n",
                 "X.java",
-                        "public class X {\n" +
-                        "	public void withRedirectorReferences(){" +
-                        "      Y y;" +
-                        "      dontredirect: y = new Y();" +
-                        "      Y.$$String$new.apply(null);" +
-                        "   }" +
-                        "}\n"
+                "public class X {\n" +
+                "	public void withRedirectorReferences(){" +
+                "      Y y;" +
+                "      dontredirect: y = new Y();" +
+                "      Y.$$String$new.apply(null);" +
+                "   }" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_ALL);
@@ -3223,9 +3250,9 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.stream.Collectors;\n" +
                 "\n" +
                 "public class Y {\n" +
-                        "	public void f() {new String();}" +
-                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
-                        "}\n",
+                "	public void f() {new String();}" +
+                "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                "}\n",
                 "X.java",
                 "import java.lang.reflect.*;\n" +
                 "import java.util.Arrays;\n" +
@@ -3233,9 +3260,9 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.stream.Collectors;\n" +
                 "\n" +
                 "public class X {\n" +
-                        "	public void withRedirectorReferences(){Y y = new Y();Y.$$String$new.apply(null);}" +
-                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
-                        "}\n"
+                "	public void withRedirectorReferences(){Y y = new Y();Y.$$String$new.apply(null);}" +
+                "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                "}\n"
         };
 
         //here X appears to be a test class since it references redirector field from Y
@@ -3257,23 +3284,23 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "import java.lang.reflect.*;\n" +
-                        "import java.util.Arrays;\n" +
-                        "import java.util.List;\n" +
-                        "import java.util.stream.Collectors;\n" +
-                        "\n" +
-                        "public class Y {\n" +
-                        "	public void f() {new String();}" +
-                        "}\n",
+                "import java.util.Arrays;\n" +
+                "import java.util.List;\n" +
+                "import java.util.stream.Collectors;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "	public void f() {new String();}" +
+                "}\n",
                 "X.java",
                 "import java.lang.reflect.*;\n" +
-                        "import java.util.Arrays;\n" +
-                        "import java.util.List;\n" +
-                        "import java.util.stream.Collectors;\n" +
-                        "\n" +
-                        "public class X {\n" +
-                        "	public void withRedirectorReferences(){Y y = new Y();Y.$$String$new = (ctx)->\"new\";}" +
-                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
-                        "}\n"
+                "import java.util.Arrays;\n" +
+                "import java.util.List;\n" +
+                "import java.util.stream.Collectors;\n" +
+                "\n" +
+                "public class X {\n" +
+                "	public void withRedirectorReferences(){Y y = new Y();Y.$$String$new = (ctx)->\"new\";}" +
+                "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                "}\n"
         };
 
         //here X appears to be a test class since it references redirector field from Y
@@ -3293,13 +3320,13 @@ public class TestabilityTest extends BaseTest {
                              "}\n",
                 "X.java",
                 "import java.lang.reflect.*;\n" +
-                        "import java.util.Arrays;\n" +
-                        "import java.util.List;\n" +
-                        "import java.util.stream.Collectors;\n" +
-                        "public class X {\n" +
-                        "	public void withRefirectorReferences(){Y.$$postCreate = null;}" +
-                        "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
-                        "}\n"
+                "import java.util.Arrays;\n" +
+                "import java.util.List;\n" +
+                "import java.util.stream.Collectors;\n" +
+                "public class X {\n" +
+                "	public void withRefirectorReferences(){Y.$$postCreate = null;}" +
+                "	public List<String> fieldNames(){dontredirect: return Arrays.stream(this.getClass().getDeclaredFields()).map(Field::getName).collect(Collectors.toList());}" +
+                "}\n"
         };
 
         //here X appears to be a test class since it references redirector field from Y
@@ -3366,22 +3393,22 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.io.PrintStream;\n" +
-                        "public class X {\n" +
-                        "	PrintStream fn(){return System.out.append('c');}" +
-                        "   public static PrintStream exec(){return new X().fn();}\n" +
-                        "}\n",
+                "public class X {\n" +
+                "	PrintStream fn(){return System.out.append('c');}" +
+                "   public static PrintStream exec(){return new X().fn();}\n" +
+                "}\n",
                 "Y.java",
                 "import java.io.PrintStream;\n" +
-                        "public class Y {\n" +
-                        "   public static void exec(){" +
-                        "      X x = new X(); " +
-                        "      x.$$PrintStream$append$$C = (ctx, c)-> {\n" +
-                        "        testablejava.Helpers.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
-                        "        return ctx.calledClassInstance;\n" +
-                        "      };" +
-                        "      x.fn();" +
-                        "}\n" +
-                        "}\n"
+                "public class Y {\n" +
+                "   public static void exec(){" +
+                "      X x = new X(); " +
+                "      x.$$PrintStream$append$$C = (ctx, c)-> {\n" +
+                "        testablejava.Helpers.uncheckedThrow(new java.io.IOException(\"from lambda\")); \n" +
+                "        return ctx.calledClassInstance;\n" +
+                "      };" +
+                "      x.fn();" +
+                "}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -3401,15 +3428,15 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   class Z { " +
-                        "     Z zfn(){return this;}" +
-                        "   };\n" +
-                        "   Z fn(){return new Z().zfn();};\n" +
-                        "}\n",
+                "   class Z { " +
+                "     Z zfn(){return this;}" +
+                "   };\n" +
+                "   Z fn(){return new Z().zfn();};\n" +
+                "}\n",
                 "X.java",
                 "public class X {\n" +
-                        "   public static Y.Z exec(){dontredirect: return new Y().fn();}\n" +
-                        "}\n"
+                "   public static Y.Z exec(){dontredirect: return new Y().fn();}\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -3425,12 +3452,12 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   String s = \"s\";" +
-                        "   class Z { " +
-                        "     String zfn(){return s;}" +
-                        "   };\n" +
-                        "   String fn(){return new Z().zfn();};\n" +
-                        "}\n"
+                "   String s = \"s\";" +
+                "   class Z { " +
+                "     String zfn(){return s;}" +
+                "   };\n" +
+                "   String fn(){return new Z().zfn();};\n" +
+                "}\n"
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
@@ -3582,15 +3609,15 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
-                        "   static class Z { " +
-                        "     long zfn(){return System.currentTimeMillis();}" +
-                        "   };\n" +
-                        "   long fn(){\n" +
-                        "     Z z;\n" +
-                        "     dontredirect: z = new Z();\n" +
-                        "     return z.zfn();\n" +
-                        "   };\n" +
-                        "}\n"
+                "   static class Z { " +
+                "     long zfn(){return System.currentTimeMillis();}" +
+                "   };\n" +
+                "   long fn(){\n" +
+                "     Z z;\n" +
+                "     dontredirect: z = new Z();\n" +
+                "     return z.zfn();\n" +
+                "   };\n" +
+                "}\n"
         };
         String expectedOutput =
                         "import Y.Z;\n" +
@@ -3646,10 +3673,10 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.concurrent.atomic.*;" +
-                        "public class X {\n" +
-                        "  AtomicInteger ret;\n" +
-                        "  {dontredirect: ret = new AtomicInteger();}\n" +
-                        "}"
+                "public class X {\n" +
+                "  AtomicInteger ret;\n" +
+                "  {dontredirect: ret = new AtomicInteger();}\n" +
+                "}"
         };
 
         String expectedOutput =
@@ -3685,7 +3712,7 @@ public class TestabilityTest extends BaseTest {
                 "           }\n" +
                 "\n" +
                 "           int collectBridges(int i, int j, int k) {\n" +
-                "               return i + 10 * j + 100 * k;" +
+                "            return i + 10 * j + 100 * k;" +
                 "           }\n" +
                 "       }\n" +
                 "       dontredirect: new BridgeCollector();" +
@@ -3723,14 +3750,14 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.concurrent.atomic.*;" +
-                        "public class X {\n" +
-                        "    void fn(){" +
-                        "      AtomicInteger ret;" +
-                        "      dontredirect: ret = new AtomicInteger();" +
-                        "      ret.set(intReturn());\n" +
-                        "    }\n" +
-                        "    int intReturn() {return 0;}\n" +
-                        "}"
+                "public class X {\n" +
+                "    void fn(){" +
+                "      AtomicInteger ret;" +
+                "      dontredirect: ret = new AtomicInteger();" +
+                "      ret.set(intReturn());\n" +
+                "    }\n" +
+                "    int intReturn() {return 0;}\n" +
+                "}"
         };
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);

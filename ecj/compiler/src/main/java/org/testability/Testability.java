@@ -539,6 +539,11 @@ public class Testability {
 
         return new QualifiedNameReference(path, new long[path.length], 0, 0);
     }
+    static QualifiedNameReference makeQualifiedNameReference(String [] sPath) {
+        char[][] path = Arrays.stream(sPath).map(String::toCharArray).collect(toList()).toArray(new char[0][]);
+
+        return new QualifiedNameReference(path, new long[path.length], 0, 0);
+    }
     static SingleNameReference makeSingleNameReference(String targetFieldNameInThis) {
         return new SingleNameReference(targetFieldNameInThis.toCharArray(), 0);
     }
@@ -1290,32 +1295,12 @@ public class Testability {
         if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
             addImplicitBoxing(messageSendInLambdaBody, originalMessageSend.resolvedType);
 
-        Block block = new Block(2);
-        LabeledStatement labeledStatement = new LabeledStatement(
-                TESTABILITYLABEL.toCharArray(),
-                new EmptyStatement(0, 0),
-                0, 0);
+        boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-        if (returnsVoid) {
-            ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
-
-            block.statements = new Statement[]{
-                    labeledStatement,
-                    messageSendInLambdaBody,
-                    returnStatement
-            };
-
-        } else {
-
-            ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
-
-            block.statements = new Statement[]{
-                    labeledStatement,
-                    returnStatement
-            };
-        }
+        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow);
 
         lambdaExpression.setBody(block);
+
         if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
@@ -1372,6 +1357,143 @@ public class Testability {
             fieldDeclaration.initialization = alloc;
         }
         return fieldDeclaration;
+    }
+
+    static boolean methodCanThrow(MessageSend messageSend) {
+        return methodCanThrow(messageSend.binding);
+    }
+
+    static boolean methodCanThrow(AllocationExpression allocationExpression) {
+        return methodCanThrow(allocationExpression.binding);
+    }
+
+    static boolean methodCanThrow(MethodBinding binding) {
+        return binding.thrownExceptions != null &&
+                binding.thrownExceptions.length > 0;
+    }
+
+    static Block makeStatementBlockForCallingOriginalMethod(boolean returnsVoid, Expression messageSendInLambdaBody, boolean methodCanThrow) {
+
+        Block block = new Block(2);
+
+        LabeledStatement labeledStatement = new LabeledStatement(
+                TESTABILITYLABEL.toCharArray(),
+                new EmptyStatement(0, 0),
+                0, 0);
+
+        if (!methodCanThrow) {
+
+            if (returnsVoid) {
+                ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
+
+                block.statements = new Statement[]{
+                        labeledStatement,
+                        messageSendInLambdaBody,
+                        returnStatement
+                };
+
+            } else {
+
+                ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+
+                block.statements = new Statement[]{
+                        labeledStatement,
+                        returnStatement
+                };
+            }
+            return block;
+        }
+
+
+
+        char [][] exceptionPath = new char[][]{
+                "java".toCharArray(),
+                "lang".toCharArray(),
+                "Exception".toCharArray()};
+
+        Argument catchArgument = new Argument(
+                "ex".toCharArray(),
+                0,
+                new QualifiedTypeReference(exceptionPath,new long[exceptionPath.length]),
+                0) ;
+        MessageSend uncheckedThrowStatement = new MessageSend();//testablejava.Helpers.uncheckedThrow(ex);
+        uncheckedThrowStatement.receiver =
+                makeQualifiedNameReference(
+                        new String[]{"testablejava", "Helpers"}
+                );
+
+        uncheckedThrowStatement.selector = "uncheckedThrow".toCharArray();
+        uncheckedThrowStatement.arguments = new Expression[]{
+                makeSingleNameReference("ex")};
+
+        if (returnsVoid) {
+//            try {
+//              ...
+//            } catch (Exception ex) {
+//                testablejava.Helpers.uncheckedThrow(ex);
+//            }
+
+            TryStatement tryStatement  = new TryStatement();
+            Block tryBlock = new Block(2);
+            tryBlock.statements = new Statement[]{messageSendInLambdaBody};
+            tryStatement.tryBlock = tryBlock;
+            Block catchBlock = new Block(2);
+
+            Block[] catchBlocks = new Block[]{catchBlock};
+
+
+
+            catchBlock.statements = new Statement[]{uncheckedThrowStatement};
+
+            tryStatement.catchBlocks = catchBlocks;
+
+
+            Argument[] catchArguments = new Argument[]{catchArgument};
+            tryStatement.catchArguments = catchArguments;
+
+            ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
+
+            block.statements = new Statement[]{
+                    labeledStatement,
+                    tryStatement,//messageSendInLambdaBody,
+                    returnStatement
+            };
+
+        } else {
+//            try {
+//                return ...
+//            } catch (Exception ex) {
+//                testablejava.Helpers.uncheckedThrow(ex);
+//            }
+//            return null;
+
+
+            ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+
+            TryStatement tryStatement  = new TryStatement();
+            Block tryBlock = new Block(2);
+            tryBlock.statements = new Statement[]{returnStatement};
+            tryStatement.tryBlock = tryBlock;
+            Block catchBlock = new Block(2);
+            Block[] catchBlocks = new Block[]{catchBlock};
+
+            catchBlock.statements = new Statement[]{uncheckedThrowStatement};
+
+            tryStatement.catchBlocks = catchBlocks;
+
+            Argument[] catchArguments = new Argument[]{catchArgument};
+
+            tryStatement.catchArguments = catchArguments;
+
+            ReturnStatement dummyReturnStatament = new ReturnStatement(new NullLiteral(0,0), 0, 0);
+
+            block.statements = new Statement[]{
+                    labeledStatement,
+                    tryStatement,//returnStatement
+                    dummyReturnStatament
+            };
+        }
+        return block;
     }
 
     static TypeBinding[] convertToObjectIfTypeVariables(LookupEnvironment lookupEnvironment, TypeBinding[] typeArgumentsForFunction) {
@@ -1693,18 +1815,27 @@ public class Testability {
             messageSendInLambdaBody.arguments = argv;
         }
 
-        Block block = new Block(2);
-        LabeledStatement labeledStatement = new LabeledStatement(
-                TESTABILITYLABEL.toCharArray(),
-                new EmptyStatement(0, 0),
-                0, 0);
 
-        ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
 
-        block.statements = new Statement[]{
-                labeledStatement,
-                returnStatement
-        };
+
+//        Block block = new Block(2);
+//        LabeledStatement labeledStatement = new LabeledStatement(
+//                TESTABILITYLABEL.toCharArray(),
+//                new EmptyStatement(0, 0),
+//                0, 0);
+//
+//        ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+//
+//        block.statements = new Statement[]{
+//                labeledStatement,
+//                returnStatement
+//        };
+//
+
+
+        boolean methodCanThrow = methodCanThrow(originalMessageSend);
+
+        Block block = makeStatementBlockForCallingOriginalMethod(false, messageSendInLambdaBody, methodCanThrow);
 
         lambdaExpression.setBody(block);
 
@@ -1730,7 +1861,7 @@ public class Testability {
             for (int i = 0; i < argc; i++) {
                 TypeBinding typeBindingForArg = boxIfApplicable(typeBinding.arguments[i], lookupEnvironment);
                 TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
-                anonInitializerArguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0, true);
+                anonInitializerArguments[i] = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
             }
 
             methodDeclaration.arguments = anonInitializerArguments;
