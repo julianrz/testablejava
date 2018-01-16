@@ -611,18 +611,23 @@ public class Testability {
                     ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
 
                     //find all local type declarations and add corresponding fields
-                    List<TypeDeclaration> localTypeDeclarations = findTypeDeclarations(typeDeclaration, null);
+                    List<TypeDeclaration> localTypeDeclarations = findLocalTypeDeclarations(typeDeclaration, null);
+                    List<TypeDeclaration> memberTypeDeclarations = typeDeclaration.memberTypes==null?
+                            Collections.emptyList() :
+                            Arrays.asList(typeDeclaration.memberTypes);
+                    List<TypeDeclaration> localAndMemberTypeDeclarations = new ArrayList<>(localTypeDeclarations);
+                    localAndMemberTypeDeclarations.addAll(memberTypeDeclarations);
 
                     //note: only instantiated generic types should be included
                     List<ParameterizedTypeBinding> instantiatedTypeDeclarations =
                             getInstantiatedTypeBindings(
-                                    localTypeDeclarations.stream().
+                                    localAndMemberTypeDeclarations.stream().
                                             map(decl -> decl.binding).
                                             map(SourceTypeBinding.class::cast).
                                             collect(toList()),
                                     lookupEnvironment);
                     Stream.concat(
-                            localTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
+                            localAndMemberTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
                             instantiatedTypeDeclarations.stream()).
                             forEach(typeBinding -> {
                                 ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
@@ -718,7 +723,7 @@ public class Testability {
                 typeBinding.typeVariables() != null && typeBinding.typeVariables().length > 0;
     }
 
-    static List<TypeDeclaration> findTypeDeclarations(TypeDeclaration typeDeclaration, ClassScope classScope) {
+    static List<TypeDeclaration> findLocalTypeDeclarations(TypeDeclaration typeDeclaration, ClassScope classScope) {
 
         List<TypeDeclaration> ret = new ArrayList<>();
 
@@ -1157,9 +1162,10 @@ public class Testability {
 
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
 
-        int additionalTypeVarCountForMethod = originalMessageSend.arguments==null?
+        int additionalTypeVarCountForMethod = originalMessageSend.arguments==null? //TODO other place
                 0 :
-                (int) Arrays.stream(originalMessageSend.binding.parameters).
+                (int) Arrays.stream(originalMessageSend.arguments).
+                        map(arg -> arg.resolvedType).
                         filter(TypeVariableBinding.class::isInstance).
                         count();
 
@@ -1301,7 +1307,9 @@ public class Testability {
 
         lambdaExpression.setBody(block);
 
-        if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
+        boolean typeVariablesInMethodArgs = additionalTypeVarCountForMethod > 0;
+
+        if (!typeVariablesInMethodArgs) { //!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
             //anonymous type instead of lambda, since method has type variables
@@ -1349,7 +1357,7 @@ public class Testability {
             }
 
             anonymousType.name = CharOperation.NO_CHAR;
-            anonymousType.bits |= (ASTNode.IsAnonymousType|ASTNode.IsLocalType);
+            anonymousType.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
 
             alloc.type = typeReferenceFromTypeBinding(typeBindingForFunction);
@@ -1407,7 +1415,7 @@ public class Testability {
             char[][] exceptionPath = new char[][]{
                     "java".toCharArray(),
                     "lang".toCharArray(),
-                    "Exception".toCharArray()};
+                    "Throwable".toCharArray()};
 
             Argument catchArgument = new Argument(
                     "ex".toCharArray(),
@@ -1670,7 +1678,12 @@ public class Testability {
 
         int functionArgCount = typeArguments.length - 1;
 
-        int additionalTypeVarCountForMethod = (int) Arrays.stream(originalMessageSend.binding.parameters).filter(TypeVariableBinding.class::isInstance).count();
+        int additionalTypeVarCountForMethod = originalMessageSend.arguments==null? //TODO other place
+                0 :
+                (int) Arrays.stream(originalMessageSend.arguments).
+                        map(arg -> arg.resolvedType).
+                        filter(TypeVariableBinding.class::isInstance).
+                        count();
 
         char[][] path = {
                 "helpers".toCharArray(),
@@ -1824,7 +1837,9 @@ public class Testability {
 
         lambdaExpression.setBody(block);
 
-        if (!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
+        boolean typeVariablesInMethodArgs = additionalTypeVarCountForMethod > 0;
+
+        if (!typeVariablesInMethodArgs){ //!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
             TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
@@ -1866,7 +1881,7 @@ public class Testability {
             }
 
             anonymousType.name = CharOperation.NO_CHAR;
-            anonymousType.bits |= (ASTNode.IsAnonymousType|ASTNode.IsLocalType);
+            anonymousType.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
 
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
 
@@ -2051,7 +2066,7 @@ public class Testability {
 //            }
             if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
                 //replace with Object, if replacing with ?, will get declarations like '? arg'
-                SingleTypeReference objectTypeReference = new SingleTypeReference("Object".toCharArray(), 0);
+                SingleTypeReference objectTypeReference = new SingleTypeReference("Object".toCharArray(), 0);//TODO full p
 
                 return objectTypeReference;
             }
@@ -2576,7 +2591,7 @@ public class Testability {
             String fullName = Arrays.stream(allocation.type.getParameterizedTypeName()).
                     map(String::new).collect(joining("."));
             typeNamePrefix = escapeTypeArgsInTypeName(fullName);
-        } else if (typeBinding.isLocalType()) {
+        } else if (typeBinding.isLocalType() || typeBinding.isMemberType()) {
             typeNamePrefix = escapeTypeArgsInTypeName(
                     new String(
                             removeLocalPrefix(typeBinding.readableName()))); //TODO type variables //TODO correct name

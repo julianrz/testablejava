@@ -64,6 +64,57 @@ public class TestabilityTest extends BaseTest {
 
         compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
     }
+
+
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_ReproFinalize() throws Exception {
+//
+//        String[] task = {
+//                "X.java",
+//                "public class X {\n" +
+//                        "	void fn() throws Throwable {super.finalize();}" +
+//                        "}"
+//        };
+//
+//        String expectedOutput =
+//                "";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//        invokeCompiledMethod("X","fn");
+//        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+//    }
+
+
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_PrivateMethodCall() throws Exception {
+//
+//
+////        new X().fnReflectiveCall();
+//
+//        String[] task = {
+//                "Y.java",
+//                "public class Y {\n" +
+//                "	private void privateMethod(){}" +
+//                "}",
+//                "X.java",
+//                "public class X {\n" +
+//                "	void fn(){" +
+//                "      Y y;" +
+//                "      dontredirect: y = new Y();" +
+//                "      y.privateMethod();" +
+//                "   }" +
+//                "}"
+//        };
+//
+//        String expectedOutput =
+//                "";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//        invokeCompiledMethod("X","fn");
+//        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+//    }
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorCallbackWithExistingClinit() throws Exception {
         //we are forcing existing clinit by having a static field with initializer
@@ -158,7 +209,63 @@ public class TestabilityTest extends BaseTest {
                 "}";
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_LISTENERS_ONLY).get("X").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorCallbackFromMemberClass() throws Exception {
 
+        String[] task = {
+                "X.java",
+                "import java.util.Comparator;\n" +
+                        "public class X {\n" +
+                        "   class Y {}\n" +
+                        "	X() {dontredirect:System.out.println();}\n"+
+                        "	void fn() {new Comparator<String>(){\n" +
+                        "            @Override\n" +
+                        "            public int compare(String o1, String o2) {\n" +
+                        "                return o1.compareTo(o2);\n" +
+                        "            }\n" +
+                        "        };}" +
+                        "}\n"
+        };
+
+        String expectedOutputX =
+                "import X.1;\n" +
+                        "import X.Y;\n" +
+                        "import java.util.Comparator;\n" +
+                        "import java.util.function.Consumer;\n\n" +
+                        "public class X {\n" +
+                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<Comparator<String>> $$Comparator_String_$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<Comparator<String>> $$Comparator_String_$postCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<Y> $$X$Y$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<Y> $$X$Y$postCreate = (var0) -> {\n" +
+                        "   };\n\n" +
+                        "   X() {\n" +
+                        "      $$preCreate.accept(this);\n" +
+                        "      System.out.println();\n" +
+                        "      $$postCreate.accept(this);\n" +
+                        "   }\n\n" +
+                        "   void fn() {\n" +
+                        "      new 1(this);\n" +
+                        "   }\n" +
+                        "}";
+        String expectedOutputY =
+                "class X$Y {\n" +
+                        "   X$Y(X var1) {\n" +
+                        "      this.this$0 = var1;\n" +
+                        "      X.$$X$Y$preCreate.accept(this);\n" +
+                        "      X.$$X$Y$postCreate.accept(this);\n" +
+                        "   }\n" +
+                        "}";
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
+        assertEquals(expectedOutputX, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputY, moduleMap.get("X$Y").stream().collect(joining("\n")));
+    }
     @Test
     public void testTestabilityInjectFunctionField_AnonymousTypeNewOperatorNotRedirected() throws Exception {
         String[] task = {
@@ -241,7 +348,6 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput =
                 "import X.1;\n" +
-                "import X.2;\n" +
                 "import helpers.Consumer3;\n" +
                 "import java.util.Collections;\n" +
                 "import java.util.Comparator;\n" +
@@ -249,13 +355,15 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class X {\n" +
-                "   public static Consumer3<CallContext<X, Collections>, List, Comparator> $$Collections$sort$$List$X$1 = new 2();\n" +
+                "   public static Consumer3<CallContext<X, Collections>, List, Comparator> $$Collections$sort$$List$X$1 = (var0, var1, var2) -> {\n" +
+                "      Collections.sort(var1, var2);\n" +
+                "   };\n" +
                 "\n" +
                 "   void fn() {\n" +
                 "      Object var1 = null;\n" +
                 "      $$Collections$sort$$List$X$1.accept(new CallContext(\"X\", \"java.util.Collections\", this, (Object)null), var1, new 1(this));\n" +
                 "   }\n" +
-                "}";
+                        "}";
         String expectedOutputInner = "import java.util.Comparator;\n" +
                 "\n" +
                 "class X$1 implements Comparator {\n" +
@@ -2410,7 +2518,7 @@ public class TestabilityTest extends BaseTest {
                 "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
                 "      try {\n" +
                 "         return Integer.valueOf(Integer.parseInt(var1));\n" +
-                "      } catch (Exception var3) {\n" +
+                "      } catch (Throwable var3) {\n" +
                 "         Helpers.uncheckedThrow(var3);\n" +
                 "         return null;\n" +
                 "      }\n" +
@@ -2449,7 +2557,7 @@ public class TestabilityTest extends BaseTest {
                 "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
                 "      try {\n" +
                 "         return Integer.valueOf(Integer.parseInt(var1));\n" +
-                "      } catch (Exception var3) {\n" +
+                "      } catch (Throwable var3) {\n" +
                 "         Helpers.uncheckedThrow(var3);\n" +
                 "         return null;\n" +
                 "      }\n" +
@@ -3074,6 +3182,73 @@ public class TestabilityTest extends BaseTest {
 
         Object className = invokeCompiledMethod("Y", "fn");
         assertEquals("java.lang.String", className);
+    }
+
+    //TODO reen
+//    @Test
+//    public void testTestabilityInjectFunctionField_RedirectGeneric_Reproduction() throws Exception {
+//        //E1 cannot be resolved to a type
+//        //Pb(17) Type mismatch: cannot convert from new Function2_1<CallContext<Y,Map<Object,Set<Object>>>,Object,Boolean>(){} to
+//        //                                              Function2_1<CallContext<Y,Map<T1,Set<T2>>>,Object,Boolean>
+//        String[] task = {
+//                "Y.java",
+//                "import java.util.*;\n" +
+//                        "class Y<T1, T2> {\n" +
+//                        " private final Map<T1, Set<T2>> _forward; " +
+//                        " {dontredirect: _forward = new HashMap<>();}" +
+//                        " public synchronized boolean containsKey(T1 key) {\n" +
+//                        "  return _forward.containsKey(key);\n" +
+//                        " }" +
+//                        "}\n"
+//        };
+//
+//        String expectedOutputY =
+//                "";
+//
+//        String expectedOutputInner =
+//                "";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+//        assertEquals(expectedOutputInner, moduleMap.get("Y$1").stream().collect(joining("\n")));
+//
+//        Object className = invokeCompiledMethod("Y", "fn");
+//        assertEquals("java.lang.String", className);
+//    }
+    @Test
+    public void testTestabilityInjectFunctionField_NewGenericCall_Reproduction() throws Exception {
+//- Pb(50) $$HashMap$new cannot be resolved
+//        --> not in field list at time of check, in binding; field was not created yet?
+//            currentType = parameterizedtypebinding at scope#1349
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "class Y<T1, T2> {\n" +
+                        " private final Map<T1, Set<T2>> _forward = new HashMap<>();" +
+//                        " private Map<T1, Set<T2>> _forward = new HashMap<>();" + //this works!
+                        "}\n"
+        };
+
+        String expectedOutputY =
+                "import helpers.Function1;\n" +
+                        "import java.util.HashMap;\n" +
+                        "import java.util.Map;\n" +
+                        "import java.util.Set;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y<T1, T2> {\n" +
+                        "   private final Map<T1, Set<T2>> _forward;\n" +
+                        "   public static Function1<CallContext<Y, HashMap<T1, Set<T2>>>, HashMap<T1, Set<T2>>> $$HashMap$new = (var0) -> {\n" +
+                        "      return new HashMap();\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   Y() {\n" +
+                        "      this._forward = (HashMap)$$HashMap$new.apply(new CallContext(\"Y\", \"java.util.HashMap<T1,java.util.Set<T2>>\", this, (Object)null));\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
     @Test
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericAllocation() throws Exception {

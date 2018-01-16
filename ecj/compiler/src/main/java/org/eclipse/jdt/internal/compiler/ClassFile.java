@@ -616,6 +616,10 @@ public class ClassFile implements TypeConstants, TypeIds {
 
             currentBinding.setFields(fields);
 
+            ReferenceBinding parameterizedType = currentBinding.scope.environment().convertToParameterizedType(currentBinding);
+            if (parameterizedType != null)
+                parameterizedType.tagBits ^= TagBits.AreFieldsComplete; //get the parameterized type upfront and cause it to re-resolve fields
+
             ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());//TODO fields() does sort already
 
         }
