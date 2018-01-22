@@ -662,8 +662,16 @@ public class ProblemReporter extends ProblemHandler {
     public void testabilityInstrumentationError(String errorMessage) {
         this.testabilityInstrumentationError(errorMessage, (ASTNode)null);
     }
+    public void testabilityInstrumentationError(String errorMessage, boolean throwAbort) {
+        this.testabilityInstrumentationError(errorMessage, (ASTNode)null, throwAbort);
+    }
     public void testabilityInstrumentationError(String errorMessage, Exception ex) {
         this.testabilityInstrumentationError(errorMessage, ex, null);
+    }
+    public void testabilityInstrumentationError(String errorMessage, Exception ex, boolean throwAbort) {
+        System.out.println("Instrumentation error: " + errorMessage);
+        ex.printStackTrace(System.out);
+        this.testabilityInstrumentationError(errorMessage, (ASTNode) null, throwAbort);
     }
     public void testabilityInstrumentationWarning(String warningMessage) {
         String[] arguments = new String[]{warningMessage};
@@ -683,6 +691,16 @@ public class ProblemReporter extends ProblemHandler {
                 arguments,
                 arguments,
                 ProblemSeverities.Fatal | ProblemSeverities.Error | ProblemSeverities.AbortType, //all of this results in throwing of AbortType, so that compilation of other modules continue
+                location == null ? 0 : location.sourceStart,
+                location == null ? 0 : location.sourceEnd);
+    }
+    public void testabilityInstrumentationError(String errorMessage, ASTNode location, boolean throwAbort) {
+        String[] arguments = new String[]{errorMessage};
+        this.handle(
+                IProblem.Unclassified,
+                arguments,
+                arguments,
+                ProblemSeverities.Fatal | ProblemSeverities.Error | (throwAbort?ProblemSeverities.AbortType:0), //all of this results in throwing of AbortType, so that compilation of other modules continue
                 location == null ? 0 : location.sourceStart,
                 location == null ? 0 : location.sourceEnd);
     }

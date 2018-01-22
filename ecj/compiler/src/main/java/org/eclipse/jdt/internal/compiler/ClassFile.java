@@ -38,6 +38,10 @@ import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.codegen.StackMapFrameCodeStream.ExceptionMarker;
 import org.eclipse.jdt.internal.compiler.codegen.StackMapFrameCodeStream.StackDepthMarker;
 import org.eclipse.jdt.internal.compiler.codegen.StackMapFrameCodeStream.StackMarker;
+import org.eclipse.jdt.internal.compiler.flow.FlowContext;
+import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.flow.InitializationFlowContext;
+import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.impl.StringConstant;
@@ -588,11 +592,6 @@ public class ClassFile implements TypeConstants, TypeIds {
 
         if (!testabilityFieldDeclarations.isEmpty()) {
 
-            for(FieldDeclaration fieldDeclaration : testabilityFieldDeclarations) {
-                FieldBinding fieldBinding = fieldDeclaration.binding;
-                this.addFieldInfo(fieldBinding);
-            }
-
             //make new fields discoverable, put into original fields array
             if (null == currentBinding.scope.referenceContext.fields)
                 currentBinding.scope.referenceContext.fields = new FieldDeclaration[0];
@@ -616,11 +615,48 @@ public class ClassFile implements TypeConstants, TypeIds {
 
             currentBinding.setFields(fields);
 
+            testabilityFieldDeclarations.stream().forEach(field -> field.binding.modifiers |= ExtraCompilerModifiers.AccUnresolved);
+
+            currentBinding.tagBits &= ~TagBits.AreFieldsComplete; //unset
+
+            currentBinding.fields();
+
+            for(FieldDeclaration fieldDeclaration : testabilityFieldDeclarations) {
+                FieldBinding fieldBinding = fieldDeclaration.binding;
+                this.addFieldInfo(fieldBinding);
+            }
+
             ReferenceBinding parameterizedType = currentBinding.scope.environment().convertToParameterizedType(currentBinding);
             if (parameterizedType != null)
-                parameterizedType.tagBits ^= TagBits.AreFieldsComplete; //get the parameterized type upfront and cause it to re-resolve fields
+                parameterizedType.tagBits &= ~TagBits.AreFieldsComplete; //get the parameterized type upfront and unset flag to cause it to re-resolve fields
 
             ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());//TODO fields() does sort already
+
+            testabilityFieldDeclarations.stream().forEach(fieldDeclaration -> {
+
+                fieldDeclaration.resolve(typeDeclaration.staticInitializerScope);
+
+                if (!Testability.validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
+                    Testability.testabilityInstrumentationWarning(
+                            typeDeclaration.initializerScope,
+                            "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
+                    );
+                    //TODO handle non-injection, used to return null and not being returned in field list
+                }
+
+                UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
+                FlowContext flowContext = null;
+
+                InitializationFlowContext staticInitializerContext =
+                        new InitializationFlowContext(
+                                null,
+                                typeDeclaration,
+                                flowInfo,
+                                flowContext,
+                                typeDeclaration.staticInitializerScope);
+
+                fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
+            });
 
         }
 

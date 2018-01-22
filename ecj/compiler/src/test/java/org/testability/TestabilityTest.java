@@ -1036,7 +1036,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<1C, X>, Integer> $$X$callee = (var0) -> {\n" +
+                "   public static Function1<CallContext<1C<Object>, X>, Integer> $$X$callee = (var0) -> {\n" +
                 "      return Integer.valueOf(((X)var0.calledClassInstance).callee());\n" +
                 "   };\n\n" +
                 "   int callee() {\n" +
@@ -1046,6 +1046,48 @@ public class TestabilityTest extends BaseTest {
                 "      return (new 1C(this)).compare(\"a\", \"b\");\n" +
                 "   }\n" +
                 "}";
+
+        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+
+        assertEquals(1, invokeCompiledMethod("X", "fn"));
+        assertEquals(2, invokeCompiledMethod("Y", "mockAndTest"));
+
+    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "import java.util.Comparator;\n" +
+                        "public class X {\n " +
+                        "    private int writeArgumentName(char[] name, int modifiers, int oldLength) {return 0;}\n"+
+                        "    private void generateMethodParameters (){\n " +
+                        "       int length=0;char[]name=new char[0];int modifier=0;char[] EnumName = \"$enum$name\".toCharArray();int AccSynthetic=0;" +
+                        "                length = writeArgumentName(EnumName, AccSynthetic, length);\n" +
+                        "                    length = writeArgumentName(name, modifier, length);\n" +
+                        "                    length = writeArgumentName(null, AccSynthetic, length);\n" +
+                        "                length = writeArgumentName(name, modifier | AccSynthetic, length);\n" +
+                        "                length = writeArgumentName(name, AccSynthetic, length);\n" +
+                        "    }" +
+                        "}\n",
+
+        };
+        String expectedOutput =
+                "import X.1C;\n" +
+                        "import helpers.Function1;\n" +
+                        "import testablejava.CallContext;\n\n" +
+                        "public class X {\n" +
+                        "   public static Function1<CallContext<1C<Object>, X>, Integer> $$X$callee = (var0) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).callee());\n" +
+                        "   };\n\n" +
+                        "   int callee() {\n" +
+                        "      return 1;\n" +
+                        "   }\n\n" +
+                        "   int fn() {\n" +
+                        "      return (new 1C(this)).compare(\"a\", \"b\");\n" +
+                        "   }\n" +
+                        "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -3215,17 +3257,266 @@ public class TestabilityTest extends BaseTest {
 //        Object className = invokeCompiledMethod("Y", "fn");
 //        assertEquals("java.lang.String", className);
 //    }
+
+
     @Test
-    public void testTestabilityInjectFunctionField_NewGenericCall_Reproduction() throws Exception {
-//- Pb(50) $$HashMap$new cannot be resolved
-//        --> not in field list at time of check, in binding; field was not created yet?
-//            currentType = parameterizedtypebinding at scope#1349
+    public void testTestabilityInjectFunctionField_Cast_Reproduction() throws Exception {
+        class X {
+            void f(Map<Object, Set<Object>> a){}
+            void m(){
+                Set<String> b = new HashSet<>();
+                Map<String, Set<String>> m = new HashMap<>();
+                f((Map)m);
+
+            }
+        }
+    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_MultipleRedirectionsRealistic() throws Exception {
+
+        String[] task = {
+                "ManyToMany.java",
+                "import java.util.Collections;\n" +
+                        "import java.util.HashMap;\n" +
+                        "import java.util.HashSet;\n" +
+                        "import java.util.Map;\n" +
+                        "import java.util.Set;\n" +
+                        "\n" +
+                        "public class ManyToMany<T1, T2> {\n" +
+                        "   \n" +
+                        "   private final Map<T1, Set<T2>> _forward = null;//new HashMap<>();\n" +
+                        "   private final Map<T2, Set<T1>> _reverse = new HashMap<>();\n" +
+                        "   private boolean _dirty = false;\n" +
+                        "   \n" +
+                        "   public synchronized boolean clear() {\n" +
+                        "      boolean hadContent = !_forward.isEmpty();// || !_reverse.isEmpty();\n" +
+                        "      _reverse.clear();\n" +
+                        "      _forward.clear();\n" +
+                        "      _dirty |= hadContent;\n" +
+                        "      return hadContent;\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized void clearDirtyBit() {\n" +
+                        "      _dirty = false;\n" +
+                        "   }\n" +
+                        "   \n" +
+                        "   public synchronized boolean containsKey(T1 key) {\n" +
+                        "      return _forward.containsKey(key);\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized boolean containsKeyValuePair(T1 key, T2 value) {\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (null == values) {\n" +
+                        "         return false;\n" +
+                        "      }\n" +
+                        "      return values.contains(value);\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized boolean containsValue(T2 value) {\n" +
+                        "      return _reverse.containsKey(value);\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized Set<T1> getKeys(T2 value) {\n" +
+                        "      Set<T1> keys = _reverse.get(value);\n" +
+                        "      if (null == keys) {\n" +
+                        "         return Collections.emptySet();\n" +
+                        "      }\n" +
+                        "      return new HashSet<>(keys);\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized Set<T2> getValues(T1 key) {\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (null == values) {\n" +
+                        "         return Collections.emptySet();\n" +
+                        "      }\n" +
+                        "      return new HashSet<>(values);\n" +
+                        "   }\n" +
+                        "\n" +
+
+                        "   public synchronized Set<T1> getKeySet() {\n" +
+                        "      Set<T1> keys = new HashSet<>(_forward.keySet());\n" +
+                        "      return keys;\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized Set<T2> getValueSet() {\n" +
+                        "      Set<T2> values = new HashSet<>(_reverse.keySet());\n" +
+                        "      return values;\n" +
+                        "   }\n" +
+                        "   \n" +
+
+                        "   public synchronized boolean isDirty() {\n" +
+                        "      return _dirty;\n" +
+                        "   }\n" +
+                        "   \n" +
+                        "   public synchronized boolean keyHasOtherValues(T1 key, T2 value) {\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (values == null)\n" +
+                        "         return false;\n" +
+                        "      int size = values.size();\n" +
+                        "      if (size == 0)\n" +
+                        "         return false;\n" +
+                        "      else if (size > 1)\n" +
+                        "         return true;\n" +
+                        "      else // size == 1\n" +
+                        "         return !values.contains(value);\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public synchronized boolean put(T1 key, T2 value) {\n" +
+                        "      // Add to forward map\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (null == values) {\n" +
+                        "         values = new HashSet<>();\n" +
+                        "         _forward.put(key, values);\n" +
+                        "      }\n" +
+                        "      boolean added = values.add(value);\n" +
+                        "      _dirty |= added;\n" +
+                        "      \n" +
+                        "      // Add to reverse map\n" +
+                        "      Set<T1> keys = _reverse.get(value);\n" +
+                        "      if (null == keys) {\n" +
+                        "         keys = new HashSet<>();\n" +
+                        "         _reverse.put(value, keys);\n" +
+                        "      }\n" +
+                        "      keys.add(key);\n" +
+                        "      \n" +
+                        "      assert checkIntegrity();\n" +
+                        "      return added;\n" +
+                        "   }\n" +
+                        "   \n" +
+                        "   public synchronized boolean remove(T1 key, T2 value) {\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (values == null) {\n" +
+                        "         assert checkIntegrity();\n" +
+                        "         return false;\n" +
+                        "      }\n" +
+                        "      boolean removed = values.remove(value);\n" +
+                        "      if (values.isEmpty()) {\n" +
+                        "         _forward.remove(key);\n" +
+                        "      }\n" +
+                        "      if (removed) {\n" +
+                        "         _dirty = true;\n" +
+                        "         // it existed, so we need to remove from reverse map as well\n" +
+                        "         Set<T1> keys = _reverse.get(value);\n" +
+                        "         keys.remove(key);\n" +
+                        "         if (keys.isEmpty()) {\n" +
+                        "            _reverse.remove(value);\n" +
+                        "         }\n" +
+                        "      }\n" +
+                        "      assert checkIntegrity();\n" +
+                        "      return removed;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public synchronized boolean removeKey(T1 key) {\n" +
+                        "      // Remove all back-references to key.\n" +
+                        "      Set<T2> values = _forward.get(key);\n" +
+                        "      if (null == values) {\n" +
+                        "         // key does not exist in map.\n" +
+                        "         assert checkIntegrity();\n" +
+                        "         return false;\n" +
+                        "      }\n" +
+                        "      for (T2 value : values) {\n" +
+                        "         Set<T1> keys = _reverse.get(value);\n" +
+                        "         if (null != keys) {\n" +
+                        "            keys.remove(key);\n" +
+                        "            if (keys.isEmpty()) {\n" +
+                        "               _reverse.remove(value);\n" +
+                        "            }\n" +
+                        "         }\n" +
+                        "      }\n" +
+                        "      // Now remove the forward references from key.\n" +
+                        "      _forward.remove(key);\n" +
+                        "      _dirty = true;\n" +
+                        "      assert checkIntegrity();\n" +
+                        "      return true;\n" +
+                        "   }\n" +
+                        "   \n" +
+                        "   public synchronized boolean removeValue(T2 value) {\n" +
+                        "      // Remove any forward references to value\n" +
+                        "      Set<T1> keys = _reverse.get(value);\n" +
+                        "      if (null == keys) {\n" +
+                        "         // value does not exist in map.\n" +
+                        "         assert checkIntegrity();\n" +
+                        "         return false;\n" +
+                        "      }\n" +
+                        "      for (T1 key : keys) {\n" +
+                        "         Set<T2> values = _forward.get(key);\n" +
+                        "         if (null != values) {\n" +
+                        "            values.remove(value);\n" +
+                        "            if (values.isEmpty()) {\n" +
+                        "               _forward.remove(key);\n" +
+                        "            }\n" +
+                        "         }\n" +
+                        "      }\n" +
+                        "      // Now remove the reverse references from value.\n" +
+                        "      _reverse.remove(value);\n" +
+                        "      _dirty = true;\n" +
+                        "      assert checkIntegrity();\n" +
+                        "      return true;\n" +
+                        "   }\n" +
+                        "   \n" +
+                        "   public synchronized boolean valueHasOtherKeys(T2 value, T1 key) {\n" +
+                        "      Set<T1> keys = _reverse.get(key);\n" +
+                        "      if (keys == null)\n" +
+                        "         return false;\n" +
+                        "      int size = keys.size();\n" +
+                        "      if (size == 0)\n" +
+                        "         return false;\n" +
+                        "      else if (size > 1)\n" +
+                        "         return true;\n" +
+                        "      else // size == 1\n" +
+                        "         return !keys.contains(key);\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   private boolean checkIntegrity() {\n" +
+                        "      // For every T1->T2 mapping in the forward map, there should be a corresponding\n" +
+                        "      // T2->T1 mapping in the reverse map.\n" +
+                        "      for (Map.Entry<T1, Set<T2>> entry : _forward.entrySet()) {\n" +
+                        "         Set<T2> values = entry.getValue();\n" +
+                        "         if (values.isEmpty()) {\n" +
+                        "            throw new IllegalStateException(\"Integrity compromised: forward map contains an empty set\"); //$NON-NLS-1$\n" +
+                        "         }\n" +
+                        "         for (T2 value : values) {\n" +
+                        "            Set<T1> keys = _reverse.get(value);\n" +
+                        "            if (null == keys || !keys.contains(entry.getKey())) {\n" +
+                        "               throw new IllegalStateException(\"Integrity compromised: forward map contains an entry missing from reverse map: \" + value); //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "         }\n" +
+                        "      }\n" +
+                        "      // And likewise in the other direction.\n" +
+                        "      for (Map.Entry<T2, Set<T1>> entry : _reverse.entrySet()) {\n" +
+                        "         Set<T1> keys = entry.getValue();\n" +
+                        "         if (keys.isEmpty()) {\n" +
+                        "            throw new IllegalStateException(\"Integrity compromised: reverse map contains an empty set\"); //$NON-NLS-1$\n" +
+                        "         }\n" +
+                        "         for (T1 key : keys) {\n" +
+                        "            Set<T2> values = _forward.get(key);\n" +
+                        "            if (null == values || !values.contains(entry.getKey())) {\n" +
+                        "               throw new IllegalStateException(\"Integrity compromised: reverse map contains an entry missing from forward map: \" + key); //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "         }\n" +
+                        "      }\n" +
+                        "      return true;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "}"
+        };
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorInFieldInitializer() throws Exception {
+
         String[] task = {
                 "Y.java",
                 "import java.util.*;\n" +
                         "class Y<T1, T2> {\n" +
-                        " private final Map<T1, Set<T2>> _forward = new HashMap<>();" +
-//                        " private Map<T1, Set<T2>> _forward = new HashMap<>();" + //this works!
+                        "   private final Map<T1, Set<T2>> _forward = new HashMap<>();" +
                         "}\n"
         };
 
@@ -3238,12 +3529,48 @@ public class TestabilityTest extends BaseTest {
                         "\n" +
                         "class Y<T1, T2> {\n" +
                         "   private final Map<T1, Set<T2>> _forward;\n" +
-                        "   public static Function1<CallContext<Y, HashMap<T1, Set<T2>>>, HashMap<T1, Set<T2>>> $$HashMap$new = (var0) -> {\n" +
+                        "   public static Function1<CallContext<Y<Object, Object>, HashMap<Object, Set<Object>>>, HashMap<Object, Set<Object>>> $$HashMap$new = (var0) -> {\n" +
                         "      return new HashMap();\n" +
                         "   };\n" +
                         "\n" +
                         "   Y() {\n" +
-                        "      this._forward = (HashMap)$$HashMap$new.apply(new CallContext(\"Y\", \"java.util.HashMap<T1,java.util.Set<T2>>\", this, (Object)null));\n" +
+                        "      this._forward = (HashMap)$$HashMap$new.apply(new CallContext(\"Y<T1,T2>\", \"java.util.HashMap<T1,java.util.Set<T2>>\", this, (Object)null));\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForCallInFieldInitializer() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "class Y<T1, T2> {\n" +
+                        "   Map<T1, Set<T2>> init(){dontredirect: return new HashMap<>();}\n" +
+                        "   private final Map<T1, Set<T2>> _forward = init();\n" +
+                        "}\n"
+        };
+
+        String expectedOutputY =
+                "import helpers.Function1;\n" +
+                        "import java.util.HashMap;\n" +
+                        "import java.util.Map;\n" +
+                        "import java.util.Set;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y<T1, T2> {\n" +
+                        "   private final Map<T1, Set<T2>> _forward;\n" +
+                        "   public static Function1<CallContext<Y<Object, Object>, Y<Object, Object>>, Map<Object, Set<Object>>> $$Y$init = (var0) -> {\n" +
+                        "      return ((Y)var0.calledClassInstance).init();\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   Y() {\n" +
+                        "      this._forward = (Map)$$Y$init.apply(new CallContext(\"Y<T1,T2>\", \"Y<T1,T2>\", this, this));\n" +
+                        "   }\n\n" +
+                        "   Map<T1, Set<T2>> init() {\n" +
+                        "      return new HashMap();\n" +
                         "   }\n" +
                         "}";
 
@@ -3862,8 +4189,6 @@ public class TestabilityTest extends BaseTest {
                 "}";
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
-
-
     }
     @Test
     public void testTestabilityInjectFunctionField_RedirectInsideNamedInnerClass() throws Exception {
