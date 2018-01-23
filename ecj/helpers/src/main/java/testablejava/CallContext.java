@@ -1,9 +1,9 @@
 package testablejava;
 
-public class CallContext<CALLING, CALLED> {
+public class CallContext<CALLED> {
     public final String callingClass;
     public final String calledClass;
-    public final CALLING callingClassInstance;
+    public final Object callingClassInstance;
     public final CALLED calledClassInstance;
     /**
      * class Calling {
@@ -17,7 +17,7 @@ public class CallContext<CALLING, CALLED> {
     public CallContext(
             String callingClass,
             String calledClass,
-            CALLING callingClassInstance,
+            Object callingClassInstance,
             CALLED calledClassInstance){
 
         this.callingClass = callingClass;

@@ -568,7 +568,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             if (localTypes != null) {
                 Arrays.stream(localTypes).
                         filter(Objects::nonNull).
-                        forEach(localTypeBinding -> this.initializerScope.addSubscope(localTypeBinding.scope));
+                        forEach(localTypeBinding -> this.staticInitializerScope.addSubscope(localTypeBinding.scope));
             }
 
             // generate all fiels
@@ -605,7 +605,9 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                         }
 
                     }
+
                     this.methods[i].generateCode(this.scope, classFile);
+
                 }
             }
             // generate all synthetic and abstract methods
@@ -631,6 +633,20 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             ClassFile.createProblemType(
                     this,
                     this.scope.referenceCompilationUnit().compilationResult);
+        } catch(Exception ex) {
+            Testability.testabilityInstrumentationError(
+                    this.scope,
+                    "unexpected",
+                    ex,
+                    false //do not throw
+            );
+            if (this.binding == null)
+                return;
+
+            ClassFile.createProblemType(
+                    this,
+                    this.scope.referenceCompilationUnit().compilationResult);
+
         }
     }
 

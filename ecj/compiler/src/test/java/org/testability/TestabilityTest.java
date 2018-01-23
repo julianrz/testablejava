@@ -355,7 +355,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class X {\n" +
-                "   public static Consumer3<CallContext<X, Collections>, List, Comparator> $$Collections$sort$$List$X$1 = (var0, var1, var2) -> {\n" +
+                "   public static Consumer3<CallContext<Collections>, List, Comparator> $$Collections$sort$$List$X$1 = (var0, var1, var2) -> {\n" +
                 "      Collections.sort(var1, var2);\n" +
                 "   };\n" +
                 "\n" +
@@ -404,11 +404,10 @@ public class TestabilityTest extends BaseTest {
 
         String expectedOutput = "import X.1;\n" +
                 "import helpers.Function3;\n" +
-                "import java.util.Comparator;\n" +
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class X {\n" +
-                "   public static Function3<CallContext<Comparator<Object>, X>, Object, Object, Integer> $$X$myCompare$$Object$Object = (var0, var1, var2) -> {\n" +
+                "   public static Function3<CallContext<X>, Object, Object, Integer> $$X$myCompare$$Object$Object = (var0, var1, var2) -> {\n" +
                 "      return Integer.valueOf(((X)var0.calledClassInstance).myCompare(var1, var2));\n" +
                 "   };\n" +
                 "\n" +
@@ -537,7 +536,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, PrintStream>> $$PrintStream$println = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println = (var0) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).println();\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -546,7 +545,71 @@ public class TestabilityTest extends BaseTest {
                 "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_FieldReuse() throws Exception {
 
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "	void fn(){System.out.println();}" +
+                        "   class Inner {" +
+                        "	   void fnInner(){System.out.println();}" +
+                        "   }" +
+                        "	void withAnonymous(){" +
+                        "      new Inner(){" +
+                        "	      void fnAnon(){System.out.println();}" +
+                        "      };" +
+                        "   }" +
+                        "}\n"
+        };
+        String expectedOutputX = "import X.1;\n" +
+                "import helpers.Consumer1;\n" +
+                "import java.io.PrintStream;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println = (var0) -> {\n" +
+                "      ((PrintStream)var0.calledClassInstance).println();\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      $$PrintStream$println.accept(new CallContext(\"X\", \"java.io.PrintStream\", this, System.out));\n" +
+                "   }\n" +
+                "\n" +
+                "   void withAnonymous() {\n" +
+                "      new 1(this, this);\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputXInner = "import testablejava.CallContext;\n" +
+                "\n" +
+                "class X$Inner {\n" +
+                "   X$Inner(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   void fnInner() {\n" +
+                "      X.$$PrintStream$println.accept(new CallContext(\"X.Inner\", \"java.io.PrintStream\", this, System.out));\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputXAnon = "import X.Inner;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "class X$1 extends Inner {\n" +
+                "   X$1(X var1, X var2) {\n" +
+                "      super(var1);\n" +
+                "      this.this$0 = var2;\n" +
+                "   }\n" +
+                "\n" +
+                "   void fnAnon() {\n" +
+                "      X.$$PrintStream$println.accept(new CallContext(\"X.Inner\", \"java.io.PrintStream\", this, System.out));\n" +
+                "   }\n" +
+                "}";
+
+
+        assertEquals(expectedOutputX, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputXInner, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X$Inner").stream().collect(joining("\n")));
+        assertEquals(expectedOutputXAnon, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X$1").stream().collect(joining("\n")));
     }
     @Test
     public void testTestabilityInjectFunctionField_AccountForStaticInitializers() throws Exception {
@@ -565,7 +628,7 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n\n" +
                         "public class X {\n" +
                         "   static int ct = 0;\n" +
-                        "   public static Consumer1<CallContext<X, PrintStream>> $$PrintStream$println;\n\n" +
+                        "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println;\n\n" +
                         "   static {\n" +
                         "      ++ct;\n" +
                         "      $$PrintStream$println = (var0) -> {\n" +
@@ -600,7 +663,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, X>, String> $$X$callee = (var0) -> {\n" +
+                "   public static Function1<CallContext<X>, String> $$X$callee = (var0) -> {\n" +
                 "      return ((X)var0.calledClassInstance).callee();\n" +
                 "   };\n\n" +
                 "   String callee() {\n" +
@@ -634,7 +697,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, X>, Integer> $$X$callee = (var0) -> {\n" +
+                "   public static Function1<CallContext<X>, Integer> $$X$callee = (var0) -> {\n" +
                 "      return callee();\n" +
                 "   };\n\n" +
                 "   static Integer callee() {\n" +
@@ -665,7 +728,7 @@ public class TestabilityTest extends BaseTest {
                         "import helpers.Function2;\n" +
                         "import testablejava.CallContext;\n\n" +
                         "public class X {\n" +
-                        "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                        "   public static Function2<CallContext<Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
                         "      return Integer.valueOf(var1.intValue());\n" +
                         "   };\n\n" +
                         "   void fn() {\n" +
@@ -702,7 +765,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
                 "      return Integer.valueOf(var1.intValue());\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -737,10 +800,10 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function3<CallContext<X, Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
+                "   public static Function3<CallContext<Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
                 "      return Integer.getInteger(var1, var2);\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
                 "      return Integer.valueOf(var1.intValue());\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -777,16 +840,16 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$append$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<StringBuffer>, Integer, StringBuffer> $$StringBuffer$append$$I = (var0, var1) -> {\n" +
                 "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, StringBuffer>, String, StringBuffer> $$StringBuffer$append$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<StringBuffer>, String, StringBuffer> $$StringBuffer$append$$String = (var0, var1) -> {\n" +
                 "      return ((StringBuffer)var0.calledClassInstance).append(var1);\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, StringBuffer>, Integer, StringBuffer> $$StringBuffer$new$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<StringBuffer>, Integer, StringBuffer> $$StringBuffer$new$$I = (var0, var1) -> {\n" +
                 "      return new StringBuffer(var1.intValue());\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<X, StringBuffer>, StringBuffer> $$StringBuffer$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<StringBuffer>, StringBuffer> $$StringBuffer$new = (var0) -> {\n" +
                 "      return new StringBuffer();\n" +
                 "   };\n" +
                 "\n" +
@@ -828,7 +891,7 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput = "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Y>, T, Y> $$Y$new$$T = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Y>, T, Y> $$Y$new$$T = (var0, var1) -> {\n" +
                 "      return new Y(var1);\n" +
                 "   };\n" +
                 "\n" +
@@ -871,7 +934,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Y>, T, String> $$Y$fn$$T = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Y>, T, String> $$Y$fn$$T = (var0, var1) -> {\n" +
                 "      return ((Y)var0.calledClassInstance).fn(var1);\n" +
                 "   };\n\n" +
                 "   String fn() {\n" +
@@ -920,7 +983,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, Derived>, String> $$Derived$fn = (var0) -> {\n" +
+                "   public static Function1<CallContext<Derived>, String> $$Derived$fn = (var0) -> {\n" +
                 "      return ((Derived)var0.calledClassInstance).fn();\n" +
                 "   };\n" +
                 "\n" +
@@ -963,28 +1026,28 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.List;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, ArrayList<Integer>>, List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<ArrayList<Integer>>, List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var0, var1) -> {\n" +
                 "      return new ArrayList(var1);\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, ArrayList<String>>, List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<ArrayList<String>>, List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var0, var1) -> {\n" +
                 "      return new ArrayList(var1);\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<X, ArrayList<String>>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<ArrayList<String>>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = (var0) -> {\n" +
                 "      return new ArrayList();\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<X, ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
                 "      return new ArrayList();\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<X, List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
                 "   };\n" +
                 "\n" +
@@ -1036,7 +1099,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<1C<Object>, X>, Integer> $$X$callee = (var0) -> {\n" +
+                "   public static Function1<CallContext<X>, Integer> $$X$callee = (var0) -> {\n" +
                 "      return Integer.valueOf(((X)var0.calledClassInstance).callee());\n" +
                 "   };\n\n" +
                 "   int callee() {\n" +
@@ -1046,48 +1109,6 @@ public class TestabilityTest extends BaseTest {
                 "      return (new 1C(this)).compare(\"a\", \"b\");\n" +
                 "   }\n" +
                 "}";
-
-        assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
-
-        assertEquals(1, invokeCompiledMethod("X", "fn"));
-        assertEquals(2, invokeCompiledMethod("Y", "mockAndTest"));
-
-    }
-
-    @Test
-    public void testTestabilityInjectFunctionField_Reproduction() throws Exception {
-
-        String[] task = {
-                "X.java",
-                "import java.util.Comparator;\n" +
-                        "public class X {\n " +
-                        "    private int writeArgumentName(char[] name, int modifiers, int oldLength) {return 0;}\n"+
-                        "    private void generateMethodParameters (){\n " +
-                        "       int length=0;char[]name=new char[0];int modifier=0;char[] EnumName = \"$enum$name\".toCharArray();int AccSynthetic=0;" +
-                        "                length = writeArgumentName(EnumName, AccSynthetic, length);\n" +
-                        "                    length = writeArgumentName(name, modifier, length);\n" +
-                        "                    length = writeArgumentName(null, AccSynthetic, length);\n" +
-                        "                length = writeArgumentName(name, modifier | AccSynthetic, length);\n" +
-                        "                length = writeArgumentName(name, AccSynthetic, length);\n" +
-                        "    }" +
-                        "}\n",
-
-        };
-        String expectedOutput =
-                "import X.1C;\n" +
-                        "import helpers.Function1;\n" +
-                        "import testablejava.CallContext;\n\n" +
-                        "public class X {\n" +
-                        "   public static Function1<CallContext<1C<Object>, X>, Integer> $$X$callee = (var0) -> {\n" +
-                        "      return Integer.valueOf(((X)var0.calledClassInstance).callee());\n" +
-                        "   };\n\n" +
-                        "   int callee() {\n" +
-                        "      return 1;\n" +
-                        "   }\n\n" +
-                        "   int fn() {\n" +
-                        "      return (new 1C(this)).compare(\"a\", \"b\");\n" +
-                        "   }\n" +
-                        "}";
 
         assertEquals(expectedOutput, compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY).get("X").stream().collect(joining("\n")));
 
@@ -1340,7 +1361,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function3<CallContext<X, Long>, Integer, Long, Integer> $$Long$compare$$I$J = (var0, var1, var2) -> {\n" +
+                "   public static Function3<CallContext<Long>, Integer, Long, Integer> $$Long$compare$$I$J = (var0, var1, var2) -> {\n" +
                 "      return Integer.valueOf(Long.compare((long)var1.intValue(), var2.longValue()));\n" +
                 "   };\n\n" +
                 "   public int fn() {\n" +
@@ -1372,7 +1393,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Long>, Integer, Long> $$Long$valueOf$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Long>, Integer, Long> $$Long$valueOf$$I = (var0, var1) -> {\n" +
                 "      return Long.valueOf((long)var1.intValue());\n" +
                 "   };\n\n" +
                 "   public Long fn() {\n" +
@@ -1407,7 +1428,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function3<CallContext<X, Character>, Character, Character, Integer> $$Character$compare$$C$C = (var0, var1, var2) -> {\n" +
+                "   public static Function3<CallContext<Character>, Character, Character, Integer> $$Character$compare$$C$C = (var0, var1, var2) -> {\n" +
                 "      return Integer.valueOf(Character.compare(var1.charValue(), var2.charValue()));\n" +
                 "   };\n\n" +
                 "   public int fn() {\n" +
@@ -1448,7 +1469,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Y>, Character, Y> $$Y$new$$C = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Y>, Character, Y> $$Y$new$$C = (var0, var1) -> {\n" +
                 "      return new Y(var1.charValue());\n" +
                 "   };\n\n" +
                 "   public char fn() {\n" +
@@ -1484,7 +1505,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, PrintStream>> $$PrintStream$println = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println = (var0) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).println();\n" +
                 "   };\n\n" +
                 "   static void fn() {\n" +
@@ -1511,7 +1532,7 @@ public class TestabilityTest extends BaseTest {
                         "import java.io.PrintStream;\n" +
                         "import testablejava.CallContext;\n\n" +
                         "public class X {\n" +
-                        "   public static Consumer1<CallContext<X, PrintStream>> $$PrintStream$println = (var0) -> {\n" +
+                        "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println = (var0) -> {\n" +
                         "      ((PrintStream)var0.calledClassInstance).println();\n" +
                         "   };\n\n" +
                         "   void fn1() {\n" +
@@ -1544,7 +1565,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer2<CallContext<X, PrintStream>, Integer> $$PrintStream$write$$I = (var0, var1) -> {\n" +
+                "   public static Consumer2<CallContext<PrintStream>, Integer> $$PrintStream$write$$I = (var0, var1) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).write(var1.intValue());\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
@@ -1585,7 +1606,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.List;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, List<Integer>>, Integer, Boolean> $$List$add$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<Integer>>, Integer, Boolean> $$List$add$$I = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
@@ -1620,7 +1641,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.math.BigDecimal;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, BigDecimal>, Integer, BigDecimal> $$BigDecimal$new$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<BigDecimal>, Integer, BigDecimal> $$BigDecimal$new$$I = (var0, var1) -> {\n" +
                 "      return new BigDecimal(var1.intValue());\n" +
                 "   };\n\n" +
                 "   BigDecimal fn() throws Exception {\n" +
@@ -1654,7 +1675,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer2<CallContext<X, PrintStream>, Integer> $$PrintStream$write$$I = (var0, var1) -> {\n" +
+                "   public static Consumer2<CallContext<PrintStream>, Integer> $$PrintStream$write$$I = (var0, var1) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).write(var1.intValue());\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
@@ -1690,7 +1711,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.math.BigDecimal;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, BigDecimal>, Integer, BigDecimal> $$BigDecimal$new$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<BigDecimal>, Integer, BigDecimal> $$BigDecimal$new$$I = (var0, var1) -> {\n" +
                 "      return new BigDecimal(var1.intValue());\n" +
                 "   };\n\n" +
                 "   BigDecimal fn() throws Exception {\n" +
@@ -1726,10 +1747,10 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, PrintStream>> $$PrintStream$close = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$close = (var0) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).close();\n" +
                 "   };\n" +
-                "   public static Consumer2<CallContext<X, PrintStream>, Integer> $$PrintStream$write$$Integer = (var0, var1) -> {\n" +
+                "   public static Consumer2<CallContext<PrintStream>, Integer> $$PrintStream$write$$Integer = (var0, var1) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).write(var1.intValue());\n" +
                 "   };\n\n" +
                 "   void fn() throws Exception {\n" +
@@ -1765,7 +1786,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Consumer1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, Y>> $$Y$fn = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<Y>> $$Y$fn = (var0) -> {\n" +
                 "      ((Y)var0.calledClassInstance).fn();\n" +
                 "   };\n" +
                 "\n" +
@@ -1807,16 +1828,16 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, Y>> $$b$Y$fn = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<Y>> $$b$Y$fn = (var0) -> {\n" +
                 "      ((Y)var0.calledClassInstance).fn();\n" +
                 "   };\n" +
-                "   public static Consumer1<CallContext<X, a.Y>> $$a$Y$fn = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<a.Y>> $$a$Y$fn = (var0) -> {\n" +
                 "      ((a.Y)var0.calledClassInstance).fn();\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<X, Y>, Y> $$b$Y$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<Y>, Y> $$b$Y$new = (var0) -> {\n" +
                 "      return new Y();\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<X, a.Y>, a.Y> $$a$Y$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<a.Y>, a.Y> $$a$Y$new = (var0) -> {\n" +
                 "      return new a.Y();\n" +
                 "   };\n" +
                 "\n" +
@@ -1844,7 +1865,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer2<CallContext<X, PrintStream>, String> $$PrintStream$println$$String = (var0, var1) -> {\n" +
+                "   public static Consumer2<CallContext<PrintStream>, String> $$PrintStream$println$$String = (var0, var1) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).println(var1);\n" +
                 "   };\n\n" +
                 "   void fn(String var1) {\n" +
@@ -1868,7 +1889,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer2<CallContext<X, PrintStream>, String> $$PrintStream$println$$String = (var0, var1) -> {\n" +
+                "   public static Consumer2<CallContext<PrintStream>, String> $$PrintStream$println$$String = (var0, var1) -> {\n" +
                 "      ((PrintStream)var0.calledClassInstance).println(var1);\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -1895,7 +1916,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n"+
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, PrintStream>, String> $$PrintStream$toString = (var0) -> {\n" +
+                "   public static Function1<CallContext<PrintStream>, String> $$PrintStream$toString = (var0) -> {\n" +
                 "      return ((PrintStream)var0.calledClassInstance).toString();\n" +
                 "   };\n" +
                 "\n" +
@@ -1956,7 +1977,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Consumer1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<X, String>> $$String$notify = (var0) -> {\n" +
+                "   public static Consumer1<CallContext<String>> $$String$notify = (var0) -> {\n" +
                 "      ((String)var0.calledClassInstance).notify();\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -1981,7 +2002,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, String>, String> $$String$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<String>, String> $$String$new = (var0) -> {\n" +
                 "      return new String();\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -2188,7 +2209,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   Function2<CallContext<X, PrintStream>, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
+                "   Function2<CallContext<PrintStream>, java.lang.Character, java.io.PrintStream> newRedirector = \n" +
                 "     (ps, c)-> {return null;};\n" +
                 "	PrintStream fn(){return System.out.append('c');}" +
                 "}\n",
@@ -2413,7 +2434,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Y>, int[], Integer> $$Y$arrayArg$$ⒶI = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Y>, int[], Integer> $$Y$arrayArg$$ⒶI = (var0, var1) -> {\n" +
                 "      return Integer.valueOf(Y.arrayArg(var1));\n" +
                 "   };\n" +
                 "\n" +
@@ -2452,7 +2473,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Y>, String[], Integer> $$Y$arrayArg$$ⒶString = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Y>, String[], Integer> $$Y$arrayArg$$ⒶString = (var0, var1) -> {\n" +
                 "      return Integer.valueOf(Y.arrayArg(var1));\n" +
                 "   };\n" +
                 "\n" +
@@ -2490,7 +2511,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
@@ -2557,7 +2578,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "import testablejava.Helpers;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
                 "      try {\n" +
                 "         return Integer.valueOf(Integer.parseInt(var1));\n" +
                 "      } catch (Throwable var3) {\n" +
@@ -2596,7 +2617,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "import testablejava.Helpers;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<Integer>, String, Integer> $$Integer$parseInt$$String = (var0, var1) -> {\n" +
                 "      try {\n" +
                 "         return Integer.valueOf(Integer.parseInt(var1));\n" +
                 "      } catch (Throwable var3) {\n" +
@@ -2639,7 +2660,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n\n" +
                 "   boolean fn() {\n" +
@@ -2861,7 +2882,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, String>, StringBuilder, String> $$String$new$$StringBuilder = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<String>, StringBuilder, String> $$String$new$$StringBuilder = (var0, var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n\n" +
                 "   void fn(StringBuilder var1) {\n" +
@@ -2884,7 +2905,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n"+
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, String>, String> $$String$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<String>, String> $$String$new = (var0) -> {\n" +
                 "      return new String();\n" +
                 "   };\n\n" +
                 "   String fn() {\n" +
@@ -2910,7 +2931,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<X, PrintStream>, Character, PrintStream> $$PrintStream$append$$C = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<PrintStream>, Character, PrintStream> $$PrintStream$append$$C = (var0, var1) -> {\n" +
                 "      return ((PrintStream)var0.calledClassInstance).append(var1.charValue());\n" +
                 "   };\n\n" +
                 "   PrintStream fn() {\n" +
@@ -2946,7 +2967,7 @@ public class TestabilityTest extends BaseTest {
                 "import java.io.PrintStream;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function2<CallContext<Y, PrintStream>, Character, PrintStream> $$PrintStream$append$$C = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<PrintStream>, Character, PrintStream> $$PrintStream$append$$C = (var0, var1) -> {\n" +
                 "      return ((PrintStream)var0.calledClassInstance).append(var1.charValue());\n" +
                 "   };\n\n" +
                 "   PrintStream fnX() {\n" +
@@ -2991,7 +3012,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, String>, String> $$String$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<String>, String> $$String$new = (var0) -> {\n" +
                 "      return new String();\n" +
                 "   };\n\n" +
                 "   static void fn() {\n" +
@@ -3034,7 +3055,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.*;" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function1<CallContext<X, String>, String> $$String$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<String>, String> $$String$new = (var0) -> {\n" +
                 "      return new String();\n" +
                 "   };\n\n" +
                 "}\n"
@@ -3088,14 +3109,14 @@ public class TestabilityTest extends BaseTest {
     //TODO reen
 //    @Test
 //    public void testTestabilityInjectFunctionField_Reproduce() throws Exception {
-//        //public class CallContext<Y,Class<capture#1-of ? extends CallContext#RAW>> and null dereference in expandInternalName because it is CaptureBinding where compoundName=null
+//        //public class CallContext<Class<capture#1-of ? extends CallContext#RAW>> and null dereference in expandInternalName because it is CaptureBinding where compoundName=null
 //        String[] task = {
 //                "Y.java",
 //                "import helpers.Function1;\n" +
 //                        "import testablejava.CallContext;\n" +
 //                        "public class Y {\n" +
 //                        "	String fn(){" +
-//                        "       Function1<CallContext<Y, Y>, String> fn = (ctx) -> {return (String)ctx.getClass().getName();};" +
+//                        "       Function1<CallContext<Y>, String> fn = (ctx) -> {return (String)ctx.getClass().getName();};" +
 //                        "       return \"\" + fn;" +
 //                        "   }" +
 //                        "}\n"
@@ -3135,7 +3156,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class Y {\n" +
-                "   public static Function3_1<CallContext<Y, Y>, Y, Object, Object> $$Y$called$$Y$Object = new 1();\n" +
+                "   public static Function3_1<CallContext<Y>, Y, Object, Object> $$Y$called$$Y$Object = new 1();\n" +
                 "\n" +
                 "   public <T> T accept(List<T> var1, T var2) {\n" +
                 "      return (Object)$$Y$called$$Y$Object.apply(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
@@ -3154,8 +3175,8 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3_1;\n" +
                 "import testablejava.CallContext;\n" +
                 "\n" +
-                "class Y$1 implements Function3_1<CallContext<Y, Y>, Y, Object, Object> {\n" +
-                "   public <E1> Object apply(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                "class Y$1 implements Function3_1<CallContext<Y>, Y, Object, Object> {\n" +
+                "   public <E1> Object apply(CallContext<Y> var1, Y var2, Object var3) {\n" +
                 "      return ((Y)var1.calledClassInstance).called(var2, var3);\n" + //note: var3 is actually casted to E1 in source
                 "   }\n" +
                 "}";
@@ -3193,7 +3214,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class Y {\n" +
-                "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
+                "   public static Consumer3_1<CallContext<Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
                 "\n" +
                 "   public <T> T accept(List<T> var1, T var2) {\n" +
                 "      $$Y$called$$Y$Object.accept(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
@@ -3212,8 +3233,8 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Consumer3_1;\n" +
                 "import testablejava.CallContext;\n" +
                 "\n" +
-                "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
-                "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                "class Y$1 implements Consumer3_1<CallContext<Y>, Y, Object> {\n" +
+                "   public <E1> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
                 "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
                 "   }\n" +
                 "}";
@@ -3230,8 +3251,8 @@ public class TestabilityTest extends BaseTest {
 //    @Test
 //    public void testTestabilityInjectFunctionField_RedirectGeneric_Reproduction() throws Exception {
 //        //E1 cannot be resolved to a type
-//        //Pb(17) Type mismatch: cannot convert from new Function2_1<CallContext<Y,Map<Object,Set<Object>>>,Object,Boolean>(){} to
-//        //                                              Function2_1<CallContext<Y,Map<T1,Set<T2>>>,Object,Boolean>
+//        //Pb(17) Type mismatch: cannot convert from new Function2_1<CallContext<Map<Object,Set<Object>>>,Object,Boolean>(){} to
+//        //                                              Function2_1<CallContext<Map<T1,Set<T2>>>,Object,Boolean>
 //        String[] task = {
 //                "Y.java",
 //                "import java.util.*;\n" +
@@ -3529,7 +3550,7 @@ public class TestabilityTest extends BaseTest {
                         "\n" +
                         "class Y<T1, T2> {\n" +
                         "   private final Map<T1, Set<T2>> _forward;\n" +
-                        "   public static Function1<CallContext<Y<Object, Object>, HashMap<Object, Set<Object>>>, HashMap<Object, Set<Object>>> $$HashMap$new = (var0) -> {\n" +
+                        "   public static Function1<CallContext<HashMap<Object, Set<Object>>>, HashMap<Object, Set<Object>>> $$HashMap$new = (var0) -> {\n" +
                         "      return new HashMap();\n" +
                         "   };\n" +
                         "\n" +
@@ -3562,7 +3583,7 @@ public class TestabilityTest extends BaseTest {
                         "\n" +
                         "class Y<T1, T2> {\n" +
                         "   private final Map<T1, Set<T2>> _forward;\n" +
-                        "   public static Function1<CallContext<Y<Object, Object>, Y<Object, Object>>, Map<Object, Set<Object>>> $$Y$init = (var0) -> {\n" +
+                        "   public static Function1<CallContext<Y<Object, Object>>, Map<Object, Set<Object>>> $$Y$init = (var0) -> {\n" +
                         "      return ((Y)var0.calledClassInstance).init();\n" +
                         "   };\n" +
                         "\n" +
@@ -3606,7 +3627,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "public class Y {\n" +
-                "   public static Function3_1<CallContext<Y, Called>, Y, Object, Called> $$Called$new$$YObject = new 1();\n" +
+                "   public static Function3_1<CallContext<Called>, Y, Object, Called> $$Called$new$$YObject = new 1();\n" +
                 "\n" +
                 "   public <T> T accept(List<T> var1, T var2) {\n" +
                 "      $$Called$new$$YObject.apply(new CallContext(\"Y\", \"Called\", this, (Object)null), this, var2);\n" +
@@ -3622,8 +3643,8 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3_1;\n" +
                 "import testablejava.CallContext;\n" +
                 "\n" +
-                "class Y$1 implements Function3_1<CallContext<Y, Called>, Y, Object, Called> {\n" +
-                "   public <E1> Called apply(CallContext<Y, Called> var1, Y var2, Object var3) {\n" +
+                "class Y$1 implements Function3_1<CallContext<Called>, Y, Object, Called> {\n" +
+                "   public <E1> Called apply(CallContext<Called> var1, Y var2, Object var3) {\n" +
                 "      return new Called(var2, var3);\n" +
                 "   }\n" +
                 "}";
@@ -3666,7 +3687,7 @@ public class TestabilityTest extends BaseTest {
                 "   };\n" +
                 "   public static Consumer<Y> $$postCreate = (var0) -> {\n" +
                 "   };\n" +
-                "   public static Consumer3_1<CallContext<Y, Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
+                "   public static Consumer3_1<CallContext<Y>, Y, Object> $$Y$called$$Y$Object = new 1();\n" +
                 "\n" +
                 "   public Y() {\n" +
                 "      $$preCreate.accept(this);\n" +
@@ -3690,8 +3711,8 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Consumer3_1;\n" +
                 "import testablejava.CallContext;\n" +
                 "\n" +
-                "class Y$1 implements Consumer3_1<CallContext<Y, Y>, Y, Object> {\n" +
-                "   public <E1> void accept(CallContext<Y, Y> var1, Y var2, Object var3) {\n" +
+                "class Y$1 implements Consumer3_1<CallContext<Y>, Y, Object> {\n" +
+                "   public <E1> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
                 "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
                 "   }\n" +
                 "}";
@@ -3949,6 +3970,44 @@ public class TestabilityTest extends BaseTest {
         assertEquals("Y$Z", ret.getClass().getName());
     }
     @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_InnerClassArg_TowFields() throws Exception {
+        //must generate two separate fields on Y, one with container1.new Z(), another with container2.new Z()
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class Container1 {\n" +
+                        "      class Z {};\n" +
+                        "      Z fn(){return new Z();};\n" +
+                        "   }\n",
+                        "   class Container2 {\n" +
+                        "      class Z { " +
+                        "      };\n" +
+                        "      Z fn(){return new Z();};\n" +
+                        "   }" +
+                        "}\n",
+        };
+        String expectedOutputY = "import Y.Container1;\n" +
+                "import Y.Container2;\n" +
+                "import Y.Container1.Z;\n" +
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Function1<CallContext<Z>, Z> $$Y$Container1$Z$new = (var0) -> {\n" +
+                "      Container1 var10002 = (Container1)var0.callingClassInstance;\n" +
+                "      ((Container1)var0.callingClassInstance).getClass();\n" +
+                "      return new Z(var10002);\n" +
+                "   };\n" +
+                "   public static Function1<CallContext<Y.Container2.Z>, Y.Container2.Z> $$Y$Container2$Z$new = (var0) -> {\n" +
+                "      Container2 var10002 = (Container2)var0.callingClassInstance;\n" +
+                "      ((Container2)var0.callingClassInstance).getClass();\n" +
+                "      return new Y.Container2.Z(var10002);\n" +
+                "   };\n" +
+                "}";
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
+    @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_InnerClassWithOutsideBoundVariable() throws Exception {
 
         String[] task = {
@@ -3989,7 +4048,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class Y {\n" +
-                "   public static Function2<CallContext<Z, String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<String>, String, String> $$String$new$$String = (var0, var1) -> {\n" +
                 "      return new String(var1);\n" +
                 "   };\n\n" +
                 "   public String fn() {\n" +
@@ -4037,7 +4096,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function2;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class Y {\n" +
-                "   public static Function2<CallContext<Z, String>, Integer, String> $$String$valueOf$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<String>, Integer, String> $$String$valueOf$$I = (var0, var1) -> {\n" +
                 "      return String.valueOf(var1);\n" +
                 "   };\n\n" +
                 "   public String fn() {\n" +
@@ -4086,7 +4145,7 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class Y {\n" +
-                "   public static Function1<CallContext<Y, Z>, Z> $$Z$zfn = (var0) -> {\n" +
+                "   public static Function1<CallContext<Z>, Z> $$Z$zfn = (var0) -> {\n" +
                 "      return ((Z)var0.calledClassInstance).zfn();\n" +
                 "   };\n\n" +
                 "   Z fn() {\n" +
@@ -4127,10 +4186,10 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "public class Y {\n" +
-                        "   public static Function1<CallContext<Y, Z>, Long> $$Z$zfn = (var0) -> {\n" +
+                        "   public static Function1<CallContext<Z>, Long> $$Z$zfn = (var0) -> {\n" +
                         "      return Long.valueOf(((Z)var0.calledClassInstance).zfn());\n" +
                         "   };\n" +
-                        "   public static Function1<CallContext<Z, System>, Long> $$System$currentTimeMillis = (var0) -> {\n" +
+                        "   public static Function1<CallContext<System>, Long> $$System$currentTimeMillis = (var0) -> {\n" +
                         "      return Long.valueOf(System.currentTimeMillis());\n" +
                         "   };\n\n" +
                         "   long fn() {\n" +
@@ -4224,12 +4283,12 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.concurrent.atomic.*;" +
                 "import testablejava.CallContext;" +
                 "public class Y {" +
-                "    CallContext<?, ?>[] ctx={null};\n" +
+                "    CallContext<?>[] ctx={null};\n" +
                 "    int getRequiredBridgesWithRedirect() {\n" +
                 "        X.$$BridgeCollector$collectBridges$$I$I$I = (a1, a2, a3, a4) -> 0;\n " +
                 "        dontredirect: return new X().getRequiredBridges();\n" +
                 "    }\n" +
-                "    CallContext<?, ?> getRequiredBridgesCaptureCallContext() {\n" +
+                "    CallContext<?> getRequiredBridgesCaptureCallContext() {\n" +
                 "        X.$$BridgeCollector$collectBridges$$I$I$I = (a1, a2, a3, a4) -> {ctx[0] = a1; return 0;};\n " +
                 "        dontredirect: {new X().getRequiredBridges();return ctx[0];}\n" +
                 "    }\n" +

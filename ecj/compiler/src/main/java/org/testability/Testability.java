@@ -195,12 +195,11 @@ public class Testability {
         int iArg = 0;
         AllocationExpression callSiteExpression;
 
-        try {//TODO apply to allocation?
-            TypeBinding callingTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[0];
-            TypeBinding calledTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[1];
+        try {
+            TypeBinding calledTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[0];
 
              //(use actual called type binind used in field - to avoid re-computation)
-            callSiteExpression = makeCallSiteExpression(messageSend, currentScope, callingTypeBinding, calledTypeBinding);
+            callSiteExpression = makeCallSiteExpression(messageSend, currentScope, calledTypeBinding);
         } catch (Exception ex) {
             testabilityInstrumentationError(currentScope, "makeCallSiteExpression", ex);
             return null;
@@ -242,7 +241,7 @@ public class Testability {
         return messageToFieldApply;
     }
 
-    static AllocationExpression makeCallSiteExpression(MessageSend messageSend, BlockScope currentScope, TypeBinding callingTypeBinding, TypeBinding calledTypeBinding) {
+    static AllocationExpression makeCallSiteExpression(MessageSend messageSend, BlockScope currentScope, TypeBinding calledTypeBinding) {
 
         LookupEnvironment lookupEnvironment = currentScope.environment();
 
@@ -254,11 +253,10 @@ public class Testability {
 
         //field may contain specialization of generic type, while resolved apply method arguments can be generic, resulting in mismatch,
         //so convert everything to raw types which is how things are in bytecode anyway
-        TypeBinding callingTypeBindingRaw = lookupEnvironment.convertToRawType(callingTypeBinding, false);
+
         TypeBinding calledTypeBindingRaw = lookupEnvironment.convertToRawType(calledTypeBinding, false);
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
-                callingTypeBindingRaw,
                 calledTypeBindingRaw,
                 currentScope.environment()
         );
@@ -271,14 +269,11 @@ public class Testability {
 
         Expression exprGetCalledClass = new StringLiteral(removeLocalPrefix(calledTypeBindingForDescription.readableName()), 0,0,0);
 
-        TypeReference callingTypeReference = typeReferenceFromTypeBinding(callingTypeBindingRaw);
-
         TypeReference calledTypeReference = typeReferenceFromTypeBinding(calledTypeBindingRaw);
 
         Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
-                new CastExpression(new NullLiteral(0,0), callingTypeReference) :
+                new NullLiteral(0,0) :
                 new ThisReference(0, 0);//new QualifiedThisReference(callingTypeReference,0,0)
-
 
         Expression exprGetCalledClassInstance = messageSend.binding.isStatic()?
                 new CastExpression(new NullLiteral(0,0), calledTypeReference):
@@ -302,7 +297,7 @@ public class Testability {
 
         return allocationExpression;
     }
-    static AllocationExpression makeCallSiteExpression(AllocationExpression messageSend, BlockScope currentScope, TypeBinding callingTypeBinding, TypeBinding calledTypeBinding) {
+    static AllocationExpression makeCallSiteExpression(AllocationExpression messageSend, BlockScope currentScope, TypeBinding calledTypeBinding) {
         LookupEnvironment lookupEnvironment = currentScope.environment();
 
         AllocationExpression allocationExpression = new AllocationExpression();
@@ -311,16 +306,11 @@ public class Testability {
 
         TypeBinding calledTypeBindingForDescription = messageSend.resolvedType;
 
-        TypeBinding callingTypeBindingRaw = lookupEnvironment.convertToRawType(callingTypeBinding, false);
-
         TypeBinding calledTypeBindingRaw = lookupEnvironment.convertToRawType(calledTypeBinding, false);
-
-        TypeReference callingTypeReference = typeReferenceFromTypeBinding(callingTypeBinding);
 
         TypeReference calledTypeReference = typeReferenceFromTypeBinding(calledTypeBinding);
 
         ReferenceBinding callSiteTypeBinging = bindingForCallContextType(
-                callingTypeBindingRaw,
                 calledTypeBindingRaw,
                 currentScope.environment()
         );
@@ -334,7 +324,7 @@ public class Testability {
         Expression exprGetCalledClass = new StringLiteral(removeLocalPrefix(calledTypeBindingForDescription.readableName()), 0,0,0);
 
         Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
-                new CastExpression(new NullLiteral(0,0), callingTypeReference) :
+                new NullLiteral(0,0) :
                 new ThisReference(0,0);//new QualifiedThisReference(callingTypeReference,0,0);
 
         Expression exprGetCalledClassInstance = //no instance yet
@@ -446,10 +436,9 @@ public class Testability {
         }
         AllocationExpression callSiteExpression;
         try {
-            TypeBinding callingTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[0];
-            TypeBinding calledTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[1];
+            TypeBinding calledTypeBinding = ((ParameterizedTypeBinding) ((ParameterizedTypeBinding) messageToFieldApply.actualReceiverType).arguments[0]).arguments[0];
 
-            callSiteExpression = makeCallSiteExpression(allocationExpression, currentScope, callingTypeBinding, calledTypeBinding);
+            callSiteExpression = makeCallSiteExpression(allocationExpression, currentScope, calledTypeBinding);
         } catch (Exception ex) {
             testabilityInstrumentationError(currentScope, "makeCallSiteExpression", ex);
             return null;
@@ -607,7 +596,7 @@ public class Testability {
     }
 
 
-    public static List<FieldDeclaration> makeTestabilityFields(
+    public static List<FieldDeclaration> makeFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
             LookupEnvironment lookupEnvironment,
@@ -625,7 +614,7 @@ public class Testability {
                 if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
                     //TODO for all instantiated types if typeDeclaration is generic
 
-                    ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
+                    ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
 
                     //find all local type declarations and add corresponding fields
                     List<TypeDeclaration> localTypeDeclarations = findLocalTypeDeclarations(typeDeclaration, null);
@@ -647,7 +636,7 @@ public class Testability {
                             localAndMemberTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
                             instantiatedTypeDeclarations.stream()).
                             forEach(typeBinding -> {
-                                ret.addAll(makeTestabilityListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
+                                ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
                             });
 
                 }
@@ -657,7 +646,7 @@ public class Testability {
             if (instrumentationOptions.contains(InstrumentationOptions.INSERT_REDIRECTORS)) {
 
                 try {
-                    List<FieldDeclaration> redirectorFields = makeTestabilityRedirectorFields(
+                    List<FieldDeclaration> redirectorFields = makeRedirectorFields(
                             typeDeclaration,
                             referenceBinding,
                             lookupEnvironment,
@@ -851,7 +840,7 @@ public class Testability {
         return environment.instrumentationOptions;
     }
 
-    public static List<FieldDeclaration> makeTestabilityListenerFields(
+    public static List<FieldDeclaration> makeListenerFields(
             CompilationResult compilationResult,
             ReferenceBinding typeBinding,
             SourceTypeBinding referenceBinding) {
@@ -884,7 +873,7 @@ public class Testability {
      * @param lookupEnvironment
      * @return unique field instances
      */
-    public static List<FieldDeclaration> makeTestabilityRedirectorFields(
+    public static List<FieldDeclaration> makeRedirectorFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
             LookupEnvironment lookupEnvironment, Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
@@ -1053,7 +1042,6 @@ public class Testability {
     }
 
     static ReferenceBinding bindingForCallContextType(
-            TypeBinding callingType,
             TypeBinding calledType,
             LookupEnvironment lookupEnvironment){
 
@@ -1072,7 +1060,7 @@ public class Testability {
 
         return lookupEnvironment.createParameterizedType(
                 genericType,
-                new TypeBinding[]{callingType, calledType},
+                new TypeBinding[]{calledType},
                 enclosingType);
 
     }
@@ -1115,7 +1103,6 @@ public class Testability {
 //        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
 
         typeArgumentsForFunction[iArg++] = bindingForCallContextType(
-                callingType,
                 calledType, //this should be apparent compile type called
                 lookupEnvironment);
 
@@ -1643,14 +1630,9 @@ public class Testability {
 
         TypeBinding[] typeArguments = new TypeBinding[typeArgsCount];
 
-        TypeBinding callingType = convertIfLocal(typeDeclarationContainingCall.binding);
-//        callingType = convertToLocalIfGeneric(callingType, lookupEnvironment);
-
         TypeBinding calledType = convertIfLocal(originalMessageSend.resolvedType);
-//        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
 
         typeArguments[0] = bindingForCallContextType(
-                callingType,
                 calledType,
                 lookupEnvironment);
 
@@ -1793,7 +1775,13 @@ public class Testability {
             Expression enclosingInstanceCall =
                     new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
 
-            inLambdaBodyQualifiedAllocationExpression.enclosingInstance = enclosingInstanceCall;
+            //since callingClassInstance is an object, we need to cast to enclosing instance type. There will be a unique type per call
+
+            TypeReference typeReferenceContainingCall = typeReferenceFromTypeBinding(typeDeclarationContainingCall.binding);
+
+            CastExpression castExpression = new CastExpression(enclosingInstanceCall, typeReferenceContainingCall);
+
+            inLambdaBodyQualifiedAllocationExpression.enclosingInstance = castExpression;
             messageSendInLambdaBody = inLambdaBodyQualifiedAllocationExpression;
         } else {
             messageSendInLambdaBody = new AllocationExpression();

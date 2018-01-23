@@ -559,7 +559,7 @@ public class ClassFile implements TypeConstants, TypeIds {
         }
         else
             testabilityFieldDeclarations =
-                Testability.makeTestabilityFields(
+                Testability.makeFields(
                     typeDeclaration,
                     currentBinding,
                     typeDeclaration.scope.compilationUnitScope().environment,
@@ -623,7 +623,10 @@ public class ClassFile implements TypeConstants, TypeIds {
 
             for(FieldDeclaration fieldDeclaration : testabilityFieldDeclarations) {
                 FieldBinding fieldBinding = fieldDeclaration.binding;
-                this.addFieldInfo(fieldBinding);
+                if (fieldBinding != null)
+                    this.addFieldInfo(fieldBinding);
+                else
+                    Testability.testabilityInstrumentationError(typeDeclaration.scope, "injected field could not resolve: " + new String(fieldDeclaration.name));
             }
 
             ReferenceBinding parameterizedType = currentBinding.scope.environment().convertToParameterizedType(currentBinding);
