@@ -887,6 +887,7 @@ public class Testability {
                         })
                 );
 
+
         List<Map.Entry<Expression, TypeDeclaration>> distinctCalls = uniqueFieldToExpression.values().stream().
                 map(expressionList -> expressionList.get(0)).
                 collect(toList()); //take 1st value of each list (where items have same toUniqueMethodDescriptor()
@@ -1008,6 +1009,12 @@ public class Testability {
 
         originalCallToFieldProducer.accept(originalCallToField);
         return ret;
+    }
+
+    static String printExpr(Expression expression, CompilationResult unitResult) {
+        int[] lineEnds = unitResult.getLineSeparatorPositions();
+        int lineNumber = org.eclipse.jdt.internal.compiler.util.Util.getLineNumber(expression.sourceStart, lineEnds , 0, lineEnds.length-1);
+        return "@" + lineNumber + ": " + expression;
     }
 
     static LambdaExpression makeLambdaExpression(
@@ -1586,12 +1593,14 @@ public class Testability {
             ParameterizedTypeBinding typeBindingParameterized =
                     (ParameterizedTypeBinding) typeBinding;
             TypeBinding[] originalArgs = typeBindingParameterized.arguments;
-            TypeBinding[] newArgs = Arrays.stream(originalArgs).
-                    map(arg -> convertCaptureBinding(arg)).
-                    collect(toList()).
-                    toArray(new TypeBinding[originalArgs.length]); //TODO this is partially in-place conversion, partially new return
+            if (originalArgs != null) {
+                TypeBinding[] newArgs = Arrays.stream(originalArgs).
+                        map(arg -> convertCaptureBinding(arg)).
+                        collect(toList()).
+                        toArray(new TypeBinding[originalArgs.length]); //TODO this is partially in-place conversion, partially new return
 
-            typeBindingParameterized.arguments = newArgs;
+                typeBindingParameterized.arguments = newArgs;
+            }
 
             return typeBindingParameterized;
         }
@@ -2313,8 +2322,13 @@ public class Testability {
             if (receiverBinding instanceof ReferenceBinding &&
                     !(originalMessageSend.receiver instanceof ThisReference)) {
                 receiverReferenceBinding = (ReferenceBinding) receiverBinding;
+            } else if (originalMessageSend.actualReceiverType instanceof ReferenceBinding){
+                LookupEnvironment environment = ((MessageSend) originalCall).actualReceiverType.getPackage().environment;
+                char[][] compoundName = removeLocalPrefix(((ReferenceBinding) originalMessageSend.actualReceiverType).compoundName);
+                receiverReferenceBinding = //binding.declaringClass; //TODO problem
+                        environment.getType(compoundName);
             } else {
-                receiverReferenceBinding = binding.declaringClass;
+                receiverReferenceBinding = binding.declaringClass; //TODO problem, instead of actual this type, is this reachable
             }
 
             if (receiverReferenceBinding.isAnonymousType()){

@@ -2451,6 +2451,49 @@ public class TestabilityTest extends BaseTest {
         assertEquals(2, actual);
     }
     @Test
+    public void testTestabilityInjectFunctionField_ForConflictingCallsWithThisTypeMix() throws Exception {
+
+        //there are two calls; each should create a field, since they are invoked on different subclasses
+        String [] task = {
+                "X.java",
+                        "import java.io.PrintWriter;\n" +
+                        "public class X extends Exception {\n" +
+                        "   Throwable nestedException;\n" +
+                        "   static final long serialVersionUID=1L;" +
+                        "   " +
+                        "   public void printStackTrace(PrintWriter output) {\n" +
+                        "         super.printStackTrace(output);\n" +
+                        "         nestedException.printStackTrace(output);\n" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        String expectedOutput =
+                "import helpers.Consumer2;\n" +
+                        "import java.io.PrintWriter;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class X extends Exception {\n" +
+                        "   Throwable nestedException;\n" +
+                        "   static final long serialVersionUID = 1L;\n" +
+                        "   public static Consumer2<CallContext<Throwable>, PrintWriter> $$Throwable$printStackTrace$$PrintWriter = (var0, var1) -> {\n" +
+                        "      ((Throwable)var0.calledClassInstance).printStackTrace(var1);\n" +
+                        "   };\n" +
+                        "   public static Consumer2<CallContext<Exception>, PrintWriter> $$Exception$printStackTrace$$PrintWriter = (var0, var1) -> {\n" +
+                        "      ((Exception)var0.calledClassInstance).printStackTrace(var1);\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   public void printStackTrace(PrintWriter var1) {\n" +
+                        "      $$Exception$printStackTrace$$PrintWriter.accept(new CallContext(\"X\", \"java.lang.Exception\", this, this), var1);\n" +
+                        "      $$Throwable$printStackTrace$$PrintWriter.accept(new CallContext(\"X\", \"java.lang.Throwable\", this, this.nestedException), var1);\n" +
+                        "   }\n" +
+                        "}";
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    @Test
     public void testTestabilityInjectFunctionField_ForExternalCallArrayArg() throws Exception {
 
         String[] task = {
