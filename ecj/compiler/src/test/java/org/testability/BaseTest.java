@@ -343,9 +343,11 @@ public class BaseTest {
 
         ConsoleDecompiler decompiler = new ConsoleDecompiler(destinationDir, options);
         String fileName = file.getName();
+        System.out.println("decompiling " + fileName);
         decompiler.addSpace(file, true);
 
         decompiler.decompileContext();
+        System.out.println("decompiled " + fileName);
 
         File decompiledFile = new File(destinationDir, fileName.replace(".class",".java"));
 
