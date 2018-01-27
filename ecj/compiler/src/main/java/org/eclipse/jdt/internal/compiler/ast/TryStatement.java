@@ -32,12 +32,14 @@ package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.testability.Testability;
 
 public class TryStatement extends SubRoutineStatement {
 
@@ -462,6 +464,14 @@ public class TryStatement extends SubRoutineStatement {
      */
     public void generateCode(BlockScope currentScope, CodeStream codeStream) {
         if ((this.bits & ASTNode.IsReachable) == 0) {
+            return;
+        }
+        if (this.catchExits == null) {//jr: likely due to prior error
+            CompilationResult compilationResult = this.scope.referenceContext().compilationResult();
+            if (!compilationResult.hasMandatoryErrors())
+                Testability.testabilityInstrumentationWarning(
+                        this.scope,
+                        "catchExists == null wihout prior mandatory errors " + compilationResult.hasErrors());
             return;
         }
         boolean isStackMapFrameCodeStream = codeStream instanceof StackMapFrameCodeStream;
