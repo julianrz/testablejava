@@ -47,7 +47,7 @@ public class TryStatement extends SubRoutineStatement {
     static final char[] SECRET_CAUGHT_THROWABLE_VARIABLE_NAME = " caughtThrowable".toCharArray(); //$NON-NLS-1$;
     static final char[] SECRET_RETURN_VALUE_NAME = " returnValue".toCharArray(); //$NON-NLS-1$
 
-    private static LocalDeclaration [] NO_RESOURCES = new LocalDeclaration[0];
+    private static LocalDeclaration[] NO_RESOURCES = new LocalDeclaration[0];
     public LocalDeclaration[] resources = NO_RESOURCES;
 
     public Block tryBlock;
@@ -75,10 +75,10 @@ public class TryStatement extends SubRoutineStatement {
     private int[] reusableJSRStateIndexes;
     private int reusableJSRTargetsCount = 0;
 
-    private static final int NO_FINALLY = 0;										// no finally block
-    private static final int FINALLY_SUBROUTINE = 1; 					// finally is generated as a subroutine (using jsr/ret bytecodes)
-    private static final int FINALLY_DOES_NOT_COMPLETE = 2;		// non returning finally is optimized with only one instance of finally block
-    private static final int FINALLY_INLINE = 3;								// finally block must be inlined since cannot use jsr/ret bytecodes >1.5
+    private static final int NO_FINALLY = 0;                                        // no finally block
+    private static final int FINALLY_SUBROUTINE = 1;                    // finally is generated as a subroutine (using jsr/ret bytecodes)
+    private static final int FINALLY_DOES_NOT_COMPLETE = 2;        // non returning finally is optimized with only one instance of finally block
+    private static final int FINALLY_INLINE = 3;                                // finally block must be inlined since cannot use jsr/ret bytecodes >1.5
 
     // for local variables table attributes
     int mergedInitStateIndex = -1;
@@ -218,7 +218,7 @@ public class TryStatement extends SubRoutineStatement {
             if (flowContext instanceof FinallyFlowContext) {
                 // if this TryStatement sits inside another TryStatement, establish the wiring so that
                 // FlowContext.markFinallyNullStatus can report into initsOnFinally of the outer try context:
-                insideSubContext.outerTryContext = ((FinallyFlowContext)flowContext).tryContext;
+                insideSubContext.outerTryContext = ((FinallyFlowContext) flowContext).tryContext;
             }
 
             // process the try block in a context handling the local exceptions.
@@ -346,13 +346,14 @@ public class TryStatement extends SubRoutineStatement {
             }
         }
     }
+
     private MethodBinding findCloseMethod(final LocalDeclaration resource, LocalVariableBinding resourceBinding) {
         MethodBinding closeMethod = null;
         TypeBinding type = resourceBinding.type;
         if (type != null && type.isValidBinding()) {
             ReferenceBinding binding = (ReferenceBinding) type;
-            closeMethod = binding.getExactMethod(ConstantPool.Close, new TypeBinding [0], this.scope.compilationUnitScope()); // scope needs to be tighter
-            if(closeMethod == null) {
+            closeMethod = binding.getExactMethod(ConstantPool.Close, new TypeBinding[0], this.scope.compilationUnitScope()); // scope needs to be tighter
+            if (closeMethod == null) {
                 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=380112
                 // closeMethod could be null if the binding is from an interface
                 // extending from multiple interfaces.
@@ -362,6 +363,7 @@ public class TryStatement extends SubRoutineStatement {
         }
         return closeMethod;
     }
+
     private FlowInfo prepareCatchInfo(FlowInfo flowInfo, ExceptionHandlingFlowContext handlingContext, FlowInfo tryInfo, int i) {
         FlowInfo catchInfo;
         if (isUncheckedCatchBlock(i)) {
@@ -389,7 +391,7 @@ public class TryStatement extends SubRoutineStatement {
         LocalVariableBinding catchArg = this.catchArguments[i].binding;
         catchInfo.markAsDefinitelyAssigned(catchArg);
         catchInfo.markAsDefinitelyNonNull(catchArg);
-	/*
+    /*
 	"If we are about to consider an unchecked exception handler, potential inits may have occured inside
 	the try block that need to be detected , e.g.
 	try { x = 1; throwSomething();} catch(Exception e){ x = 2} "
@@ -401,6 +403,7 @@ public class TryStatement extends SubRoutineStatement {
         }
         return catchInfo;
     }
+
     // Return true if the catch block corresponds to an unchecked exception making allowance for multi-catch blocks.
     private boolean isUncheckedCatchBlock(int catchBlock) {
         if (this.caughtExceptionsCatchBlocks == null) {
@@ -451,9 +454,10 @@ public class TryStatement extends SubRoutineStatement {
             return FINALLY_SUBROUTINE;
         }
     }
+
     /**
      * Try statement code generation with or without jsr bytecode use
-     *	post 1.5 target level, cannot use jsr bytecode, must instead inline finally block
+     * post 1.5 target level, cannot use jsr bytecode, must instead inline finally block
      * returnAddress is only allocated if jsr is allowed
      */
     public void generateCode(BlockScope currentScope, CodeStream codeStream) {
@@ -525,7 +529,7 @@ public class TryStatement extends SubRoutineStatement {
                     BranchLabel exitLabel = new BranchLabel(codeStream);
                     this.resourceExceptionLabels[i].placeEnd(); // outer handler if any is the one that should catch exceptions out of close()
 
-                    LocalVariableBinding localVariable = i > 0 ? this.resources[i-1].binding : null;
+                    LocalVariableBinding localVariable = i > 0 ? this.resources[i - 1].binding : null;
                     if ((this.bits & ASTNode.IsTryBlockExiting) == 0) {
                         // inline resource closure
                         if (i > 0) {
@@ -615,9 +619,9 @@ public class TryStatement extends SubRoutineStatement {
             }
             if ((this.bits & ASTNode.IsTryBlockExiting) == 0) {
                 int position = codeStream.position;
-                switch(finallyMode) {
-                    case FINALLY_SUBROUTINE :
-                    case FINALLY_INLINE :
+                switch (finallyMode) {
+                    case FINALLY_SUBROUTINE:
+                    case FINALLY_INLINE:
                         requiresNaturalExit = true;
                         if (this.naturalExitMergeInitStateIndex != -1) {
                             codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.naturalExitMergeInitStateIndex);
@@ -625,14 +629,14 @@ public class TryStatement extends SubRoutineStatement {
                         }
                         codeStream.goto_(naturalExitLabel);
                         break;
-                    case NO_FINALLY :
+                    case NO_FINALLY:
                         if (this.naturalExitMergeInitStateIndex != -1) {
                             codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.naturalExitMergeInitStateIndex);
                             codeStream.addDefinitelyAssignedVariables(currentScope, this.naturalExitMergeInitStateIndex);
                         }
                         codeStream.goto_(naturalExitLabel);
                         break;
-                    case FINALLY_DOES_NOT_COMPLETE :
+                    case FINALLY_DOES_NOT_COMPLETE:
                         codeStream.goto_(this.subRoutineStartLabel);
                         break;
                 }
@@ -678,8 +682,8 @@ public class TryStatement extends SubRoutineStatement {
                     this.catchBlocks[i].generateCode(this.scope, codeStream);
                     exitAnyExceptionHandler();
                     if (!this.catchExits[i]) {
-                        switch(finallyMode) {
-                            case FINALLY_INLINE :
+                        switch (finallyMode) {
+                            case FINALLY_INLINE:
                                 // inlined finally here can see all merged variables
                                 if (isStackMapFrameCodeStream) {
                                     ((StackMapFrameCodeStream) codeStream).pushStateIndex(this.naturalExitMergeInitStateIndex);
@@ -695,17 +699,17 @@ public class TryStatement extends SubRoutineStatement {
                                     ((StackMapFrameCodeStream) codeStream).popStateIndex();
                                 }
                                 break;
-                            case FINALLY_SUBROUTINE :
+                            case FINALLY_SUBROUTINE:
                                 requiresNaturalExit = true;
                                 //$FALL-THROUGH$
-                            case NO_FINALLY :
+                            case NO_FINALLY:
                                 if (this.naturalExitMergeInitStateIndex != -1) {
                                     codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.naturalExitMergeInitStateIndex);
                                     codeStream.addDefinitelyAssignedVariables(currentScope, this.naturalExitMergeInitStateIndex);
                                 }
                                 codeStream.goto_(naturalExitLabel);
                                 break;
-                            case FINALLY_DOES_NOT_COMPLETE :
+                            case FINALLY_DOES_NOT_COMPLETE:
                                 codeStream.goto_(this.subRoutineStartLabel);
                                 break;
                         }
@@ -730,8 +734,8 @@ public class TryStatement extends SubRoutineStatement {
                 placeAllAnyExceptionHandler();
                 if (naturalExitExceptionHandler != null) naturalExitExceptionHandler.place();
 
-                switch(finallyMode) {
-                    case FINALLY_SUBROUTINE :
+                switch (finallyMode) {
+                    case FINALLY_SUBROUTINE:
                         // any exception handler
                         codeStream.store(this.anyExceptionVariable, false);
                         codeStream.jsr(this.subRoutineStartLabel);
@@ -753,7 +757,7 @@ public class TryStatement extends SubRoutineStatement {
                                 this.finallyBlock.sourceEnd);
                         // the ret bytecode is part of the subroutine
                         break;
-                    case FINALLY_INLINE :
+                    case FINALLY_INLINE:
                         // any exception handler
                         codeStream.store(this.anyExceptionVariable, false);
                         codeStream.addVariable(this.anyExceptionVariable);
@@ -769,7 +773,7 @@ public class TryStatement extends SubRoutineStatement {
                         this.subRoutineStartLabel.place();
                         codeStream.recordPositionsFrom(position, this.finallyBlock.sourceEnd);
                         break;
-                    case FINALLY_DOES_NOT_COMPLETE :
+                    case FINALLY_DOES_NOT_COMPLETE:
                         // any exception handler
                         codeStream.pop();
                         this.subRoutineStartLabel.place();
@@ -781,8 +785,8 @@ public class TryStatement extends SubRoutineStatement {
 
                 // will naturally fall into subsequent code after subroutine invocation
                 if (requiresNaturalExit) {
-                    switch(finallyMode) {
-                        case FINALLY_SUBROUTINE :
+                    switch (finallyMode) {
+                        case FINALLY_SUBROUTINE:
                             naturalExitLabel.place();
                             int position = codeStream.position;
                             naturalExitExceptionHandler.placeStart();
@@ -792,7 +796,7 @@ public class TryStatement extends SubRoutineStatement {
                                     position,
                                     this.finallyBlock.sourceEnd);
                             break;
-                        case FINALLY_INLINE :
+                        case FINALLY_INLINE:
                             // inlined finally here can see all merged variables
                             if (isStackMapFrameCodeStream) {
                                 ((StackMapFrameCodeStream) codeStream).pushStateIndex(this.naturalExitMergeInitStateIndex);
@@ -816,9 +820,9 @@ public class TryStatement extends SubRoutineStatement {
                                 ((StackMapFrameCodeStream) codeStream).popStateIndex();
                             }
                             break;
-                        case FINALLY_DOES_NOT_COMPLETE :
+                        case FINALLY_DOES_NOT_COMPLETE:
                             break;
-                        default :
+                        default:
                             naturalExitLabel.place();
                             break;
                     }
@@ -854,7 +858,7 @@ public class TryStatement extends SubRoutineStatement {
             for (int i = resourceCount; i > 0; --i) {
                 // Disarm the handlers and take care of resource closure.
                 this.resourceExceptionLabels[i].placeEnd();
-                LocalVariableBinding localVariable = this.resources[i-1].binding;
+                LocalVariableBinding localVariable = this.resources[i - 1].binding;
                 BranchLabel exitLabel = new BranchLabel(codeStream);
                 int invokeCloseStartPc = codeStream.position; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=343785
                 codeStream.load(localVariable);
@@ -872,12 +876,12 @@ public class TryStatement extends SubRoutineStatement {
 
         boolean isStackMapFrameCodeStream = codeStream instanceof StackMapFrameCodeStream;
         int finallyMode = finallyMode();
-        switch(finallyMode) {
-            case FINALLY_DOES_NOT_COMPLETE :
+        switch (finallyMode) {
+            case FINALLY_DOES_NOT_COMPLETE:
                 codeStream.goto_(this.subRoutineStartLabel);
                 return true;
 
-            case NO_FINALLY :
+            case NO_FINALLY:
                 exitDeclaredExceptionHandlers(codeStream);
                 return false;
         }
@@ -886,14 +890,16 @@ public class TryStatement extends SubRoutineStatement {
         if (options.shareCommonFinallyBlocks && targetLocation != null) {
             boolean reuseTargetLocation = true;
             if (this.reusableJSRTargetsCount > 0) {
-                nextReusableTarget: for (int i = 0, count = this.reusableJSRTargetsCount; i < count; i++) {
+                nextReusableTarget:
+                for (int i = 0, count = this.reusableJSRTargetsCount; i < count; i++) {
                     Object reusableJSRTarget = this.reusableJSRTargets[i];
-                    differentTarget: {
+                    differentTarget:
+                    {
                         if (targetLocation == reusableJSRTarget)
                             break differentTarget;
                         if (targetLocation instanceof Constant
                                 && reusableJSRTarget instanceof Constant
-                                && ((Constant)targetLocation).hasSameValue((Constant) reusableJSRTarget)) {
+                                && ((Constant) targetLocation).hasSameValue((Constant) reusableJSRTarget)) {
                             break differentTarget;
                         }
                         // cannot reuse current target
@@ -915,9 +921,9 @@ public class TryStatement extends SubRoutineStatement {
             }
             if (reuseTargetLocation) {
                 if (this.reusableJSRTargetsCount == this.reusableJSRTargets.length) {
-                    System.arraycopy(this.reusableJSRTargets, 0, this.reusableJSRTargets = new Object[2*this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
-                    System.arraycopy(this.reusableJSRSequenceStartLabels, 0, this.reusableJSRSequenceStartLabels = new BranchLabel[2*this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
-                    System.arraycopy(this.reusableJSRStateIndexes, 0, this.reusableJSRStateIndexes = new int[2*this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
+                    System.arraycopy(this.reusableJSRTargets, 0, this.reusableJSRTargets = new Object[2 * this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
+                    System.arraycopy(this.reusableJSRSequenceStartLabels, 0, this.reusableJSRSequenceStartLabels = new BranchLabel[2 * this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
+                    System.arraycopy(this.reusableJSRStateIndexes, 0, this.reusableJSRStateIndexes = new int[2 * this.reusableJSRTargetsCount], 0, this.reusableJSRTargetsCount);
                 }
                 this.reusableJSRTargets[this.reusableJSRTargetsCount] = targetLocation;
                 BranchLabel reusableJSRSequenceStartLabel = new BranchLabel(codeStream);
@@ -946,6 +952,7 @@ public class TryStatement extends SubRoutineStatement {
         }
         return false;
     }
+
     public boolean isSubRoutineEscaping() {
         return (this.bits & ASTNode.IsSubRoutineEscaping) != 0;
     }
@@ -1048,7 +1055,7 @@ public class TryStatement extends SubRoutineStatement {
                 if (!methodScope.isInsideInitializer()) {
                     MethodBinding methodBinding = methodScope.referenceContext instanceof AbstractMethodDeclaration ?
                             ((AbstractMethodDeclaration) methodScope.referenceContext).binding : (methodScope.referenceContext instanceof LambdaExpression ?
-                            ((LambdaExpression)methodScope.referenceContext).binding : null);
+                            ((LambdaExpression) methodScope.referenceContext).binding : null);
                     if (methodBinding != null) {
                         TypeBinding methodReturnType = methodBinding.returnType;
                         if (methodReturnType.id != TypeIds.T_void) {
@@ -1080,8 +1087,8 @@ public class TryStatement extends SubRoutineStatement {
             boolean catchHasError = false;
             for (int i = 0; i < length; i++) {
                 BlockScope catchScope = new BlockScope(this.scope);
-                if (finallyScope != null){
-                    finallyScope.shiftScopes[i+1] = catchScope;
+                if (finallyScope != null) {
+                    finallyScope.shiftScopes[i + 1] = catchScope;
                 }
                 // side effect on catchScope in resolveForCatch(..)
                 Argument catchArgument = this.catchArguments[i];
@@ -1101,13 +1108,14 @@ public class TryStatement extends SubRoutineStatement {
             this.caughtExceptionTypes = new ReferenceBinding[0];
         }
 
-        if (finallyScope != null){
+        if (finallyScope != null) {
             // add finallyScope as last subscope, so it can be shifted behind try/catch subscopes.
             // the shifting is necessary to achieve no overlay in between the finally scope and its
             // sibling in term of local variable positions.
             this.scope.addSubscope(finallyScope);
         }
     }
+
     public void traverse(ASTVisitor visitor, BlockScope blockScope) {
         if (visitor.visit(this, blockScope)) {
             LocalDeclaration[] localDeclarations = this.resources;
@@ -1126,6 +1134,7 @@ public class TryStatement extends SubRoutineStatement {
         }
         visitor.endVisit(this, blockScope);
     }
+
     protected void verifyDuplicationAndOrder(int length, TypeBinding[] argumentTypes, boolean containsUnionTypes) {
         // Verify that the catch clause are ordered in the right way:
         // more specialized first.
@@ -1147,16 +1156,17 @@ public class TryStatement extends SubRoutineStatement {
                     totalCount += typeReferencesLength;
                     allExceptionTypes[i] = unionExceptionTypes;
                 } else {
-                    allExceptionTypes[i] = new ReferenceBinding[] { currentExceptionType };
+                    allExceptionTypes[i] = new ReferenceBinding[]{currentExceptionType};
                     totalCount++;
                 }
             }
             this.caughtExceptionTypes = new ReferenceBinding[totalCount];
-            this.caughtExceptionsCatchBlocks  = new int[totalCount];
+            this.caughtExceptionsCatchBlocks = new int[totalCount];
             for (int i = 0, l = 0; i < length; i++) {
                 ReferenceBinding[] currentExceptions = allExceptionTypes[i];
                 if (currentExceptions == null) continue;
-                loop: for (int j = 0, max = currentExceptions.length; j < max; j++) {
+                loop:
+                for (int j = 0, max = currentExceptions.length; j < max; j++) {
                     ReferenceBinding exception = currentExceptions[j];
                     this.caughtExceptionTypes[l] = exception;
                     this.caughtExceptionsCatchBlocks[l++] = i;
@@ -1198,6 +1208,7 @@ public class TryStatement extends SubRoutineStatement {
             }
         }
     }
+
     @Override
     public boolean doesNotCompleteNormally() {
         if (!this.tryBlock.doesNotCompleteNormally()) {
@@ -1212,6 +1223,7 @@ public class TryStatement extends SubRoutineStatement {
         }
         return true;
     }
+
     @Override
     public boolean completesByContinue() {
         if (this.tryBlock.completesByContinue()) {
