@@ -564,6 +564,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
             }
 
             //make local types available for redirector fields to resolve
+
             LocalTypeBinding[] localTypes = scope.compilationUnitScope().referenceContext.localTypes;
             if (localTypes != null) {
                 Arrays.stream(localTypes).
@@ -1347,6 +1348,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                 }
             }
             blockScope.addLocalType(this);
+//            this.staticInitializerScope.addLocalType(this);//TODO experiment
         }
 
         if (this.binding != null) {

@@ -440,6 +440,55 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
         assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideInnerClassCallingItself() throws Exception {
+
+        String[] task = {
+                "X.java",
+                        "public class X {\n" +
+                        "	void fn() {" +
+                        "     class Inner {" +
+                        "	    void innerCallee() {}" +
+                        "	    void innerCaller() {" +
+                        "	      innerCallee();" +
+                        "       }" +
+                        "     }" +
+                        "   }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import X.1Inner;\n" +
+                "import helpers.Consumer1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Consumer1<CallContext<1Inner>> $$Inner$innerCallee = (var0) -> {\n" +
+                "      ((1Inner)var0.calledClassInstance).innerCallee();\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "import testablejava.CallContext;\n" +
+                "\n" +
+                "class X$1Inner {\n" +
+                "   X$1Inner(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   void innerCallee() {\n" +
+                "   }\n" +
+                "\n" +
+                "   void innerCaller() {\n" +
+                "      X.$$Inner$innerCallee.accept(new CallContext(\"Inner\", \"Inner\", this, this));\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1Inner").stream().collect(joining("\n")));
+    }
 
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorCallbackFromNamedInnerClass() throws Exception {
@@ -4013,7 +4062,157 @@ public class TestabilityTest extends BaseTest {
         assertEquals("Y$Z", ret.getClass().getName());
     }
     @Test
-    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_InnerClassArg_TowFields() throws Exception {
+    public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClass() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class Z { " +
+                        "   };\n" +
+                        "   Z fn(){return new Z();};\n" +
+                        "   Z fnExample(){dontredirect: return this.new Z();};\n" +
+                        "}\n",
+
+        };
+        String expectedOutputY = "import Y.Z;\n" +
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Function1<CallContext<Z>, Z> $$Z$new = (var0) -> {\n" +
+                "      Y var10002 = (Y)var0.callingClassInstance;\n" +
+                "      ((Y)var0.callingClassInstance).getClass();\n" + //this is artifact of decompile, see same in fnExample
+                "      return new Z(var10002);\n" + //this is what var0.callingClassInstance.new Z() translates into normally
+                "   };\n" +
+                "\n" +
+                "   Z fn() {\n" +
+                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null));\n" +
+                "   }\n" +
+                "\n" +
+                "   Z fnExample() {\n" +
+                "      this.getClass();\n" +
+                "      return new Z(this);\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorForStaticMemberClass() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   static class Z { " +
+                        "   };\n" +
+                        "   Z fn(){return new Z();};\n" +
+                        "   Z fnExample(){dontredirect: return new Z();};\n" + //from dynamic context new Y().new Z() is illegal
+                        "}\n",
+
+        };
+        String expectedOutputY = "import Y.Z;\n" +
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Function1<CallContext<Z>, Z> $$Z$new = (var0) -> {\n" +
+                "      return new Z();\n" +
+                "   };\n" +
+                "\n" +
+                "   Z fn() {\n" +
+                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null));\n" +
+                "   }\n" +
+                "\n" +
+                "   Z fnExample() {\n" +
+                "      return new Z();\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
+//TODO reenable
+//    @Test
+//    public void testTestabilityInjectFunctionField_ForNewOperatorForInnerClass() throws Exception {
+//
+//
+//
+//        String[] task = {
+//                "Y.java",
+//                "public class Y {\n" +
+//                        "   void fn(){" +
+//                        "     class Z { " +
+//                        "     };\n" +
+//                        "     new Z();" +
+//                        "   };\n" +
+//                        "}\n",
+//
+//        };
+//        String expectedOutputY = "import Y.Z;\n" +
+//                "import helpers.Function1;\n" +
+//                "import testablejava.CallContext;\n" +
+//                "\n" +
+//                "public class Y {\n" +
+//                "   public static Function1<CallContext<Z>, Z> $$Z$new = (var0) -> {\n" +
+//                "      return new Z();\n" +
+//                "   };\n" +
+//                "\n" +
+//                "   Z fn() {\n" +
+//                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null));\n" +
+//                "   }\n" +
+//                "\n" +
+//                "   Z fnExample() {\n" +
+//                "      return new Z();\n" +
+//                "   }\n" +
+//                "}";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_NONE);// INSERT_REDIRECTORS_ONLY);
+//
+//        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+//    }
+//
+//    @Test
+//    public void testTestabilityInjectFunctionField_ForNewOperatorForFinalInnerClass() throws Exception {
+//
+//        String[] task = {
+//                "Y.java",
+//                "public class Y {\n" +
+//                        "   void fn(){" +
+//                        "     final class Z { " +
+//                        "     };\n" +
+//                        "     new Z();" +
+//                        "   };\n" +
+//                        "}\n",
+//
+//        };
+//        String expectedOutputY = "import Y.Z;\n" +
+//                "import helpers.Function1;\n" +
+//                "import testablejava.CallContext;\n" +
+//                "\n" +
+//                "public class Y {\n" +
+//                "   public static Function1<CallContext<Z>, Z> $$Z$new = (var0) -> {\n" +
+//                "      return new Z();\n" +
+//                "   };\n" +
+//                "\n" +
+//                "   Z fn() {\n" +
+//                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null));\n" +
+//                "   }\n" +
+//                "\n" +
+//                "   Z fnExample() {\n" +
+//                "      return new Z();\n" +
+//                "   }\n" +
+//                "}";
+//
+//        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+//
+//        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+//    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_InnerClassArg_TwoFields() throws Exception {
         //must generate two separate fields on Y, one with container1.new Z(), another with container2.new Z()
         String[] task = {
                 "Y.java",

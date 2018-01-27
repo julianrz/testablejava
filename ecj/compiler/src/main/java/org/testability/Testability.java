@@ -1775,7 +1775,11 @@ public class Testability {
 
         AllocationExpression messageSendInLambdaBody;
 
-        if (originalMessageSend.resolvedType instanceof MemberTypeBinding){ //enclosing class instance not available, explicit call via arg0.callingClassInstance
+        if ((originalMessageSend.resolvedType.isMemberType() && !originalMessageSend.resolvedType.isStatic()) ||
+                originalMessageSend.resolvedType.isLocalType()){
+            //explicit arg0.callingClassInstance.new MemberType()
+            //note: except for member types tagged 'static'
+
             QualifiedAllocationExpression inLambdaBodyQualifiedAllocationExpression =
                     new QualifiedAllocationExpression();
 
@@ -2100,7 +2104,7 @@ public class Testability {
 
                 char[][] compoundName = binaryTypeBinding.compoundName!=null?
                         expandInternalName(removeLocalPrefix(binaryTypeBinding.compoundName)) :
-                        new char[][]{binaryTypeBinding.sourceName}
+                        new char[][]{binaryTypeBinding.sourceName()}
                         ;
                 if (binaryTypeBinding.compoundName == null && !(binaryTypeBinding instanceof TypeVariableBinding))
                     Testability.testabilityInstrumentationWarning(null,"binding has null compound name: " + binaryTypeBinding.getClass().getName());
@@ -2317,19 +2321,29 @@ public class Testability {
             String invokedClassName;
 
             //note: ThisReference in case of statically imported class (and static call) is a confusing case,
-            // for which we will use declaringClass
-            ReferenceBinding receiverReferenceBinding;
+            // for which we will use actualReceiverType
+            ReferenceBinding receiverReferenceBinding = null;
+
             if (receiverBinding instanceof ReferenceBinding &&
                     !(originalMessageSend.receiver instanceof ThisReference)) {
                 receiverReferenceBinding = (ReferenceBinding) receiverBinding;
-            } else if (originalMessageSend.actualReceiverType instanceof ReferenceBinding){
-                LookupEnvironment environment = ((MessageSend) originalCall).actualReceiverType.getPackage().environment;
-                char[][] compoundName = removeLocalPrefix(((ReferenceBinding) originalMessageSend.actualReceiverType).compoundName);
-                receiverReferenceBinding = //binding.declaringClass; //TODO problem
-                        environment.getType(compoundName);
             } else {
-                receiverReferenceBinding = binding.declaringClass; //TODO problem, instead of actual this type, is this reachable
+                if (originalMessageSend.actualReceiverType instanceof ReferenceBinding){
+
+                    if (originalMessageSend.actualReceiverType instanceof LocalTypeBinding) {
+                        LocalTypeBinding actualReceiverTypeLocal = (LocalTypeBinding) originalMessageSend.actualReceiverType;
+
+                        receiverReferenceBinding = actualReceiverTypeLocal.scope.referenceType().binding;
+                    } else {
+                        LookupEnvironment environment = ((MessageSend) originalCall).actualReceiverType.getPackage().environment;
+                        char[][] compoundName = removeLocalPrefix(((ReferenceBinding) originalMessageSend.actualReceiverType).compoundName);
+                        receiverReferenceBinding = //binding.declaringClass; //TODO problem
+                                environment.getType(compoundName);
+                    }
+                }
             }
+            if (receiverReferenceBinding == null)
+                receiverReferenceBinding = binding.declaringClass;//TODO problem, instead of actual this type, is this reachable
 
             if (receiverReferenceBinding.isAnonymousType()){
                 receiverReferenceBinding = ((LocalTypeBinding) receiverReferenceBinding).superclass;
@@ -2421,10 +2435,10 @@ public class Testability {
         StringBuffer nameBuffer = new StringBuffer(10);
 
         if (shortClassName)
-            nameBuffer.append(binding.sourceName);
+            nameBuffer.append(binding.sourceName());
         else {
             if (binding.isMemberType()) {
-                nameBuffer.append(CharOperation.concat(binding.enclosingType().readableName(), binding.sourceName, '.'));
+                nameBuffer.append(CharOperation.concat(binding.enclosingType().readableName(), binding.sourceName(), '.'));
             } else {
                 char[][] compoundName;
                 if (binding instanceof ParameterizedTypeBinding) {
