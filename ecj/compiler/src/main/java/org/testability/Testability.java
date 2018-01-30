@@ -2098,8 +2098,10 @@ public class Testability {
             if (typeBinding instanceof ReferenceBinding) {
                 ReferenceBinding binaryTypeBinding = (ReferenceBinding) typeBinding;
                 if (typeBinding instanceof WildcardBinding) {
-                    Wildcard wildcard = new Wildcard(((WildcardBinding) typeBinding).boundKind);
-                    wildcard.bound = typeReferenceFromTypeBinding(((WildcardBinding) typeBinding).bound);
+                    WildcardBinding wildcardBinding = (WildcardBinding) typeBinding;
+                    Wildcard wildcard = new Wildcard(wildcardBinding.boundKind);
+                    if (wildcardBinding.bound != null)
+                        wildcard.bound = typeReferenceFromTypeBinding(wildcardBinding.bound);
                     return wildcard;
                 }
 
