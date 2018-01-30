@@ -1619,6 +1619,11 @@ public class Testability {
             return null;
         }
 
+        if (typeDeclarationContainingCall.binding.isEnum()) {
+            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect inside enum: " + new String(typeDeclarationContainingCall.name));
+            return null;
+        }
+
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
 

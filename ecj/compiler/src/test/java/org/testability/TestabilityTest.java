@@ -4564,5 +4564,29 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         invokeCompiledMethod("X", "fn");
     }
+    @Test
+    public void testTestabilityInjectFunctionField_InsideEnum() throws Exception {
+
+        String[] task = {
+                "X.java",
+                        "public class X {\n" +
+                        "        enum Stage {\n" +
+                        "         OuterLess,\n" +
+                        "         InnerOfProcessed,\n" +
+                        "         InnerOfNotEnclosing,\n" +
+                        "         AtExit\n" +
+                        "    }" +
+                        "    private Stage stage = Stage.OuterLess;" +
+                        "}"
+        };
+        String expectedOutput =
+                "";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+
+
 
  }
