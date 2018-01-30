@@ -4580,7 +4580,15 @@ public class TestabilityTest extends BaseTest {
                         "}"
         };
         String expectedOutput =
-                "";
+                "import X.Stage;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   private Stage stage;\n" +
+                        "\n" +
+                        "   public X() {\n" +
+                        "      this.stage = Stage.OuterLess;\n" +
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
