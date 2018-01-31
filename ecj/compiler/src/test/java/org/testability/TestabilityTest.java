@@ -849,11 +849,11 @@ public class TestabilityTest extends BaseTest {
                 "import helpers.Function3;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Function3<CallContext<Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
-                "      return Integer.getInteger(var1, var2);\n" +
-                "   };\n" +
                 "   public static Function2<CallContext<Integer>, Integer, Integer> $$Integer$valueOf$$I = (var0, var1) -> {\n" +
                 "      return Integer.valueOf(var1.intValue());\n" +
+                "   };\n" +
+                "   public static Function3<CallContext<Integer>, String, Integer, Integer> $$Integer$getInteger$$String$Integer = (var0, var1, var2) -> {\n" +
+                "      return Integer.getInteger(var1, var2);\n" +
                 "   };\n\n" +
                 "   void fn() {\n" +
                 "      $$Integer$getInteger$$String$Integer.apply("+
@@ -1075,13 +1075,19 @@ public class TestabilityTest extends BaseTest {
                 "import java.util.List;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
+                "   public static Function1<CallContext<ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
+                "      return new ArrayList();\n" +
+                "   };\n" +
                 "   public static Function2<CallContext<ArrayList<Integer>>, List<Integer>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new$$List = (var0, var1) -> {\n" +
                 "      return new ArrayList(var1);\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
+                "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
+                "   };\n" +
+                "   public static Function2<CallContext<List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<List<Integer>>, List<Integer>, Boolean> $$java$util$List_java$lang$Integer_$addAll$$List = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
                 "   };\n" +
                 "   public static Function2<CallContext<ArrayList<String>>, List<String>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new$$List = (var0, var1) -> {\n" +
@@ -1090,15 +1096,10 @@ public class TestabilityTest extends BaseTest {
                 "   public static Function1<CallContext<ArrayList<String>>, ArrayList<String>> $$java$util$ArrayList_java$lang$String_$new = (var0) -> {\n" +
                 "      return new ArrayList();\n" +
                 "   };\n" +
-                "   public static Function2<CallContext<List<String>>, List<String>, Boolean> $$java$util$List_java$lang$String_$addAll$$List = (var0, var1) -> {\n" +
-                "      return Boolean.valueOf(((List)var0.calledClassInstance).addAll(var1));\n" +
-                "   };\n" +
-                "   public static Function1<CallContext<ArrayList<Integer>>, ArrayList<Integer>> $$java$util$ArrayList_java$lang$Integer_$new = (var0) -> {\n" +
-                "      return new ArrayList();\n" +
-                "   };\n" +
-                "   public static Function2<CallContext<List<String>>, String, Boolean> $$java$util$List_java$lang$String_$add$$String = (var0, var1) -> {\n" +
+                "   public static Function2<CallContext<List<Integer>>, Integer, Boolean> $$java$util$List_java$lang$Integer_$add$$I = (var0, var1) -> {\n" +
                 "      return Boolean.valueOf(((List)var0.calledClassInstance).add(var1));\n" +
                 "   };\n" +
+
                 "\n" +
                 "   void fn() {\n" +
                 "      ArrayList var1 = (ArrayList)$$java$util$ArrayList_java$lang$String_$new.apply(new CallContext(\"X\", \"java.util.ArrayList<java.lang.String>\", this, (Object)null));\n" +
@@ -1170,6 +1171,7 @@ public class TestabilityTest extends BaseTest {
     public void testHasUniqueMatrix() throws Exception {
 //TODO move to Util test
         String[][][][] inputShortLongExpectedCombos = {
+
                 {//short descr in col1,2 is unique, col1,2,3
                         {
                                 {"y","$fn"},
@@ -1872,27 +1874,27 @@ public class TestabilityTest extends BaseTest {
                 "}\n"
         };
         String expectedOutput =
-                "import b.Y;\n" +
+                "import a.Y;\n" +
                 "import helpers.Consumer1;\n" +
                 "import helpers.Function1;\n" +
                 "import testablejava.CallContext;\n\n" +
                 "public class X {\n" +
-                "   public static Consumer1<CallContext<Y>> $$b$Y$fn = (var0) -> {\n" +
-                "      ((Y)var0.calledClassInstance).fn();\n" +
-                "   };\n" +
-                "   public static Consumer1<CallContext<a.Y>> $$a$Y$fn = (var0) -> {\n" +
-                "      ((a.Y)var0.calledClassInstance).fn();\n" +
-                "   };\n" +
-                "   public static Function1<CallContext<Y>, Y> $$b$Y$new = (var0) -> {\n" +
+                "   public static Function1<CallContext<Y>, Y> $$a$Y$new = (var0) -> {\n" +
                 "      return new Y();\n" +
                 "   };\n" +
-                "   public static Function1<CallContext<a.Y>, a.Y> $$a$Y$new = (var0) -> {\n" +
-                "      return new a.Y();\n" +
+                "   public static Consumer1<CallContext<b.Y>> $$b$Y$fn = (var0) -> {\n" +
+                "      ((b.Y)var0.calledClassInstance).fn();\n" +
+                "   };\n" +
+                "   public static Function1<CallContext<b.Y>, b.Y> $$b$Y$new = (var0) -> {\n" +
+                "      return new b.Y();\n" +
+                "   };\n" +
+                "   public static Consumer1<CallContext<Y>> $$a$Y$fn = (var0) -> {\n" +
+                "      ((Y)var0.calledClassInstance).fn();\n" +
                 "   };\n" +
                 "\n" +
                 "   void fn() throws Exception {\n" +
-                "      a.Y var1 = (a.Y)$$a$Y$new.apply(new CallContext(\"X\", \"a.Y\", this, (Object)null));\n" +
-                "      Y var2 = (Y)$$b$Y$new.apply(new CallContext(\"X\", \"b.Y\", this, (Object)null));\n" +
+                "      Y var1 = (Y)$$a$Y$new.apply(new CallContext(\"X\", \"a.Y\", this, (Object)null));\n" +
+                "      b.Y var2 = (b.Y)$$b$Y$new.apply(new CallContext(\"X\", \"b.Y\", this, (Object)null));\n" +
                 "      $$a$Y$fn.accept(new CallContext(\"X\", \"a.Y\", this, var1));\n" +
                 "      $$b$Y$fn.accept(new CallContext(\"X\", \"b.Y\", this, var2));\n" +
                 "   }\n" +

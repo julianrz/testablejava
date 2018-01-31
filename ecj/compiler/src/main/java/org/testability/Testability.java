@@ -2435,7 +2435,7 @@ public class Testability {
             throw new RuntimeException("domain error on argument, must be instance of Invocation");
 
         MethodBinding binding = ((Invocation) originalCall).binding();
-        return testabilityFieldName(originalCall, false) + new String(binding.signature());
+        return testabilityFieldName(originalCall, false).stream().collect(joining(""));// + new String(binding.signature());
     }
 
     static char [] readableName(ReferenceBinding binding, boolean shortClassName) { //see ReferenceBinding::readableName
