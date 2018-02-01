@@ -2155,11 +2155,16 @@ public class Testability {
 
                 if (typeBinding.isParameterizedType()) {
                     ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
-                    TypeReference[] typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
+                    TypeReference[] typeArguments;
+                    if (parameterizedTypeBinding.arguments == null)
+                        typeArguments = new TypeReference[0];
+                    else {
+                        typeArguments = new TypeReference[parameterizedTypeBinding.arguments.length];
 
-                    Arrays.stream(parameterizedTypeBinding.arguments).
-                            map(Testability::typeReferenceFromTypeBinding).
-                            collect(Collectors.toList()).toArray(typeArguments);
+                        Arrays.stream(parameterizedTypeBinding.arguments).
+                                map(Testability::typeReferenceFromTypeBinding).
+                                collect(Collectors.toList()).toArray(typeArguments);
+                    }
 
                     TypeReference[][] typeArgumentsCompound = new TypeReference[compoundName.length][];//{typeArguments};
                     typeArgumentsCompound[typeArgumentsCompound.length - 1] = typeArguments;
