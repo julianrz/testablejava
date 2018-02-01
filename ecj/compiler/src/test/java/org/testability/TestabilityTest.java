@@ -381,6 +381,48 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutputInner, moduleMap.get("X$1").stream().collect(joining("\n")));
 
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideMemberClassCallingItself() throws Exception {
+
+        String[] task = {
+                "X.java",
+                        "public class X {\n" +
+                        "   static class Member {\n" +
+                        "	  void fn() {" +
+                        "	     thisCall();" +
+                        "     }" +
+                        "	  static void thisCall() {}" +
+                        "   }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import X.Member;\n" +
+                "import helpers.Consumer1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Consumer1<CallContext<Member>> $$X$Member$thisCall = (var0) -> {\n" +
+                "      Member.thisCall();\n" +
+                "   };\n" +
+                "}";
+        String expectedOutputInner = "import testablejava.CallContext;\n" +
+                "\n" +
+                "class X$Member {\n" +
+                "   void fn() {\n" +
+                "      X.$$X$Member$thisCall.accept(new CallContext(\"X.Member\", \"X.Member\", this, (Object)null));\n" +
+                "   }\n" +
+                "\n" +
+                "   static void thisCall() {\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$Member").stream().collect(joining("\n")));
+    }
+
     @Test
     public void testTestabilityInjectFunctionField_RedirectInsideAnonymousInnerClass() throws Exception {
 

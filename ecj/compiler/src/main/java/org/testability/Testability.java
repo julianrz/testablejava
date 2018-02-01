@@ -277,9 +277,7 @@ public class Testability {
 
         Expression exprGetCalledClassInstance = messageSend.binding.isStatic()?
                 new CastExpression(new NullLiteral(0,0), calledTypeReference):
-                        (messageSend.receiver instanceof ThisReference && messageSend.receiver.resolvedType.id !=
-                        calledTypeBinding.id)?
-                        new QualifiedThisReference(calledTypeReference,0,0) : messageSend.receiver;
+                fixReceiverIfThisAndTypeMismatches(messageSend.receiver, calledTypeBinding, calledTypeReference);
 
         //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference poimnitng to inner class and MessageSend magically fixes this
         //in its actualReceiverType)
@@ -297,6 +295,39 @@ public class Testability {
 
         return allocationExpression;
     }
+
+    static Expression fixReceiverIfThisAndTypeMismatches(Expression receiver, TypeBinding calledTypeBinding, TypeReference calledTypeReference) {
+        return (receiver instanceof ThisReference && receiver.resolvedType.id != calledTypeBinding.id)?
+                new QualifiedThisReference(calledTypeReference,0,0) :
+                receiver;
+    }
+
+    /**
+     * a static call can be without explicit class name specification, if called class is current class
+     * in the original call receiver would be ThisReference, but this can only work where used, not when lifted into a field
+     * this code returns receiver in the form Class.call
+     * @param receiver
+     * @param calledTypeReference
+     * @return
+     */
+    static Expression fixReceiverIfUnmarkedStaticCall(Expression receiver, TypeReference calledTypeReference) {
+        return (receiver instanceof ThisReference)?
+                typeReferenceToNameReference(calledTypeReference, receiver) :
+                receiver;
+    }
+
+    static Expression typeReferenceToNameReference(TypeReference typeReference, Expression defaultValue) {
+        if (typeReference instanceof QualifiedTypeReference){
+            QualifiedTypeReference qualifiedTypeReference = (QualifiedTypeReference) typeReference;
+            return new QualifiedNameReference(qualifiedTypeReference.tokens, new long[qualifiedTypeReference.tokens.length], 0, 0);
+        }
+        if (typeReference instanceof SingleTypeReference){
+            SingleTypeReference singleTypeReference = (SingleTypeReference) typeReference;
+            return new SingleNameReference(singleTypeReference.token, 0);
+        }
+        return defaultValue;
+    }
+
     static AllocationExpression makeCallSiteExpression(AllocationExpression messageSend, BlockScope currentScope, TypeBinding calledTypeBinding) {
         LookupEnvironment lookupEnvironment = currentScope.environment();
 
@@ -1109,9 +1140,11 @@ public class Testability {
 
 //        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
 
-        typeArgumentsForFunction[iArg++] = bindingForCallContextType(
+        ParameterizedTypeBinding contextArgument = (ParameterizedTypeBinding) bindingForCallContextType(//TODO fix type of bindingForCallContextType
                 calledType, //this should be apparent compile type called
                 lookupEnvironment);
+
+        typeArgumentsForFunction[iArg++] = contextArgument;
 
         TypeBinding[] originalBindingParameters = originalMessageSend.binding.parameters;
 
@@ -1262,7 +1295,10 @@ public class Testability {
                     new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
 
             messageSendInLambdaBody.receiver = originalMessageSend.binding.isStatic()?
-                    originalMessageSend.receiver :
+                    fixReceiverIfUnmarkedStaticCall(
+                            originalMessageSend.receiver,
+                            typeReferenceFromTypeBinding(calledType)
+                            ) :
                     newReceiverDynamicCall;
         }
 
@@ -2344,7 +2380,7 @@ public class Testability {
                     } else {
                         LookupEnvironment environment = ((MessageSend) originalCall).actualReceiverType.getPackage().environment;
                         char[][] compoundName = removeLocalPrefix(((ReferenceBinding) originalMessageSend.actualReceiverType).compoundName);
-                        receiverReferenceBinding = //binding.declaringClass; //TODO problem
+                        receiverReferenceBinding = //binding.declaringClass;
                                 environment.getType(compoundName);
                     }
                 }
