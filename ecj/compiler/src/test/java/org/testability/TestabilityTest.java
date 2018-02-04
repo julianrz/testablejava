@@ -424,6 +424,71 @@ public class TestabilityTest extends BaseTest {
     }
 
     @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideConstructorCall() throws Exception {
+        //see https://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.8.7.1
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   X(String s){}" +
+                        "   X(){" +
+                        "     this(String.valueOf(0));" +
+                        "   }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import helpers.Function2;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function2<CallContext<String>, Integer, String> $$String$valueOf$$I = (var0, var1) -> {\n" +
+                "      return String.valueOf(var1);\n" +
+                "   };\n" +
+                "\n" +
+                "   X(String var1) {\n" +
+                "   }\n" +
+                "\n" +
+                "   X() {\n" +
+                "      this((String)$$String$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.String\", (Object)null, (Object)null), Integer.valueOf(0)));\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectInsideConstructor() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   X(){" +
+                        "     String.valueOf(0);" +
+                        "   }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import helpers.Function2;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function2<CallContext<String>, Integer, String> $$String$valueOf$$I = (var0, var1) -> {\n" +
+                "      return String.valueOf(var1);\n" +
+                "   };\n" +
+                "\n" +
+                "   X() {\n" +
+                "      $$String$valueOf$$I.apply(new CallContext(\"X\", \"java.lang.String\", this, (Object)null), Integer.valueOf(0));\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+
+    }
+
+    @Test
     public void testTestabilityInjectFunctionField_RedirectInsideAnonymousInnerClass() throws Exception {
 
         String[] task = {

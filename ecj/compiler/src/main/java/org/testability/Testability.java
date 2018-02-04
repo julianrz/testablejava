@@ -271,9 +271,10 @@ public class Testability {
 
         TypeReference calledTypeReference = typeReferenceFromTypeBinding(calledTypeBindingRaw);
 
-        Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
+        Expression exprGetCallingClassInstance = (currentScope.methodScope().isStatic || currentScope.methodScope().isConstructorCall) ?
                 new NullLiteral(0,0) :
                 new ThisReference(0, 0);//new QualifiedThisReference(callingTypeReference,0,0)
+        //note: cannot use 'this' inside call to another constructor
 
         Expression exprGetCalledClassInstance = messageSend.binding.isStatic()?
                 new CastExpression(new NullLiteral(0,0), calledTypeReference):
@@ -354,7 +355,7 @@ public class Testability {
 
         Expression exprGetCalledClass = new StringLiteral(removeLocalPrefix(calledTypeBindingForDescription.readableName()), 0,0,0);
 
-        Expression exprGetCallingClassInstance = currentScope.methodScope().isStatic?
+        Expression exprGetCallingClassInstance = (currentScope.methodScope().isStatic || currentScope.methodScope().isConstructorCall)?
                 new NullLiteral(0,0) :
                 new ThisReference(0,0);//new QualifiedThisReference(callingTypeReference,0,0);
 
@@ -663,6 +664,7 @@ public class Testability {
                                             map(SourceTypeBinding.class::cast).
                                             collect(toList()),
                                     lookupEnvironment);
+
                     Stream.concat(
                             localAndMemberTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
                             instantiatedTypeDeclarations.stream()).
@@ -2690,8 +2692,22 @@ public class Testability {
             LocalTypeBinding localTypeBinding = (LocalTypeBinding) typeBinding;
             QualifiedAllocationExpression allocation = localTypeBinding.scope.referenceContext.allocation.anonymousType.allocation;
 
-            String fullName = Arrays.stream(allocation.type.getParameterizedTypeName()).
+            char[][] compoundName;
+            if (allocation.type == null) {
+                TypeBinding invocationTargetType = allocation.invocationTargetType();
+                if (invocationTargetType instanceof ReferenceBinding)
+                    compoundName = ((ReferenceBinding) invocationTargetType).compoundName;
+                else
+                    compoundName = Arrays.stream(new String(invocationTargetType.constantPoolName()).split("/")).
+                            map(s->s.toCharArray()).collect(toList()).toArray(new char[0][]);
+            }
+            else
+                compoundName = allocation.type.getParameterizedTypeName();
+
+            String fullName =
+                    Arrays.stream(compoundName).
                     map(String::new).collect(joining("."));
+
             typeNamePrefix = escapeTypeArgsInTypeName(fullName);
         } else if (typeBinding.isLocalType() || typeBinding.isMemberType()) {
             typeNamePrefix = escapeTypeArgsInTypeName(
