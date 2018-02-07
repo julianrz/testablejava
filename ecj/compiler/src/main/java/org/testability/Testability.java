@@ -2170,8 +2170,7 @@ public class Testability {
                 if (binaryTypeBinding.compoundName == null && !(binaryTypeBinding instanceof TypeVariableBinding))
                     Testability.testabilityInstrumentationWarning(null,"binding has null compound name: " + binaryTypeBinding.getClass().getName());
 
-
-                if (typeBinding.isParameterizedType()) {
+                if (typeBinding.isParameterizedType() && !typeBinding.isEnum()) { //note: enums derived from Enum<Type>, but we do not want to add type parms to them
                     ParameterizedTypeBinding parameterizedTypeBinding = (ParameterizedTypeBinding) typeBinding;
                     TypeReference[] typeArguments;
                     if (parameterizedTypeBinding.arguments == null)

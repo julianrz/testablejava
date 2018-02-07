@@ -4703,7 +4703,46 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_EnumDefinedAsInnerInsideGenericIsNotGeneric() throws Exception {
 
+        //error: Kind is not generic; it cannot be parameterized with arguments <>
+        //enum defined as parameterized member class shows as parameterized (unlike normal member class which shows RAW)- special case
 
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "  public void printMessage(Param.Kind kind) {\n" +
+                        "    printMessage(kind, \"\");\n" +
+                        " }\n" +
+                        "  public void printMessage(Param.Kind kind, CharSequence msg) {\n" +
+                        "  }\n" +
+                        "}"+
+                "class Param<S>{"+
+                "   enum Kind {};"+
+                "}"
+        };
+        String expectedOutput =
+                "import Param.Kind;\n" +
+                        "import helpers.Consumer3;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   public static Consumer3<CallContext<X>, Kind, String> $$X$printMessage$$Param$Kind$String = (var0, var1, var2) -> {\n" +
+                        "      ((X)var0.calledClassInstance).printMessage(var1, var2);\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   public void printMessage(Kind var1) {\n" +
+                        "      $$X$printMessage$$Param$Kind$String.accept(new CallContext(\"X\", \"X\", this, this), var1, \"\");\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public void printMessage(Kind var1, CharSequence var2) {\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
 
  }
