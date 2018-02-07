@@ -46,7 +46,11 @@ public class Testability {
 
         if (isLabelledAsDontRedirect(methodScope, expressionToBeReplaced))
             return false;
+
         TypeDeclaration classDeclaration = methodScope.outerMostClassScope().referenceContext;
+
+        if (!classDeclaration.compilationResult.instrumentForTestability)
+            return false;
 
         if (fromTestabilityFieldInitializerUsingSpecialLabel(currentScope))
             return false;
@@ -703,7 +707,7 @@ public class Testability {
 //                            fieldDeclaration.type.resolveType(typeDeclaration.initializerScope); //TODO experz
 //                            fieldDeclaration.resolve(typeDeclaration.initializerScope);
 //
-//                            if (!validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
+//                            if (!validateMessageSendsAndTypesInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
 //                                Testability.testabilityInstrumentationWarning(
 //                                        typeDeclaration.initializerScope,
 //                                        "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
@@ -794,7 +798,7 @@ public class Testability {
     }
 
 
-    static public boolean validateMessageSendsInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
+    static public boolean validateMessageSendsAndTypesInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
 
         if (fieldDeclaration.binding == null)
             return false;
@@ -806,6 +810,18 @@ public class Testability {
                 @Override
                 public boolean visit(MessageSend m, BlockScope scope) {
                     if (m.binding() instanceof ProblemMethodBinding)
+                        throw exceptionVisitorInterrupted;
+                    return true;
+                }
+                @Override
+                public boolean visit(SingleTypeReference t, BlockScope scope) {
+                    if (t.resolvedType instanceof ProblemReferenceBinding)
+                        throw exceptionVisitorInterrupted;
+                    return true;
+                }
+                @Override
+                public boolean visit(ParameterizedSingleTypeReference t, BlockScope scope) {
+                    if (t.resolvedType instanceof ProblemReferenceBinding)
                         throw exceptionVisitorInterrupted;
                     return true;
                 }

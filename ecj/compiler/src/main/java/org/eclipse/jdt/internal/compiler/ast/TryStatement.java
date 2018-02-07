@@ -466,13 +466,15 @@ public class TryStatement extends SubRoutineStatement {
         if ((this.bits & ASTNode.IsReachable) == 0) {
             return;
         }
-        if (this.catchExits == null) {//jr: likely due to prior error
-            CompilationResult compilationResult = this.scope.referenceContext().compilationResult();
-            if (!compilationResult.hasMandatoryErrors())
+
+        CompilationResult compilationResult = this.scope.referenceContext().compilationResult();
+        if (compilationResult.hasMandatoryErrors()) {
+            if (catchExits == null && catchArguments != null) {
                 Testability.testabilityInstrumentationWarning(
                         this.scope,
-                        "catchExists == null wihout prior mandatory errors " + compilationResult.hasErrors());
-            return;
+                        "instrumentation skipped due to prior mandatory errors");
+                return; //jr sidestep problem where this is de-referenced in code below, usually on testability field
+            }
         }
         boolean isStackMapFrameCodeStream = codeStream instanceof StackMapFrameCodeStream;
         // in case the labels needs to be reinitialized

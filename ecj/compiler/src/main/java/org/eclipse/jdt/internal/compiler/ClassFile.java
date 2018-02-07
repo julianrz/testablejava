@@ -555,7 +555,11 @@ public class ClassFile implements TypeConstants, TypeIds {
                 ) {
             testabilityFieldDeclarations = Collections.emptyList();
             if (typeDeclaration.compilationResult.hasMandatoryErrors())
-                Testability.testabilityInstrumentationWarning(typeDeclaration.scope, "instrumentation aborted due to compilation errors");
+                Testability.testabilityInstrumentationWarning(
+                        typeDeclaration.scope,
+                        "instrumentation aborted for type " + new String(typeDeclaration.name) + " due to compilation errors"
+                );
+            typeDeclaration.compilationResult.instrumentForTestability = false;
         }
         else
             testabilityFieldDeclarations =
@@ -639,26 +643,27 @@ public class ClassFile implements TypeConstants, TypeIds {
 
                 fieldDeclaration.resolve(typeDeclaration.staticInitializerScope);
 
-                if (!Testability.validateMessageSendsInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
+                if (!Testability.validateMessageSendsAndTypesInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
                     Testability.testabilityInstrumentationWarning(
                             typeDeclaration.initializerScope,
                             "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
                     );
                     //TODO handle non-injection, used to return null and not being returned in field list
+                } else {
+
+                    UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
+                    FlowContext flowContext = null;
+
+                    InitializationFlowContext staticInitializerContext =
+                            new InitializationFlowContext(
+                                    null,
+                                    typeDeclaration,
+                                    flowInfo,
+                                    flowContext,
+                                    typeDeclaration.staticInitializerScope);
+
+                    fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
                 }
-
-                UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
-                FlowContext flowContext = null;
-
-                InitializationFlowContext staticInitializerContext =
-                        new InitializationFlowContext(
-                                null,
-                                typeDeclaration,
-                                flowInfo,
-                                flowContext,
-                                typeDeclaration.staticInitializerScope);
-
-                fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
             });
 
         }
