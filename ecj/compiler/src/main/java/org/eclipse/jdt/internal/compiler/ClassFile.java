@@ -556,8 +556,8 @@ public class ClassFile implements TypeConstants, TypeIds {
             testabilityFieldDeclarations = Collections.emptyList();
             if (typeDeclaration.compilationResult.hasMandatoryErrors())
                 Testability.testabilityInstrumentationWarning(
-                        typeDeclaration.scope,
-                        "instrumentation aborted for type " + new String(typeDeclaration.name) + " due to compilation errors"
+                       typeDeclaration.scope,
+                       "instrumentation aborted for type " + new String(typeDeclaration.name) + " due to compilation errors"
                 );
             typeDeclaration.compilationResult.instrumentForTestability = false;
         }
