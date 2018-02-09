@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 
@@ -650,31 +649,22 @@ public class Testability {
                 if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
                     //TODO for all instantiated types if typeDeclaration is generic
 
-                    ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding));
+                    ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeDeclaration.binding, referenceBinding, lookupEnvironment));
 
                     //find all local type declarations and add corresponding fields
                     List<TypeDeclaration> localTypeDeclarations = findLocalTypeDeclarations(typeDeclaration, null);
                     List<TypeDeclaration> memberTypeDeclarations = typeDeclaration.memberTypes==null?
                             Collections.emptyList() :
                             Arrays.asList(typeDeclaration.memberTypes);
+
                     List<TypeDeclaration> localAndMemberTypeDeclarations = new ArrayList<>(localTypeDeclarations);
                     localAndMemberTypeDeclarations.addAll(memberTypeDeclarations);
 
-                    //note: only instantiated generic types should be included
-                    List<ParameterizedTypeBinding> instantiatedTypeDeclarations =
-                            getInstantiatedTypeBindings(
-                                    localAndMemberTypeDeclarations.stream().
-                                            map(decl -> decl.binding).
-                                            map(SourceTypeBinding.class::cast).
-                                            collect(toList()),
-                                    lookupEnvironment);
+                    localAndMemberTypeDeclarations.stream().map(t -> t.binding).
 
-                    Stream.concat(
-                            localAndMemberTypeDeclarations.stream().map(t -> t.binding).filter(b -> !isGenericType(b)),
-                            instantiatedTypeDeclarations.stream()).
-                            forEach(typeBinding -> {
-                                ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding));
-                            });
+                    forEach(typeBinding -> {
+                        ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding, lookupEnvironment));
+                    });
 
                 }
 
@@ -686,7 +676,6 @@ public class Testability {
                     List<FieldDeclaration> redirectorFields = makeRedirectorFields(
                             typeDeclaration,
                             referenceBinding,
-                            lookupEnvironment,
                             expressionToRedirectorField);
                     ret.addAll(redirectorFields);
                 } catch (Exception ex) {
@@ -761,7 +750,7 @@ public class Testability {
     /**
      *
      * @param typeBinding
-     * @return if it is genetic type (not instance)
+     * @return if it is generic type (not instance)
      * note: there are empirical cases where type shows as parameterized, but its arguments are type variables, which we consider generic type
      */
     static boolean isGenericType(TypeBinding typeBinding) {
@@ -892,17 +881,20 @@ public class Testability {
     public static List<FieldDeclaration> makeListenerFields(
             CompilationResult compilationResult,
             ReferenceBinding typeBinding,
-            SourceTypeBinding referenceBinding) {
+            SourceTypeBinding referenceBinding, LookupEnvironment lookupEnvironment) {
+
+        ReferenceBinding typeBindingRaw = (ReferenceBinding) convertToRawIfGeneric(typeBinding, lookupEnvironment);
+         //note: either passed type, which is ReferenceBinding, or RawTypeBinding, which is also ReferenceBinding
 
         FieldDeclaration fieldDeclarationPreCreate = makeListenerFieldDeclaration(
                 compilationResult,
-                typeBinding,
+                typeBindingRaw,
                 referenceBinding,
                 makeListenerFieldName(typeBinding, "preCreate"));//"$$"+supertypeName+"preCreate");
 
         FieldDeclaration fieldDeclarationPostCreate = makeListenerFieldDeclaration(
                 compilationResult,
-                typeBinding,
+                typeBindingRaw,
                 referenceBinding,
                 makeListenerFieldName(typeBinding, "postCreate"));//"$$"+supertypeName+"postCreate");
 
@@ -916,16 +908,14 @@ public class Testability {
 
     /**
      *
-     * @param originalCallToField
      * @param typeDeclaration
      * @param referenceBinding
-     * @param lookupEnvironment
      * @return unique field instances
      */
     public static List<FieldDeclaration> makeRedirectorFields(
             TypeDeclaration typeDeclaration,
             SourceTypeBinding referenceBinding,
-            LookupEnvironment lookupEnvironment, Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
+            Consumer<Map<Expression, FieldDeclaration>> originalCallToFieldProducer) throws Exception {
 
         //eliminate duplicates, since multiple call of the same method possible
         Map<String, List<Map.Entry<Expression, TypeDeclaration>>> uniqueFieldToExpression = typeDeclaration.allCallsToRedirect.stream().
@@ -1152,11 +1142,11 @@ public class Testability {
 
         //TODO apply elsewhere too, factor out a method:
 
-//        callingType = convertToLocalIfGeneric(callingType, lookupEnvironment);
+//        callingType = convertToRawIfGeneric(callingType, lookupEnvironment);
 
         TypeBinding calledType = convertIfAnonymous(receiverResolvedType);
 
-//        calledType = convertToLocalIfGeneric(calledType, lookupEnvironment);
+//        calledType = convertToRawIfGeneric(calledType, lookupEnvironment);
 
         ParameterizedTypeBinding contextArgument = (ParameterizedTypeBinding) bindingForCallContextType(//TODO fix type of bindingForCallContextType
                 calledType, //this should be apparent compile type called
@@ -1574,7 +1564,7 @@ public class Testability {
                 toArray(new TypeBinding[typeArgumentsForFunction.length]);
     }
 
-    public static TypeBinding convertToLocalIfGeneric(TypeBinding callingType, LookupEnvironment lookupEnvironment) {
+    public static TypeBinding convertToRawIfGeneric(TypeBinding callingType, LookupEnvironment lookupEnvironment) {
         if (isGenericType(callingType))
             callingType = lookupEnvironment.convertToRawType(callingType, false);
         return callingType;
@@ -2617,15 +2607,6 @@ public class Testability {
         if (constructorDeclaration.statements == null)
             constructorDeclaration.statements = new Statement[]{};
 
-        List<ParameterizedTypeBinding> typeInstances = getInstantiatedTypeBindings(
-                Arrays.asList(typeBinding),
-                constructorDeclaration.scope.environment());
-
-        if (!typeInstances.isEmpty()){ //TODO form pre-post lists and update type once
-            typeInstances.forEach(typeInstance -> addListenerCallsToConstructor(constructorDeclaration, typeInstance));
-            return;
-        }
-
         int originalStatementsCount = constructorDeclaration.statements.length;
 
         Statement [] newStatements = Arrays.copyOf(constructorDeclaration.statements, originalStatementsCount +2);
@@ -2655,7 +2636,8 @@ public class Testability {
 
         LookupEnvironment lookupEnvironment = constructorDeclaration.scope.environment();//typeDeclaration.scope.environment();
 
-        TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfLocal(typeBinding), lookupEnvironment);
+        TypeBinding resultingTypeBinding =
+                Testability.boxIfApplicable(convertToRawIfGeneric(typeBinding, lookupEnvironment), lookupEnvironment);
 
         MessageSend messageToFieldApply = new MessageSend();
 
@@ -2727,7 +2709,7 @@ public class Testability {
         } else if (typeBinding.isLocalType() || typeBinding.isMemberType()) {
             typeNamePrefix = escapeTypeArgsInTypeName(
                     new String(
-                            removeLocalPrefix(typeBinding.readableName()))); //TODO type variables //TODO correct name
+                       removeLocalPrefix(typeBinding.sourceName())));
         }
 
         return "$$" +

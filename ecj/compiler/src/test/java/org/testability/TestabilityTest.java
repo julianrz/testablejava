@@ -241,9 +241,9 @@ public class TestabilityTest extends BaseTest {
                         "   };\n" +
                         "   public static Consumer<Comparator<String>> $$Comparator_String_$postCreate = (var0) -> {\n" +
                         "   };\n" +
-                        "   public static Consumer<Y> $$X$Y$preCreate = (var0) -> {\n" +
+                        "   public static Consumer<Y> $$Y$preCreate = (var0) -> {\n" +
                         "   };\n" +
-                        "   public static Consumer<Y> $$X$Y$postCreate = (var0) -> {\n" +
+                        "   public static Consumer<Y> $$Y$postCreate = (var0) -> {\n" +
                         "   };\n\n" +
                         "   X() {\n" +
                         "      $$preCreate.accept(this);\n" +
@@ -258,8 +258,8 @@ public class TestabilityTest extends BaseTest {
                 "class X$Y {\n" +
                         "   X$Y(X var1) {\n" +
                         "      this.this$0 = var1;\n" +
-                        "      X.$$X$Y$preCreate.accept(this);\n" +
-                        "      X.$$X$Y$postCreate.accept(this);\n" +
+                        "      X.$$Y$preCreate.accept(this);\n" +
+                        "      X.$$Y$postCreate.accept(this);\n" +
                         "   }\n" +
                         "}";
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
@@ -614,6 +614,7 @@ public class TestabilityTest extends BaseTest {
                 "         }\n" +
                 "      };\n" +
                 "      new C<String>();" +
+                "      new C<Integer>();" +
                 "   }\n" +
                 "}\n",
                 "Y.java",
@@ -622,7 +623,7 @@ public class TestabilityTest extends BaseTest {
                 "public class Y {\n" +
                 "	static List<Object> instances = new ArrayList<>();\n" +
                 "	static List<Object> setAndTest() {\n" +
-                "     X.$$C_java$lang$String_$postCreate = inst -> instances.add(inst);\n" +
+                "     X.$$C$postCreate = inst -> instances.add(inst);\n" +
                 "     new X().fn();\n" +
                 "     return instances;\n" +
                 "   }\n" +
@@ -637,9 +638,9 @@ public class TestabilityTest extends BaseTest {
                 "   };\n" +
                 "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
                 "   };\n" +
-                "   public static Consumer<1C<String>> $$C_java$lang$String_$preCreate = (var0) -> {\n" +
+                "   public static Consumer<1C> $$C$preCreate = (var0) -> {\n" +
                 "   };\n" +
-                "   public static Consumer<1C<String>> $$C_java$lang$String_$postCreate = (var0) -> {\n" +
+                "   public static Consumer<1C> $$C$postCreate = (var0) -> {\n" +
                 "   };\n\n" +
                 "   public X() {\n" +
                 "      $$preCreate.accept(this);\n" +
@@ -648,6 +649,21 @@ public class TestabilityTest extends BaseTest {
                 "   }\n\n" +
                 "   void fn() {\n" +
                 "      new 1C(this);\n" +
+                "      new 1C(this);\n" +
+                "   }\n" +
+                "}";
+
+        String expectedOutputInner = "import java.util.Comparator;\n" +
+                "\n" +
+                "class X$1C<T> implements Comparator<T> {\n" +
+                "   X$1C(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "      X.$$C$preCreate.accept(this);\n" +
+                "      X.$$C$postCreate.accept(this);\n" +
+                "   }\n" +
+                "\n" +
+                "   public int compare(T var1, T var2) {\n" +
+                "      return -1;\n" +
                 "   }\n" +
                 "}";
 
@@ -655,10 +671,12 @@ public class TestabilityTest extends BaseTest {
 
         invokeCompiledMethod("X", "fn");
         List<Object> instances = (List<Object>) invokeCompiledMethod("Y", "setAndTest");
-        assertEquals(1, instances.size());
+        assertEquals(2, instances.size());
         assertEquals("C", instances.get(0).getClass().getSimpleName());
+        assertEquals("C", instances.get(1).getClass().getSimpleName());
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1C").stream().collect(joining("\n")));
     }
 
     @Test
