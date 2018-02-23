@@ -3355,50 +3355,64 @@ public class TestabilityTest extends BaseTest {
                 "Y.java",
                 "import java.util.*;\n" +
                 "public class Y {\n" +
-                "   public <T> T accept(List<T> lst, T t) {\n" +
-                "     return called(this, t);\n" + //this call is to generic function passing generic arg
+                "   public <T, K, G extends Calendar> T accept(List<? extends List<T>> lst, K k, T t, Map<K, T> m, Integer i, G g) {\n" +
+                "     return called(this, lst, k, t, m, i, g);\n" + //this call is to generic function passing generic args
                 "   }\n" +
-                "	public <T> T called(Y y, T t){" +
+                "	public <T, K, G extends Calendar> T called(Y y, List<? extends List<T>> lst, K k, T t, Map<K, T> m, Integer i, G g){" +
                 "     return t;\n" +
                 "   }" +
                 "	public String fn(){" +
-                "     dontredirect: return accept(new ArrayList<String>(), \"\").getClass().getName();" +
+                "     dontredirect: return accept(" +
+                        "new ArrayList<ArrayList<String>>(), " +
+                        "new Integer(1), " +
+                        "new String(), " +
+                        "new HashMap<Integer, String>(), " +
+                        "new Integer(0), " +
+                        "Calendar.getInstance()" +
+                        ").getClass().getName();" +
                 "   }" +
                 "}\n"
         };
 
+
         String expectedOutputY =
                 "import Y.1;\n" +
-                "import helpers.Function3_1;\n" +
-                "import java.util.ArrayList;\n" +
-                "import java.util.List;\n" +
-                "import testablejava.CallContext;\n" +
-                "\n" +
-                "public class Y {\n" +
-                "   public static Function3_1<CallContext<Y>, Y, Object, Object> $$Y$called$$Y$Object = new 1();\n" +
-                "\n" +
-                "   public <T> T accept(List<T> var1, T var2) {\n" +
-                "      return (Object)$$Y$called$$Y$Object.apply(new CallContext(\"Y\", \"Y\", this, this), this, var2);\n" +
-                "   }\n" +
-                "\n" +
-                "   public <T> T called(Y var1, T var2) {\n" +
-                "      return var2;\n" +
-                "   }\n" +
-                "\n" +
-                "   public String fn() {\n" +
-                "      return ((String)this.accept(new ArrayList(), \"\")).getClass().getName();\n" +
-                "   }\n" +
-                "}";
+                        "import helpers.Function8_3;\n" +
+                        "import java.util.ArrayList;\n" +
+                        "import java.util.Calendar;\n" +
+                        "import java.util.HashMap;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.Map;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "   public static Function8_3<CallContext<Y>, Y, List, Object, Object, Map, Integer, Object, Object> $$Y$called$$Y$List$Object$Object$Map$Integer$Calendar = new 1();\n" +
+                        "\n" +
+                        "   public <T, K, G extends Calendar> T accept(List<? extends List<T>> var1, K var2, T var3, Map<K, T> var4, Integer var5, G var6) {\n" +
+                        "      return (Object)$$Y$called$$Y$List$Object$Object$Map$Integer$Calendar.apply(new CallContext(\"Y\", \"Y\", this, this), this, var1, var2, var3, var4, var5, var6);\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T, K, G extends Calendar> T called(Y var1, List<? extends List<T>> var2, K var3, T var4, Map<K, T> var5, Integer var6, G var7) {\n" +
+                        "      return var4;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public String fn() {\n" +
+                        "      return ((String)this.accept(new ArrayList(), new Integer(1), new String(), new HashMap(), new Integer(0), Calendar.getInstance())).getClass().getName();\n" +
+                        "   }\n" +
+                        "}";
 
         String expectedOutputInner =
-                "import helpers.Function3_1;\n" +
-                "import testablejava.CallContext;\n" +
-                "\n" +
-                "class Y$1 implements Function3_1<CallContext<Y>, Y, Object, Object> {\n" +
-                "   public <E1> Object apply(CallContext<Y> var1, Y var2, Object var3) {\n" +
-                "      return ((Y)var1.calledClassInstance).called(var2, var3);\n" + //note: var3 is actually casted to E1 in source
-                "   }\n" +
-                "}";
+                "import helpers.Function8_3;\n" +
+                        "import java.util.Calendar;\n" +
+                        "import java.util.List;\n" +
+                        "import java.util.Map;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y$1 implements Function8_3<CallContext<Y>, Y, List, Object, Object, Map, Integer, Object, Object> {\n" +
+                        "   public <K, T, G> Object apply(CallContext<Y> var1, Y var2, List var3, Object var4, Object var5, Map var6, Integer var7, Object var8) {\n" +
+                        "      return ((Y)var1.calledClassInstance).called(var2, var3, var4, var5, var6, var7, (Calendar)var8);\n" + //note: if it compiled, we generated called(var2, var3, (K)var4, (T)var5, var6, var7, (G)var8); decompilation simplifies things
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
@@ -3406,6 +3420,70 @@ public class TestabilityTest extends BaseTest {
 
         Object className = invokeCompiledMethod("Y", "fn");
         assertEquals("java.lang.String", className);
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_RedirectGenericToGenericCallForParameterized() throws Exception {
+        //parameterized type in call should be downgraded to raw, which does not require a cast when calling original method
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "public class Y {\n" +
+                        "   public <T> int accept(List<T> lst) {\n" +
+                        "     return called(this, lst);\n" +
+                        "   }\n" +
+                        "	public <T> int called(Y y, List<T> lst){" +
+                        "     return 1;\n" +
+                        "   }" +
+                        "	public int fn(){" +
+                        "     dontredirect: return accept(new ArrayList<String>()); " +
+                        "   }" +
+                        "}\n",
+                "Test.java",
+                "import java.util.*;\n" +
+                "public class Test {\n" +
+                        "   public int fnRedirectAndCall() {\n" +
+                        "      Y.$$Y$called$$Y$List = (var0, var1, var2) -> var2.size();\n" +
+                        "      dontredirect: return new Y().accept(Arrays.asList(1,2,3));\n" +
+                        "   }" +
+                        "}\n"
+
+        };
+
+
+        String expectedOutputY =
+                "import helpers.Function3;\n" +
+                        "import java.util.ArrayList;\n" +
+                        "import java.util.List;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class Y {\n" +
+                        "   public static Function3<CallContext<Y>, Y, List, Integer> $$Y$called$$Y$List = (var0, var1, var2) -> {\n" +
+                        "      return Integer.valueOf(((Y)var0.calledClassInstance).called(var1, var2));\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   public <T> int accept(List<T> var1) {\n" +
+                        "      return ((Integer)$$Y$called$$Y$List.apply(new CallContext(\"Y\", \"Y\", this, this), this, var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> int called(Y var1, List<T> var2) {\n" +
+                        "      return 1;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int fn() {\n" +
+                        "      return this.accept(new ArrayList());\n" +
+                        "   }\n" +
+                        "}";
+
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+
+        int res = (int)invokeCompiledMethod("Y", "fn");
+        assertEquals(1, res);
+
+        int res2 = (int)invokeCompiledMethod("Test", "fnRedirectAndCall");
+        assertEquals(3, res2);
+
     }
     @Test
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericCallNoReturn() throws Exception {
@@ -3453,7 +3531,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "class Y$1 implements Consumer3_1<CallContext<Y>, Y, Object> {\n" +
-                "   public <E1> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
+                "   public <T> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
                 "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
                 "   }\n" +
                 "}";
@@ -3802,7 +3880,7 @@ public class TestabilityTest extends BaseTest {
                         "\n" +
                         "class Y<T1, T2> {\n" +
                         "   private final Map<T1, Set<T2>> _forward;\n" +
-                        "   public static Function1<CallContext<Y<Object, Object>>, Map<Object, Set<Object>>> $$Y$init = (var0) -> {\n" +
+                        "   public static Function1<CallContext<Y<Object, Object>>, Map> $$Y$init = (var0) -> {\n" +
                         "      return ((Y)var0.calledClassInstance).init();\n" +
                         "   };\n" +
                         "\n" +
@@ -3931,7 +4009,7 @@ public class TestabilityTest extends BaseTest {
                 "import testablejava.CallContext;\n" +
                 "\n" +
                 "class Y$1 implements Consumer3_1<CallContext<Y>, Y, Object> {\n" +
-                "   public <E1> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
+                "   public <T> void accept(CallContext<Y> var1, Y var2, Object var3) {\n" +
                 "      ((Y)var1.calledClassInstance).called(var2, var3);\n" +
                 "   }\n" +
                 "}";
@@ -4763,4 +4841,224 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
 
- }
+    @Test
+    public void testTestabilityInjectFunctionField_ReproductionTypeParamMismatch() throws Exception {
+
+        String [] task2 = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "class X {" +
+                        "public static helpers.Function2<testablejava.CallContext<X>, java.lang.Class<? extends Calendar>, java.lang.Integer> $$X$calendarClassOfT$$Class = (arg0, arg1) -> {\n" +
+                        "  testabilitylabel: ;\n" +
+                        "  return  arg0.calledClassInstance.calendarClassOfT( arg1);\n" +
+                        "};" +
+                        " public <T extends Calendar> int calendarClassOfT(Class<T> cl) {\n" +
+                        "   return 7;\n" +
+                        " }" +
+                        "}"
+        };
+
+        String[] task = {
+
+                "Base.java",
+                "import java.lang.annotation.Annotation;\n" +
+                "public class Base {\n" +
+                        " public <A extends Annotation> A getAnnotation(Class<A> annotationType) {\n" +
+                        " return null;" +
+                        " }" +
+                        "}",
+                "X.java",
+                "import java.lang.annotation.Annotation;\n" +
+                "import java.util.*;\n" +
+                "public class X extends Base {\n" +
+//                        "public static helpers.Function2_1<testablejava.CallContext<X>, java.lang.Class<Object>, java.lang.Integer> $$reproduction = " +
+//                        " new helpers.Function2_1<testablejava.CallContext<X>, java.lang.Class<Object>, java.lang.Integer>() {\n" +
+//                        "  public <T>java.lang.Integer apply(testablejava.CallContext<X>  arg0, java.lang.Class<Object>  arg1) {\n" +
+//                        "    testabilitylabel: ;\n" +
+//                        "    return  arg0.calledClassInstance.calendarClassOfT((Class<T>)  arg1);\n" +
+//                        "  }\n" +
+//                        "};" +
+                        "  public <T extends Calendar>java.lang.Integer apply(testablejava.CallContext<X>  arg0, java.lang.Class<Object>  arg1) {\n" +
+                        "    testabilitylabel: ;\n" +
+                        "    return  arg0.calledClassInstance.calendarClassOfT((Class)arg1);\n" +
+                        "  }\n" +
+
+                        "@Override\n" +
+                        " public <A extends Annotation> A getAnnotation(Class<A> annotationType) {\n" +
+                        "  return super.getAnnotation(annotationType);\n" +
+                        " }" +
+                        " public int listOfString(List<String> list) {\n" +
+                        "   return 1;\n" +
+                        " }" +
+                        " public int listOfInteger(List<Integer> list) {\n" +
+                        "   return 2;\n" +
+                        " }" +
+                        " public <T> int listOfT(List<T> list) {\n" +
+                        "   return 3;\n" +
+                        " }" +
+
+                        " public int classOfString(Class<String> cl) {\n" +
+                        "   return 4;\n" +
+                        " }" +
+                        " public int classOfInteger(Class<Integer> cl) {\n" +
+                        "   return 5;\n" +
+                        " }" +
+                        " public <T> int classOfT(Class<T> cl) {\n" +
+                        "   return 6;\n" +
+                        " }" +
+                        " public <T extends Calendar> int calendarClassOfT(Class<T> cl) {\n" +
+                        "   return 7;\n" +
+                        " }" +
+
+
+
+                        " public int callListOfString(List<String> list) {\n" +
+                        "   return listOfString(list);\n" +
+                        " }" +
+                        " public int callListOfInteger(List<Integer> list) {\n" +
+                        "   return listOfInteger(list);\n" +
+                        " }" +
+                        " public <T> int callListOfT(List<T> list) {\n" +
+                        "   return listOfT(list);\n" +
+                        " }" +
+
+                        " public int callClassOfString(Class<String> cl) {\n" +
+                        "   return classOfString(cl);\n" +
+                        " }" +
+                        " public int callClassOfInteger(Class<Integer> cl) {\n" +
+                        "   return classOfInteger(cl);\n" +
+                        " }" +
+
+
+                        " public <T> int callClassOfT(Class<T> cl) {\n" +
+                        "   return classOfT(cl);\n" +
+                        " }" +
+                        " public <T extends Calendar> int callCalendarClassOfT(Class<T> cl) {\n" +
+                        "   return calendarClassOfT(cl);\n" +
+                        " }" +
+
+                        "}"
+        };
+        String expectedOutput =
+                "import helpers.Function2;\n" +
+                        "import java.lang.annotation.Annotation;\n" +
+                        "import java.util.Calendar;\n" +
+                        "import java.util.List;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class X extends Base {\n" +
+                        "   public static Function2<CallContext<X>, List<Integer>, Integer> $$X$listOfInteger$$List = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).listOfInteger(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, Class, Integer> $$X$calendarClassOfT$$Class = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).calendarClassOfT(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, Class<Integer>, Integer> $$X$classOfInteger$$Class = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).classOfInteger(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, List, Integer> $$X$listOfT$$List = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).listOfT(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, Class<String>, Integer> $$X$classOfString$$Class = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).classOfString(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, Class, Integer> $$X$classOfT$$Class = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).classOfT(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<X>, List<String>, Integer> $$X$listOfString$$List = (var0, var1) -> {\n" +
+                        "      return Integer.valueOf(((X)var0.calledClassInstance).listOfString(var1));\n" +
+                        "   };\n" +
+                        "   public static Function2<CallContext<Base>, Class, Object> $$Base$getAnnotation$$Class = (var0, var1) -> {\n" +
+                        "      return ((Base)var0.calledClassInstance).getAnnotation(var1);\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   public <T extends Calendar> Integer apply(CallContext<X> var1, Class<Object> var2) {\n" +
+                        "      return Integer.valueOf(((Integer)$$X$calendarClassOfT$$Class.apply(new CallContext(\"X\", \"X\", this, (X)var1.calledClassInstance), var2)).intValue());\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <A extends Annotation> A getAnnotation(Class<A> var1) {\n" +
+                        "      return (Annotation)$$Base$getAnnotation$$Class.apply(new CallContext(\"X\", \"Base\", this, this), var1);\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int listOfString(List<String> var1) {\n" +
+                        "      return 1;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int listOfInteger(List<Integer> var1) {\n" +
+                        "      return 2;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> int listOfT(List<T> var1) {\n" +
+                        "      return 3;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int classOfString(Class<String> var1) {\n" +
+                        "      return 4;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int classOfInteger(Class<Integer> var1) {\n" +
+                        "      return 5;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> int classOfT(Class<T> var1) {\n" +
+                        "      return 6;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T extends Calendar> int calendarClassOfT(Class<T> var1) {\n" +
+                        "      return 7;\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int callListOfString(List<String> var1) {\n" +
+                        "      return ((Integer)$$X$listOfString$$List.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int callListOfInteger(List<Integer> var1) {\n" +
+                        "      return ((Integer)$$X$listOfInteger$$List.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> int callListOfT(List<T> var1) {\n" +
+                        "      return ((Integer)$$X$listOfT$$List.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int callClassOfString(Class<String> var1) {\n" +
+                        "      return ((Integer)$$X$classOfString$$Class.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public int callClassOfInteger(Class<Integer> var1) {\n" +
+                        "      return ((Integer)$$X$classOfInteger$$Class.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T> int callClassOfT(Class<T> var1) {\n" +
+                        "      return ((Integer)$$X$classOfT$$Class.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   public <T extends Calendar> int callCalendarClassOfT(Class<T> var1) {\n" +
+                        "      return ((Integer)$$X$calendarClassOfT$$Class.apply(new CallContext(\"X\", \"X\", this, this), var1)).intValue();\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+
+        assertEquals(1, invokeCompiledMethod("X","callListOfString",new ArrayList<String>()));
+        assertEquals(2, invokeCompiledMethod("X","callListOfInteger",new ArrayList<Integer>()));
+        assertEquals(3, invokeCompiledMethod("X","callListOfT",new ArrayList<String>()));
+
+        assertEquals(4, invokeCompiledMethod("X","callClassOfString",new String().getClass()));
+        assertEquals(5, invokeCompiledMethod("X","callClassOfInteger",new Integer(1).getClass()));
+        assertEquals(6, invokeCompiledMethod("X","callClassOfT",new String().getClass()));
+
+        assertEquals(7, invokeCompiledMethod("X","callCalendarClassOfT", Calendar.getInstance().getClass()));
+
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    public static helpers.Function1_1<java.lang.Class<Object>, java.lang.Integer> $$X$calendarClassOfT$$Class =
+            new helpers.Function1_1<java.lang.Class<Object>, java.lang.Integer>() {
+        public <T>java.lang.Integer apply(java.lang.Class<Object>  arg1) {
+            return calendarClassOfT((Class<T>)  arg1);
+        }
+    };
+
+    private static <T> Integer calendarClassOfT(Class<T> arg1) {
+        return 0;
+    }
+}

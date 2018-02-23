@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 
@@ -1202,6 +1203,12 @@ public class Testability {
             typeArgumentsForFunction[iTypeArg] = convertCaptureBinding(typeBinding);
 
         }
+        //for every argument except CallContext, if it is generic, convert to raw
+        for (int iTypeArg=1; iTypeArg<typeArgumentsForFunction.length; iTypeArg++) {
+            if (deepHasTypeVariables(typeArgumentsForFunction[iTypeArg])) //TODO or any parameterized type with type arg variable?
+                typeArgumentsForFunction[iTypeArg] =
+                        lookupEnvironment.convertToRawType(typeArgumentsForFunction[iTypeArg], false);
+        }
 
 //        //TODO//see if any type argument is CaptureBinding, and replace it with its sourceType
 //        if (receiverResolvedType instanceof ParameterizedTypeBinding){
@@ -1217,12 +1224,38 @@ public class Testability {
 
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
 
-        int additionalTypeVarCountForMethod = originalMessageSend.arguments==null? //TODO other place
-                0 :
-                (int) Arrays.stream(originalMessageSend.arguments).
-                        map(arg -> arg.resolvedType).
-                        filter(TypeVariableBinding.class::isInstance).
-                        count();
+
+        //TODO other place
+        List<TypeReference> argCastTypeReferences = new ArrayList<>(); //null if no cast needed
+        for (int i = 0, length = originalMessageSend.arguments == null? 0: originalMessageSend.arguments.length; i < length; i++) {
+            Expression argument = originalMessageSend.arguments[i];
+
+            TypeReference castType = null;
+
+            if (argument instanceof NameReference &&
+                    argument.resolvedType instanceof TypeVariableBinding /*hasTypeVariables(argument.resolvedType*/) {
+                NameReference nameReference = (NameReference) argument;
+                Binding binding = nameReference.binding;
+                castType = ((LocalVariableBinding) binding).declaration.type;
+            }
+            argCastTypeReferences.add(castType);
+        }
+
+        int additionalTypeVarCountForMethod = (int) argCastTypeReferences.stream().filter(Objects::nonNull).count();
+
+//                originalMessageSend.arguments==null? //TODO other place
+//                0 :
+//                (int) Arrays.stream(originalMessageSend.arguments).
+//                        map(arg -> arg.resolvedType).
+//                        filter(TypeVariableBinding.class::isInstance).
+//                        count();
+
+        Optional<TypeBinding> typeCastForReturn =
+                returnsVoid?
+                        Optional.empty() :
+                        Optional.of(typeArgumentsForFunction[typeArgumentsForFunction.length - 1]).
+                                filter(ParameterizedTypeBinding.class::isInstance).
+                                map(type -> convertToRawIfGeneric(type, lookupEnvironment));
 
         char[][] path = {
                 "helpers".toCharArray(),
@@ -1318,7 +1351,28 @@ public class Testability {
         int methodSendInLambdaBodyArgCount = typeArgumentsForFunction.length - 1 - (returnsVoid ? 0 : 1);
 
         Expression[] argv = new Expression[methodSendInLambdaBodyArgCount];
-        int iArgCastTypeVar = 0;
+//        int iArgCastTypeVar = 0;
+//        for (int i = 0, length = argv.length; i < length; i++) {
+//            char[] name = (" arg" + (i + 1)).toCharArray();
+//
+//            SingleNameReference singleNameReference = new SingleNameReference(name, 0);
+//
+//            singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
+//
+//            if (originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
+//                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
+//                TypeReference typeReference = new SingleTypeReference(
+//                        sourceName, 0);
+//
+//                CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
+//                argv[i] = castExpression;
+//            }
+//            else {
+//                argv[i] = singleNameReference;
+//            }
+//        }
+
+
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + 1)).toCharArray();
 
@@ -1326,10 +1380,9 @@ public class Testability {
 
             singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
 
-            if (originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
-                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
-                TypeReference typeReference = new SingleTypeReference(
-                        sourceName, 0);
+            if (argCastTypeReferences.get(i) != null){//originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
+//                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
+                TypeReference typeReference = argCastTypeReferences.get(i);//new SingleTypeReference(                        sourceName, 0);
 
                 CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
                 argv[i] = castExpression;
@@ -1360,13 +1413,13 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow);
+        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow, typeCastForReturn);
 
         lambdaExpression.setBody(block);
 
         boolean typeVariablesInMethodArgs = additionalTypeVarCountForMethod > 0;
 
-        if (!typeVariablesInMethodArgs) { //!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
+        if (!typeVariablesInMethodArgs) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
             //anonymous type instead of lambda, since method has type variables
@@ -1392,6 +1445,7 @@ public class Testability {
             Argument[] anonInitializerArguments = new Argument[argc];
             for (int i = 0; i < argc; i++) { //type args has return at the end, method args do not
                 TypeBinding typeBindingForArg = boxIfApplicable(typeBindingForFunction.arguments[i], lookupEnvironment);
+                typeBindingForArg = convertToRawIfGeneric(typeBindingForArg, lookupEnvironment);
                 TypeReference typeReference = typeReferenceFromTypeBinding(typeBindingForArg);
                 Argument argument = new Argument((" arg" + i).toCharArray(), 0, typeReference, 0);
                 anonInitializerArguments[i] = argument;
@@ -1402,17 +1456,39 @@ public class Testability {
             methodDeclaration.statements = block.statements;
 
             //each type parameter on method used to cast an argument of original call, and they are named E1...N where N is number of original call arguments
-            if (additionalTypeVarCountForMethod > 0) {
-                methodDeclaration.typeParameters = IntStream.range(0, additionalTypeVarCountForMethod).
-                        mapToObj(iTypeParameter -> {
+//            if (additionalTypeVarCountForMethod > 0) {
+//                methodDeclaration.typeParameters = IntStream.range(0, additionalTypeVarCountForMethod).
+//                        mapToObj(iTypeParameter -> {
+//                            TypeParameter ret = new TypeParameter();
+//                            ret.name = ("E" + (iTypeParameter + 1)).toCharArray();
+//                            return ret;
+//                        }).
+//                        collect(toList()).
+//                        toArray(new TypeParameter[0]);
+//            }
+
+            if (!argCastTypeReferences.isEmpty()) {
+                //detect all type variables
+                List<TypeParameter> typeArgs = argCastTypeReferences.stream().
+                        filter(Objects::nonNull).
+                        flatMap(typeReference -> recursiveTypeReferences(typeReference)).
+                        map(typeReferenceNode -> typeReferenceNode.resolvedType).
+                        filter(TypeVariableBinding.class::isInstance).
+                        map(TypeVariableBinding.class::cast).
+                        map(ReferenceBinding::sourceName).
+                        distinct().
+                        map(name -> {
                             TypeParameter ret = new TypeParameter();
-                            ret.name = ("E" + (iTypeParameter + 1)).toCharArray();
+                            ret.name = name;
                             return ret;
                         }).
-                        collect(toList()).
-                        toArray(new TypeParameter[0]);
-            }
 
+                        collect(toList()); //note: distinct needed since no hashcode defined for TypeParameter
+
+                if (!typeArgs.isEmpty())
+                    methodDeclaration.typeParameters = typeArgs.toArray(new TypeParameter[0]);
+
+            }
             anonymousType.name = CharOperation.NO_CHAR;
             anonymousType.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
@@ -1422,6 +1498,42 @@ public class Testability {
             fieldDeclaration.initialization = alloc;
         }
         return fieldDeclaration;
+    }
+
+    static boolean deepHasTypeVariables(TypeBinding typeBinding) {
+        if (typeBinding instanceof TypeVariableBinding)
+            return true;
+        if (!(typeBinding instanceof ParameterizedTypeBinding))
+            return false;
+
+        return
+                arrayStreamOfNullable(((ParameterizedTypeBinding) typeBinding).arguments).
+                        filter(Objects::nonNull).
+                        map(Testability::deepHasTypeVariables).
+                        anyMatch(b -> b);
+    }
+
+    static Stream<TypeReference> recursiveTypeReferences(TypeReference typeReference) {
+        return Stream.concat(
+                Stream.of(typeReference),
+                arrayStreamOfNullable(typeReference.getTypeArguments()).
+                        filter(Objects::nonNull).
+                        flatMap(typeReferenceArray -> Arrays.stream(typeReferenceArray)).
+                        flatMap(Testability::recursiveTypeReferences)
+        );
+
+    }
+
+    public static <T> Stream<T> arrayStreamOfNullable(T[] array) {
+        return array == null? Stream.empty() : Arrays.stream(array);
+    }
+
+    static boolean hasTypeVariables(TypeBinding typeBinding) {
+        if (typeBinding instanceof TypeVariableBinding)
+            return true;
+        if (typeBinding instanceof ParameterizedTypeBinding)
+            return true; //type parameters will qualify
+        return false;
     }
 
     static boolean methodCanThrow(MessageSend messageSend) {
@@ -1437,7 +1549,18 @@ public class Testability {
                 binding.thrownExceptions.length > 0;
     }
 
-    static Block makeStatementBlockForCallingOriginalMethod(boolean returnsVoid, Expression messageSendInLambdaBody, boolean methodCanThrow) {
+    static Block makeStatementBlockForCallingOriginalMethod(
+            boolean returnsVoid,
+            Expression messageSendInLambdaBody,
+            boolean methodCanThrow,
+            Optional<TypeBinding> typeCastForReturn) {
+
+        Expression messageSendExpression = messageSendInLambdaBody;
+        if (typeCastForReturn.isPresent()) {
+            TypeReference returnType = typeReferenceFromTypeBinding(typeCastForReturn.get());
+
+            messageSendExpression = new CastExpression(messageSendInLambdaBody, returnType);
+        }
 
         Block block = new Block(2);
 
@@ -1459,7 +1582,7 @@ public class Testability {
 
             } else {
 
-                ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+                ReturnStatement returnStatement = new ReturnStatement(messageSendExpression, 0, 0);
 
                 block.statements = new Statement[]{
                         labeledStatement,
@@ -1512,7 +1635,7 @@ public class Testability {
 //                testablejava.Helpers.uncheckedThrow(ex);
 //            }
 
-                tryBlock.statements = new Statement[]{messageSendInLambdaBody};
+                tryBlock.statements = new Statement[]{messageSendExpression};
 
                 ReturnStatement returnStatement = new ReturnStatement(null, 0, 0, true);
 
@@ -1530,7 +1653,7 @@ public class Testability {
 //            }
 //            return null;
 
-                ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
+                ReturnStatement returnStatement = new ReturnStatement(messageSendExpression, 0, 0);
 
                 tryBlock.statements = new Statement[]{returnStatement};
 
@@ -1902,7 +2025,7 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-        Block block = makeStatementBlockForCallingOriginalMethod(false, messageSendInLambdaBody, methodCanThrow);
+        Block block = makeStatementBlockForCallingOriginalMethod(false, messageSendInLambdaBody, methodCanThrow, Optional.empty());
 
         lambdaExpression.setBody(block);
 
