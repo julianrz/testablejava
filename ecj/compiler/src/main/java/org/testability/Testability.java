@@ -1250,12 +1250,7 @@ public class Testability {
 //                        filter(TypeVariableBinding.class::isInstance).
 //                        count();
 
-        Optional<TypeBinding> typeCastForReturn =
-                returnsVoid?
-                        Optional.empty() :
-                        Optional.of(typeArgumentsForFunction[typeArgumentsForFunction.length - 1]).
-                                filter(ParameterizedTypeBinding.class::isInstance).
-                                map(type -> convertToRawIfGeneric(type, lookupEnvironment));
+
 
         char[][] path = {
                 "helpers".toCharArray(),
@@ -1413,7 +1408,7 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow, typeCastForReturn);
+        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow);
 
         lambdaExpression.setBody(block);
 
@@ -1552,15 +1547,9 @@ public class Testability {
     static Block makeStatementBlockForCallingOriginalMethod(
             boolean returnsVoid,
             Expression messageSendInLambdaBody,
-            boolean methodCanThrow,
-            Optional<TypeBinding> typeCastForReturn) {
+            boolean methodCanThrow) {
 
         Expression messageSendExpression = messageSendInLambdaBody;
-        if (typeCastForReturn.isPresent()) {
-            TypeReference returnType = typeReferenceFromTypeBinding(typeCastForReturn.get());
-
-            messageSendExpression = new CastExpression(messageSendInLambdaBody, returnType);
-        }
 
         Block block = new Block(2);
 
@@ -2025,7 +2014,7 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-        Block block = makeStatementBlockForCallingOriginalMethod(false, messageSendInLambdaBody, methodCanThrow, Optional.empty());
+        Block block = makeStatementBlockForCallingOriginalMethod(false, messageSendInLambdaBody, methodCanThrow);
 
         lambdaExpression.setBody(block);
 
