@@ -4870,12 +4870,12 @@ public class TestabilityTest extends BaseTest {
     }
 
     @Test
-    public void testTestabilityInjectFunctionField_InsideEnum() throws Exception {
+    public void testTestabilityInjectFunctionField_NotInstrumentingInsideEnum() throws Exception {
 
         String[] task = {
                 "X.java",
                 "public class X {\n" +
-                        "        enum Stage {\n" +
+                        "    enum Stage {\n" +
                         "         OuterLess,\n" +
                         "         InnerOfProcessed,\n" +
                         "         InnerOfNotEnclosing,\n" +
@@ -4886,19 +4886,86 @@ public class TestabilityTest extends BaseTest {
         };
         String expectedOutput =
                 "import X.Stage;\n" +
+                        "import java.util.function.Consumer;\n" +
                         "\n" +
                         "public class X {\n" +
                         "   private Stage stage;\n" +
+                        "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
+                        "   };\n" +
+                        "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
+                        "   };\n" +
                         "\n" +
                         "   public X() {\n" +
                         "      this.stage = Stage.OuterLess;\n" +
+                        "      $$preCreate.accept(this);\n" +
+                        "      $$postCreate.accept(this);\n" +
                         "   }\n" +
                         "}";
 
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_ALL);
 
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
+
+    @Test
+    public void testTestabilityInjectFunctionField_NotInstrumentingInsideEnum_Realistic() throws Exception {
+
+        String[] task = {
+                "ExpressionContext.java",
+                        "    public enum ExpressionContext {\n" +
+                        "        ASSIGNMENT_CONTEXT {\n" +
+                        "            public String toString() {\n" +
+                        "                return \"assignment context\"; //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "            public boolean definesTargetType() {\n" +
+                        "                return true;\n" +
+                        "            }\n" +
+                        "        },\n" +
+                        "        INVOCATION_CONTEXT {\n" +
+                        "            public String toString() {\n" +
+                        "                return \"invocation context\"; //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "            public boolean definesTargetType() {\n" +
+                        "                return true;\n" +
+                        "            }\n" +
+                        "        },\n" +
+                        "        CASTING_CONTEXT {\n" +
+                        "            public String toString() {\n" +
+                        "                return \"casting context\"; //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "            public boolean definesTargetType() {\n" +
+                        "                return false;\n" +
+                        "            }\n" +
+                        "        },\n" +
+                        "        VANILLA_CONTEXT {\n" +
+                        "            public String toString() {\n" +
+                        "                return \"vanilla context\"; //$NON-NLS-1$\n" +
+                        "            }\n" +
+                        "            public boolean definesTargetType() {\n" +
+                        "                return false;\n" +
+                        "            }\n" +
+                        "        };\n" +
+                        "    }"
+
+        };
+        String expectedOutput =
+                "public enum ExpressionContext {\n" +
+                        "   ASSIGNMENT_CONTEXT,\n" +
+                        "   INVOCATION_CONTEXT,\n" +
+                        "   CASTING_CONTEXT,\n" +
+                        "   VANILLA_CONTEXT;\n" +
+                        "\n" +
+                        "   private ExpressionContext() {\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
+
+        assertEquals(expectedOutput, moduleMap.get("ExpressionContext").stream().collect(joining("\n")));
+    }
+
+
+
 
     @Test
     public void testTestabilityInjectFunctionField_EnumDefinedAsInnerInsideGenericIsNotGeneric() throws Exception {

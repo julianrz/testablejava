@@ -882,7 +882,14 @@ public class Testability {
     public static List<FieldDeclaration> makeListenerFields(
             CompilationResult compilationResult,
             ReferenceBinding typeBinding,
-            SourceTypeBinding referenceBinding, LookupEnvironment lookupEnvironment) {
+            SourceTypeBinding referenceBinding,
+            LookupEnvironment lookupEnvironment) {
+
+        if (typeBinding.isEnum()) {
+            Testability.testabilityInstrumentationWarning(referenceBinding.scope,
+                    "cannot add listener inside enum: " + new String(typeBinding.readableName()));
+            return Collections.emptyList();
+        }
 
         ReferenceBinding typeBindingRaw = (ReferenceBinding) convertToRawIfGeneric(typeBinding, lookupEnvironment);
          //note: either passed type, which is ReferenceBinding, or RawTypeBinding, which is also ReferenceBinding
@@ -2715,6 +2722,12 @@ public class Testability {
 
         if (!instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS))
             return;
+
+        if (typeBinding.isEnum()) {
+            Testability.testabilityInstrumentationWarning(constructorDeclaration.scope,
+                    "cannot add listener inside enum: " + new String(typeBinding.readableName()));
+            return;
+        }
 
         if (constructorDeclaration.statements == null)
             constructorDeclaration.statements = new Statement[]{};
