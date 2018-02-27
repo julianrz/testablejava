@@ -661,11 +661,18 @@ public class Testability {
                     List<TypeDeclaration> localAndMemberTypeDeclarations = new ArrayList<>(localTypeDeclarations);
                     localAndMemberTypeDeclarations.addAll(memberTypeDeclarations);
 
-                    localAndMemberTypeDeclarations.stream().map(t -> t.binding).
+                    if (localAndMemberTypeDeclarations.stream().anyMatch(t -> t.binding.isEnum())){
+                        //note: a single enum can generate multiple local types, see testTestabilityInjectFunctionField_NotInstrumentingInsideEnum_Realistic
+                        Testability.testabilityInstrumentationWarning(referenceBinding.scope,
+                                "cannot add listener inside enum: " + new String(typeDeclaration.name));
+                    }
 
-                    forEach(typeBinding -> {
-                        ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding, lookupEnvironment));
-                    });
+                    localAndMemberTypeDeclarations.stream().
+                            map(t -> t.binding).
+                            filter(b -> !b.isEnum()).
+                            forEach(typeBinding -> {
+                                ret.addAll(makeListenerFields(typeDeclaration.compilationResult, typeBinding, referenceBinding, lookupEnvironment));
+                            });
 
                 }
 
@@ -886,8 +893,6 @@ public class Testability {
             LookupEnvironment lookupEnvironment) {
 
         if (typeBinding.isEnum()) {
-            Testability.testabilityInstrumentationWarning(referenceBinding.scope,
-                    "cannot add listener inside enum: " + new String(typeBinding.readableName()));
             return Collections.emptyList();
         }
 
@@ -2723,9 +2728,7 @@ public class Testability {
         if (!instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS))
             return;
 
-        if (typeBinding.isEnum()) {
-            Testability.testabilityInstrumentationWarning(constructorDeclaration.scope,
-                    "cannot add listener inside enum: " + new String(typeBinding.readableName()));
+        if (typeBinding.isEnum()) { //note: warning logged elsewhere
             return;
         }
 

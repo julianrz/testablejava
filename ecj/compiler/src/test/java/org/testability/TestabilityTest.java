@@ -4964,9 +4964,6 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("ExpressionContext").stream().collect(joining("\n")));
     }
 
-
-
-
     @Test
     public void testTestabilityInjectFunctionField_EnumDefinedAsInnerInsideGenericIsNotGeneric() throws Exception {
 
