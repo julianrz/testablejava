@@ -110,6 +110,10 @@ public class BaseTest {
             FileOutputStream fo;
             try {
                 String fileName = name + ".class";
+                if (name.contains("/")){
+                    String dir = name.substring(0,name.lastIndexOf("/"));
+                    new File(classTempStoreDir, dir).mkdirs();
+                }
                 File file = new File(classTempStoreDir, fileName);
                 fo = new FileOutputStream(file);
                 fo.write(bytecode);
@@ -178,7 +182,7 @@ public class BaseTest {
                 StringBuilder b = new StringBuilder();
                 for (char [] chunk:compoundName){
                     if (b.length()!=0)
-                        b.append('.');
+                        b.append('/');
                     b.append(chunk);
                 }
                 return b.toString();
