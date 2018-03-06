@@ -21,6 +21,8 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.*;
 
 import static org.eclipse.jdt.internal.compiler.lookup.TypeIds.IMPLICIT_CONVERSION_MASK;
+import static org.testability.Testability.makeSingleNameReference;
+import static org.testability.Testability.typeReferenceFromTypeBinding;
 
 //TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
 //TODO how to test recursive functions?
@@ -301,8 +303,17 @@ public class Testability {
         return allocationExpression;
     }
 
+    /**
+     * fixes situation when there was originally a this reference, but moving to field requires nested type qualifier
+     * @param receiver
+     * @param calledTypeBinding
+     * @param calledTypeReference
+     * @return
+     */
     static Expression fixReceiverIfThisAndTypeMismatches(Expression receiver, TypeBinding calledTypeBinding, TypeReference calledTypeReference) {
-        return (receiver instanceof ThisReference && receiver.resolvedType.id != calledTypeBinding.id)?
+        return (receiver instanceof ThisReference &&
+                !receiver.resolvedType.isSubtypeOf(calledTypeBinding) &&
+                receiver.resolvedType.id != calledTypeBinding.id)?
                 new QualifiedThisReference(calledTypeReference,0,0) :
                 receiver;
     }
@@ -588,6 +599,9 @@ public class Testability {
     }
     static SingleNameReference makeSingleNameReference(String targetFieldNameInThis) {
         return new SingleNameReference(targetFieldNameInThis.toCharArray(), 0);
+    }
+    static SingleNameReference makeSingleNameReference(char[] targetFieldNameInThis) {
+        return new SingleNameReference(targetFieldNameInThis, 0);
     }
 
     public static void registerCallToRedirectIfNeeded(MessageSend messageSend, BlockScope scope) {
@@ -1315,11 +1329,13 @@ public class Testability {
 
         fieldDeclaration.modifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccStatic;
 
+        ReferenceBinding classThatWillContainField = typeDeclaration.binding.outermostEnclosingType();
+
         FieldBinding fieldBinding = new FieldBinding(
                 fieldDeclaration,
                 null, //typeBindingForFunction,
                 fieldDeclaration.modifiers,
-                typeDeclaration.binding.outermostEnclosingType());
+                classThatWillContainField);
 
         fieldDeclaration.binding = fieldBinding;
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed?
@@ -1334,20 +1350,94 @@ public class Testability {
         MessageSend messageSendInLambdaBody = new MessageSend();
         messageSendInLambdaBody.selector = originalMessageSend.selector;
 
+
+
         //first argument is always context:  (arg0, arg1, .. argN) -> arg0.calledClassInstance.apply(arg1, .. argN)
 
         {
-            char[][] receiverPathDynamicCall = { " arg0".toCharArray(), "calledClassInstance".toCharArray()};
+            if (originalMessageSend.binding.isStatic()){
+                messageSendInLambdaBody.receiver =
+                        fixReceiverIfUnmarkedStaticCall(
+                                originalMessageSend.receiver,
+                                typeReferenceFromTypeBinding(calledType)
+                        );
+            } else {
+                char[][] receiverInstanceCall = {" arg0".toCharArray(), "calledClassInstance".toCharArray()};
 
-            Expression newReceiverDynamicCall =
-                    new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
+                Expression newReceiverInstanceCall =
+                        new QualifiedNameReference(receiverInstanceCall, new long[receiverInstanceCall.length], 0, 0);
 
-            messageSendInLambdaBody.receiver = originalMessageSend.binding.isStatic()?
-                    fixReceiverIfUnmarkedStaticCall(
-                            originalMessageSend.receiver,
-                            typeReferenceFromTypeBinding(calledType)
-                            ) :
-                    newReceiverDynamicCall;
+                messageSendInLambdaBody.receiver = newReceiverInstanceCall;
+            }
+        }
+        boolean needsReflectiveCall =
+                !originalMessageSend.binding.canBeSeenBy( //method used in original message send is visible from new field
+                        messageSendInLambdaBody,
+                        ((SourceTypeBinding) classThatWillContainField).scope
+                );
+
+        if (needsReflectiveCall) {
+            //TODO
+            if (originalMessageSend.binding.isStatic()){
+                messageSendInLambdaBody.receiver =
+                        fixReceiverIfUnmarkedStaticCall(
+                                originalMessageSend.receiver,
+                                typeReferenceFromTypeBinding(calledType)
+                        );
+            } else {
+
+                //e.g:
+                // new testability.ReflectiveCaller(String.class, "split", String.class, int.class).
+                //  apply("a,b,c", ",", 2);
+
+                //TODO refactor elsewhere to makeQualifiedNameReference
+                Expression calledClassExpression = new MessageSendBuilder("getClass").
+                        receiver(" arg0", "calledClassInstance").
+                        build().
+                        orElseThrow(()->new RuntimeException("internal error"));
+                Expression calledMethodNameExpression = new StringLiteral(originalMessageSend.selector, 0, 0, 0);
+                Expression[] calledMethodArgTypesExpressions = Arrays.stream(originalBindingParameters).
+                        map(typeBinding -> new ClassLiteralAccess(0, typeReferenceFromTypeBinding(typeBinding))).
+                        collect(toList()).
+                        toArray(new Expression[originalBindingParameters.length]);
+
+                AllocationExpression newReflectiveCallerExpression = new AllocationExpressionBuilder().
+                        type("testablejava", "ReflectiveCaller").
+                        arg(calledClassExpression).
+                        arg(calledMethodNameExpression).
+                        args(calledMethodArgTypesExpressions).
+                        build(lookupEnvironment).
+                        orElseThrow(()->new RuntimeException("internal error"));
+
+                String[] argStrings = IntStream.range(1, originalArguments.length + 1).
+                        mapToObj(iArgN -> " arg" + iArgN).
+                        collect(toList()).
+                        toArray(new String[]{});
+
+                MessageSend newReceiverInstanceCall = new MessageSendBuilder("apply").
+                        receiver(newReflectiveCallerExpression).
+                        argSingleNameReferences(argStrings).//TODO repeated below
+                        build().
+                        orElseThrow(()->new RuntimeException("internal error"));
+
+
+                TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(typeDeclaration.scope);
+                newReceiverInstanceCall.genericTypeArguments = new TypeBinding[]{tvoid};
+                messageSendInLambdaBody = newReceiverInstanceCall;
+
+                //TODO reflectivecaller.apply needs type param?
+
+//                messageSendInLambdaBody.receiver = newReflectiveCallerExpression;
+//                messageSendInLambdaBody.selector = "apply".toCharArray();
+//
+//                Expression[] args = IntStream.range(1, originalArguments.length + 1).
+//                        mapToObj(iArg -> " " + iArg).
+//                        collect(toList()).
+//                        toArray(new Expression[originalArguments.length]);
+//                if (args.length > 0)
+//                    messageSendInLambdaBody.arguments = args;
+
+            }
         }
 
 //        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
@@ -1420,13 +1510,16 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
+
+
         Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow);
 
         lambdaExpression.setBody(block);
 
         boolean typeVariablesInMethodArgs = additionalTypeVarCountForMethod > 0;
 
-        if (!typeVariablesInMethodArgs) {
+
+        if (!typeVariablesInMethodArgs && !needsReflectiveCall) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
             //anonymous type instead of lambda, since method has type variables
@@ -1559,7 +1652,8 @@ public class Testability {
     static Block makeStatementBlockForCallingOriginalMethod(
             boolean returnsVoid,
             Expression messageSendInLambdaBody,
-            boolean methodCanThrow) {
+            boolean methodCanThrow
+            ) {
 
         Expression messageSendExpression = messageSendInLambdaBody;
 
@@ -2848,6 +2942,111 @@ public class Testability {
 
     public static boolean codeContainsSyntaxErrors(CompilationResult fullParseUnitResult) {
         return fullParseUnitResult.hasSyntaxError;
+    }
+
+}
+
+class MessageSendBuilder {
+    private String methodName;
+    private Optional<Expression> receiverExpression = Optional.empty();
+
+    private List<SingleNameReference> args = new ArrayList<>();
+
+    public MessageSendBuilder(String methodName){
+        this.methodName = methodName;
+    }
+
+    public MessageSendBuilder receiver(String ...qualifiedNameChunks){
+        receiverExpression = Optional.of(Testability.makeQualifiedNameReference(qualifiedNameChunks));
+        return this;
+    }
+    public MessageSendBuilder receiver(Expression receiverExpression){
+        this.receiverExpression = Optional.of(receiverExpression);
+        return this;
+    }
+
+    public MessageSendBuilder argSingleNameReference(String argName){
+        args.add(makeSingleNameReference(argName));
+        return this;
+    }
+    public MessageSendBuilder argSingleNameReferences(String ...argNames){
+        args.addAll(Arrays.stream(argNames).
+                map(argName->makeSingleNameReference(argName)).
+                collect(toList()));
+        return this;
+    }
+
+    public Optional<MessageSend> build(){
+        Optional<MessageSend> ret = Optional.empty();
+
+        MessageSend messageSend = new MessageSend();
+
+        messageSend.selector = methodName.toCharArray();
+
+        if (!receiverExpression.isPresent())
+            return ret;
+
+        messageSend.receiver = receiverExpression.get();
+
+        if (!args.isEmpty()) {
+            messageSend.arguments = args.stream().
+                    collect(toList()).
+                    toArray(new Expression[args.size()]);
+        }
+
+        ret = Optional.of(messageSend);
+
+        return ret;
+    }
+
+}
+
+class AllocationExpressionBuilder {
+
+    private List<Expression> args = new ArrayList<>();
+    private Optional<String[]> pathElements = Optional.empty();
+
+    public AllocationExpressionBuilder arg(Expression arg){
+        this.args.add(arg);
+        return this;
+
+    }
+    public AllocationExpressionBuilder args(Expression ...args){
+        this.args.addAll(Arrays.asList(args));
+        return this;
+    }
+
+    public AllocationExpressionBuilder type(String ...pathElements){
+        this.pathElements = Optional.of(pathElements);
+        return this;
+    }
+
+    public Optional<AllocationExpression> build(LookupEnvironment lookupEnvironment){
+        Optional<AllocationExpression> ret = Optional.empty();
+
+        AllocationExpression allocationExpression = new AllocationExpression();
+
+        if (!pathElements.isPresent())
+            return ret;
+
+        char[][] path = Arrays.stream(pathElements.get()).
+                map(String::toCharArray).
+                collect(toList()).
+                toArray(new char[0][]);
+
+        ReferenceBinding genericType = lookupEnvironment.getType(path);
+
+        allocationExpression.type = typeReferenceFromTypeBinding(genericType);
+
+        if (!args.isEmpty()) {
+            allocationExpression.arguments = args.stream().
+                    collect(toList()).
+                    toArray(new Expression[args.size()]);
+        }
+
+        ret = Optional.of(allocationExpression);
+
+        return ret;
     }
 
 }
