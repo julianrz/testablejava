@@ -1376,6 +1376,8 @@ public class Testability {
                         ((SourceTypeBinding) classThatWillContainField).scope
                 );
 
+        Expression reflectiveInstanceCallInLambdaBody = null;
+
         if (needsReflectiveCall) {
             //TODO
             if (originalMessageSend.binding.isStatic()){
@@ -1414,18 +1416,30 @@ public class Testability {
                         collect(toList()).
                         toArray(new String[]{});
 
-                MessageSend newReceiverInstanceCall = new MessageSendBuilder("apply").
+                MessageSend reflectiveMessageSendInLambdaBody = new MessageSendBuilder("apply").
                         receiver(newReflectiveCallerExpression).
+                        argQualifiedNameReference(" arg0", "calledClassInstance").
                         argSingleNameReferences(argStrings).//TODO repeated below
                         build().
                         orElseThrow(()->new RuntimeException("internal error"));
 
+                reflectiveInstanceCallInLambdaBody = returnsVoid?
+                        reflectiveMessageSendInLambdaBody :
+                        new CastExpression(reflectiveMessageSendInLambdaBody, typeReferenceFromTypeBinding(boxIfApplicable(fieldTypeBinding, lookupEnvironment)))
+                        ;
 
-                TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(typeDeclaration.scope);
-                newReceiverInstanceCall.genericTypeArguments = new TypeBinding[]{tvoid};
-                messageSendInLambdaBody = newReceiverInstanceCall;
 
-                //TODO reflectivecaller.apply needs type param?
+
+                //cast to return value
+//                TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(typeDeclaration.scope);
+
+//                TypeBinding tactual = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
+//
+//                newReceiverInstanceCall.genericTypeArguments = new TypeBinding[]{tactual};
+
+//TODO
+//                  messageSendInLambdaBody = reflectiveInstanceCall;
+
 
 //                messageSendInLambdaBody.receiver = newReflectiveCallerExpression;
 //                messageSendInLambdaBody.selector = "apply".toCharArray();
@@ -1510,9 +1524,10 @@ public class Testability {
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
-
-
-        Block block = makeStatementBlockForCallingOriginalMethod(returnsVoid, messageSendInLambdaBody, methodCanThrow);
+        Block block = makeStatementBlockForCallingOriginalMethod(
+                returnsVoid,
+                reflectiveInstanceCallInLambdaBody == null? messageSendInLambdaBody : reflectiveInstanceCallInLambdaBody,
+                methodCanThrow);
 
         lambdaExpression.setBody(block);
 
@@ -2950,7 +2965,7 @@ class MessageSendBuilder {
     private String methodName;
     private Optional<Expression> receiverExpression = Optional.empty();
 
-    private List<SingleNameReference> args = new ArrayList<>();
+    private List<Expression> args = new ArrayList<>();
 
     public MessageSendBuilder(String methodName){
         this.methodName = methodName;
@@ -2964,7 +2979,14 @@ class MessageSendBuilder {
         this.receiverExpression = Optional.of(receiverExpression);
         return this;
     }
-
+    public MessageSendBuilder argSingleNameReference(Expression arg){
+        args.add(arg);
+        return this;
+    }
+    public MessageSendBuilder argQualifiedNameReference(String ...qualifiedNameChunks){
+        args.add(Testability.makeQualifiedNameReference(qualifiedNameChunks));
+        return this;
+    }
     public MessageSendBuilder argSingleNameReference(String argName){
         args.add(makeSingleNameReference(argName));
         return this;

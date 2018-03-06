@@ -92,26 +92,38 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "package a;" +
                 "public class X {\n" +
-                        "	protected void fn(String s) {}" +
+                        "	protected int fn(String s) {dontredirect: return s.length();}" +
+                        "   public int innerCaller(){return -1;}" +
                         "}",
                 "Y.java",
                 "public class Y  {\n" +
-                        "	void caller() {" +
-                        "      new a.X(){" +
-                        "          void innerCaller(){" +
-                        "              fn(\"\");" +
+                        "	int caller() {" +
+                        "      a.X x = new a.X(){" +
+                        "          @Override public int innerCaller(){" +
+                        "              return fn(\"abc\");" +
                         "          }" +
                         "      };" +
+                        "      dontredirect: return x.innerCaller();" +
                         "   }" +
                         "}"
         };
 
         String expectedOutput =
-                "";
+                "import a.X;\n" +
+                        "import helpers.Function2;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "import testablejava.ReflectiveCaller;\n" +
+                        "\n" +
+                        "class Y$2 implements Function2<CallContext<X>, String, Integer> {\n" +
+                        "   public Integer apply(CallContext<X> var1, String var2) {\n" +
+                        "      return (Integer)(new ReflectiveCaller(((X)var1.calledClassInstance).getClass(), \"fn\", new Class[]{String.class})).apply(var1.calledClassInstance, new Object[]{var2});\n" +
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        invokeCompiledMethod("Y","caller");
-        assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(3, invokeCompiledMethod("Y","caller"));
+        assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
+        //TODO check reflection arg forming and valid return in various situations
     }
     @Test
     public void testTestabilityInjectFunctionField_InnerClassThisReferenceInCalledClassInstance() throws Exception {
