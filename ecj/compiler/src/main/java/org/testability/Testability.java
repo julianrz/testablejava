@@ -1354,8 +1354,9 @@ public class Testability {
 
         //first argument is always context:  (arg0, arg1, .. argN) -> arg0.calledClassInstance.apply(arg1, .. argN)
 
+        boolean isStaticCall = originalMessageSend.binding.isStatic();
         {
-            if (originalMessageSend.binding.isStatic()){
+            if (isStaticCall){
                 messageSendInLambdaBody.receiver =
                         fixReceiverIfUnmarkedStaticCall(
                                 originalMessageSend.receiver,
@@ -1379,82 +1380,60 @@ public class Testability {
         Expression reflectiveInstanceCallInLambdaBody = null;
 
         if (needsReflectiveCall) {
-            //TODO
-            if (originalMessageSend.binding.isStatic()){
-                messageSendInLambdaBody.receiver =
-                        fixReceiverIfUnmarkedStaticCall(
-                                originalMessageSend.receiver,
-                                typeReferenceFromTypeBinding(calledType)
-                        );
-            } else {
+            //e.g:
+            // new testability.ReflectiveCaller(String.class, "split", String.class, int.class).
+            //  apply("a,b,c", ",", 2);
 
-                //e.g:
-                // new testability.ReflectiveCaller(String.class, "split", String.class, int.class).
-                //  apply("a,b,c", ",", 2);
+            Expression calledClassExpression = isStaticCall?
+                    new ClassLiteralAccess(0, typeReferenceFromTypeBinding(originalMessageSend.actualReceiverType)) :
+                    new MessageSendBuilder("getClass").
+                            receiver(" arg0", "calledClassInstance").
+                            build().
+                            orElseThrow(()->new RuntimeException("internal error"));
 
-                //TODO refactor elsewhere to makeQualifiedNameReference
-                Expression calledClassExpression = new MessageSendBuilder("getClass").
-                        receiver(" arg0", "calledClassInstance").
+            Expression calledMethodNameExpression = new StringLiteral(originalMessageSend.selector, 0, 0, 0);
+
+            Expression[] calledMethodArgTypesExpressions = Arrays.stream(originalBindingParameters).
+                    map(typeBinding -> new ClassLiteralAccess(0, typeReferenceFromTypeBinding(typeBinding))).
+                    collect(toList()).
+                    toArray(new Expression[originalBindingParameters.length]);
+
+            AllocationExpression newReflectiveCallerExpression = new AllocationExpressionBuilder().
+                    type("testablejava", "ReflectiveCaller").
+                    arg(calledClassExpression).
+                    arg(calledMethodNameExpression).
+                    args(calledMethodArgTypesExpressions).
+                    build(lookupEnvironment).
+                    orElseThrow(()->new RuntimeException("internal error"));
+
+            String[] argStrings = IntStream.range(1, originalArguments.length + 1).
+                    mapToObj(iArgN -> " arg" + iArgN).
+                    collect(toList()).
+                    toArray(new String[]{});
+
+            MessageSendBuilder reflectiveMessageSendInLambdaBodyBuilder =
+                new MessageSendBuilder("apply").
+                        receiver(newReflectiveCallerExpression);
+
+            if (isStaticCall)
+                reflectiveMessageSendInLambdaBodyBuilder = reflectiveMessageSendInLambdaBodyBuilder.argNullLiteral();
+            else
+                reflectiveMessageSendInLambdaBodyBuilder = reflectiveMessageSendInLambdaBodyBuilder.argQualifiedNameReference(" arg0", "calledClassInstance");
+
+            MessageSend reflectiveMessageSendInLambdaBody =
+                    reflectiveMessageSendInLambdaBodyBuilder.
+                        argSingleNameReferences(argStrings).
                         build().
                         orElseThrow(()->new RuntimeException("internal error"));
-                Expression calledMethodNameExpression = new StringLiteral(originalMessageSend.selector, 0, 0, 0);
-                Expression[] calledMethodArgTypesExpressions = Arrays.stream(originalBindingParameters).
-                        map(typeBinding -> new ClassLiteralAccess(0, typeReferenceFromTypeBinding(typeBinding))).
-                        collect(toList()).
-                        toArray(new Expression[originalBindingParameters.length]);
 
-                AllocationExpression newReflectiveCallerExpression = new AllocationExpressionBuilder().
-                        type("testablejava", "ReflectiveCaller").
-                        arg(calledClassExpression).
-                        arg(calledMethodNameExpression).
-                        args(calledMethodArgTypesExpressions).
-                        build(lookupEnvironment).
-                        orElseThrow(()->new RuntimeException("internal error"));
-
-                String[] argStrings = IntStream.range(1, originalArguments.length + 1).
-                        mapToObj(iArgN -> " arg" + iArgN).
-                        collect(toList()).
-                        toArray(new String[]{});
-
-                MessageSend reflectiveMessageSendInLambdaBody = new MessageSendBuilder("apply").
-                        receiver(newReflectiveCallerExpression).
-                        argQualifiedNameReference(" arg0", "calledClassInstance").
-                        argSingleNameReferences(argStrings).//TODO repeated below
-                        build().
-                        orElseThrow(()->new RuntimeException("internal error"));
-
-                reflectiveInstanceCallInLambdaBody = returnsVoid?
-                        reflectiveMessageSendInLambdaBody :
-                        new CastExpression(reflectiveMessageSendInLambdaBody, typeReferenceFromTypeBinding(boxIfApplicable(fieldTypeBinding, lookupEnvironment)))
-                        ;
-
-
-
-                //cast to return value
-//                TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(typeDeclaration.scope);
-
-//                TypeBinding tactual = boxIfApplicable(fieldTypeBinding, lookupEnvironment);
-//
-//                newReceiverInstanceCall.genericTypeArguments = new TypeBinding[]{tactual};
-
-//TODO
-//                  messageSendInLambdaBody = reflectiveInstanceCall;
-
-
-//                messageSendInLambdaBody.receiver = newReflectiveCallerExpression;
-//                messageSendInLambdaBody.selector = "apply".toCharArray();
-//
-//                Expression[] args = IntStream.range(1, originalArguments.length + 1).
-//                        mapToObj(iArg -> " " + iArg).
-//                        collect(toList()).
-//                        toArray(new Expression[originalArguments.length]);
-//                if (args.length > 0)
-//                    messageSendInLambdaBody.arguments = args;
-
-            }
+            reflectiveInstanceCallInLambdaBody = returnsVoid?
+                    reflectiveMessageSendInLambdaBody :
+                    new CastExpression(
+                            reflectiveMessageSendInLambdaBody,
+                            typeReferenceFromTypeBinding(boxIfApplicable(fieldTypeBinding, lookupEnvironment))
+                    );
         }
 
-//        messageSendInLambdaBody.typeArguments = originalMessageSend.typeArguments;
         messageSendInLambdaBody.binding = null;//this is to resolve expression without apparent receiver
 
         //arguments need to be wired directly to lambda arguments, cause they can be constants, etc
@@ -1462,27 +1441,6 @@ public class Testability {
         int methodSendInLambdaBodyArgCount = typeArgumentsForFunction.length - 1 - (returnsVoid ? 0 : 1);
 
         Expression[] argv = new Expression[methodSendInLambdaBodyArgCount];
-//        int iArgCastTypeVar = 0;
-//        for (int i = 0, length = argv.length; i < length; i++) {
-//            char[] name = (" arg" + (i + 1)).toCharArray();
-//
-//            SingleNameReference singleNameReference = new SingleNameReference(name, 0);
-//
-//            singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
-//
-//            if (originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
-//                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
-//                TypeReference typeReference = new SingleTypeReference(
-//                        sourceName, 0);
-//
-//                CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
-//                argv[i] = castExpression;
-//            }
-//            else {
-//                argv[i] = singleNameReference;
-//            }
-//        }
-
 
         for (int i = 0, length = argv.length; i < length; i++) {
             char[] name = (" arg" + (i + 1)).toCharArray();
@@ -1491,9 +1449,9 @@ public class Testability {
 
             singleNameReference.setExpressionContext(originalMessageSend.expressionContext);
 
-            if (argCastTypeReferences.get(i) != null){//originalMessageSend.arguments[i].resolvedType instanceof TypeVariableBinding) {
-//                char[] sourceName = ("E" + (iArgCastTypeVar++ + 1)).toCharArray();//((TypeVariableBinding) originalMessageSend.arguments[i].resolvedType).sourceName;
-                TypeReference typeReference = argCastTypeReferences.get(i);//new SingleTypeReference(                        sourceName, 0);
+            if (argCastTypeReferences.get(i) != null){
+
+                TypeReference typeReference = argCastTypeReferences.get(i);
 
                 CastExpression castExpression = new CastExpression(singleNameReference, typeReference);
                 argv[i] = castExpression;
@@ -1542,6 +1500,7 @@ public class Testability {
 
             if (anonymousType.methods == null)
                 anonymousType.methods = new MethodDeclaration[]{};
+
             anonymousType.methods = Arrays.copyOf(anonymousType.methods, anonymousType.methods.length + 1);
             MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaration.compilationResult);
 
@@ -1569,18 +1528,6 @@ public class Testability {
             methodDeclaration.arguments = anonInitializerArguments;
             methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
             methodDeclaration.statements = block.statements;
-
-            //each type parameter on method used to cast an argument of original call, and they are named E1...N where N is number of original call arguments
-//            if (additionalTypeVarCountForMethod > 0) {
-//                methodDeclaration.typeParameters = IntStream.range(0, additionalTypeVarCountForMethod).
-//                        mapToObj(iTypeParameter -> {
-//                            TypeParameter ret = new TypeParameter();
-//                            ret.name = ("E" + (iTypeParameter + 1)).toCharArray();
-//                            return ret;
-//                        }).
-//                        collect(toList()).
-//                        toArray(new TypeParameter[0]);
-//            }
 
             if (!argCastTypeReferences.isEmpty()) {
                 //detect all type variables
@@ -2977,6 +2924,10 @@ class MessageSendBuilder {
     }
     public MessageSendBuilder receiver(Expression receiverExpression){
         this.receiverExpression = Optional.of(receiverExpression);
+        return this;
+    }
+    public MessageSendBuilder argNullLiteral(){
+        args.add(new NullLiteral(0, 0));
         return this;
     }
     public MessageSendBuilder argSingleNameReference(Expression arg){

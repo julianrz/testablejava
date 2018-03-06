@@ -126,6 +126,45 @@ public class TestabilityTest extends BaseTest {
         //TODO check reflection arg forming and valid return in various situations
     }
     @Test
+    public void testTestabilityInjectFunctionField_ReflectiveStaticProtectedCall() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "package a;" +
+                        "public class X {\n" +
+                        "	protected static int fn(String s) {dontredirect: return s.length();}" +
+                        "   public int innerCaller(){return -1;}" +
+                        "}",
+                "Y.java",
+                "public class Y  {\n" +
+                        "	int caller() {" +
+                        "      a.X x = new a.X(){" +
+                        "          @Override public int innerCaller(){" +
+                        "              return a.X.fn(\"abc\");" +
+                        "          }" +
+                        "      };" +
+                        "      dontredirect: return x.innerCaller();" +
+                        "   }" +
+                        "}"
+        };
+
+        String expectedOutput =
+                "import a.X;\n" +
+                        "import helpers.Function2;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "import testablejava.ReflectiveCaller;\n" +
+                        "\n" +
+                        "class Y$2 implements Function2<CallContext<X>, String, Integer> {\n" +
+                        "   public Integer apply(CallContext<X> var1, String var2) {\n" +
+                        "      return (Integer)(new ReflectiveCaller(X.class, \"fn\", new Class[]{String.class})).apply((Object)null, new Object[]{var2});\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(3, invokeCompiledMethod("Y","caller"));
+        assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
+    }
+    @Test
     public void testTestabilityInjectFunctionField_InnerClassThisReferenceInCalledClassInstance() throws Exception {
 
         //no need to qualify 'this' when forming calledClassInstance for call that resides in subclass
@@ -163,34 +202,7 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutput, moduleMap.get("Y$1").stream().collect(joining("\n")));
     }
-    @Test
-    public void testTestabilityInjectFunctionField_ReflectiveStaticProtectedCall() throws Exception {
 
-        String[] task = {
-                "X.java",
-                "package a;" +
-                        "public class X {\n" +
-                        "	protected static void fn() {}" +
-                        "}",
-                "Y.java",
-                "public class Y  {\n" +
-                        "	void caller() {" +
-                        "      new a.X(){" +
-                        "          void innerCaller(){" +
-                        "              a.X.fn();" +
-                        "          }" +
-                        "      };" +
-                        "   }" +
-                        "}"
-        };
-
-        String expectedOutput =
-                "";
-
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        invokeCompiledMethod("Y","caller");
-        assertEquals(expectedOutput, moduleMap.get("Y").stream().collect(joining("\n")));
-    }
 
 
 
