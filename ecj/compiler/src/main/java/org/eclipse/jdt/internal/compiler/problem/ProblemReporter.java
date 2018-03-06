@@ -7004,8 +7004,8 @@ public class ProblemReporter extends ProblemHandler {
 
         this.handle(
                 id,
-                new String[]{new String(targetType.readableName())},
-                new String[]{new String(targetType.shortReadableName())},
+                new String[]{targetType==null? "<notype>" : new String(targetType.readableName())},
+                new String[]{targetType==null? "<notype>" : new String(targetType.shortReadableName())},
                 location.sourceStart,
                 location instanceof LambdaExpression ? ((LambdaExpression) location).diagnosticsSourceEnd() : location.sourceEnd);
     }
