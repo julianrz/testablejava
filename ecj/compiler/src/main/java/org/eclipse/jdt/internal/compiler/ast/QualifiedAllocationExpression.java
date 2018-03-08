@@ -304,6 +304,9 @@ public class QualifiedAllocationExpression extends AllocationExpression {
         // Propagate the type checking to the arguments, and checks if the constructor is defined.
         // ClassInstanceCreationExpression ::= Primary '.' 'new' SimpleName '(' ArgumentListopt ')' ClassBodyopt
         // ClassInstanceCreationExpression ::= Name '.' 'new' SimpleName '(' ArgumentListopt ')' ClassBodyopt
+        if (this.resolvedType != null) {//JR re-resolve should be legit and hard to avoid in some cases
+            return this.resolvedType;
+        }
         final boolean isDiamond = this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
         TypeBinding enclosingInstanceType = null;
         TypeBinding receiverType = null;
