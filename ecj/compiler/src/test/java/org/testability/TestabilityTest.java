@@ -79,7 +79,17 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-                "";
+                "import X.1;\n" +
+                        "import helpers.Consumer1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   public static Consumer1<CallContext<Object>> $$Object$finalize = new 1();\n" +
+                        "\n" +
+                        "   void fn() throws Throwable {\n" +
+                        "      $$Object$finalize.accept(new CallContext(\"X\", \"java.lang.Object\", this, this));\n" +
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         invokeCompiledMethod("X","fn");
@@ -164,6 +174,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(3, invokeCompiledMethod("Y","caller"));
         assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_InnerClassThisReferenceInCalledClassInstance() throws Exception {
 
@@ -4481,6 +4492,7 @@ public class TestabilityTest extends BaseTest {
                 "Y.java",
                 "public class Y {\n" +
                         "   class Z { " +
+                        "      Z fnI(){return new Z();};\n" +
                         "   };\n" +
                         "   Z fn(){return new Z();};\n" +
                         "   Z fnExample(){dontredirect: return this.new Z();};\n" +
@@ -4493,13 +4505,13 @@ public class TestabilityTest extends BaseTest {
                 "\n" +
                 "public class Y {\n" +
                 "   public static Function1<CallContext<Z>, Z> $$Z$new = (var0) -> {\n" +
-                "      Y var10002 = (Y)var0.callingClassInstance;\n" +
-                "      ((Y)var0.callingClassInstance).getClass();\n" + //this is artifact of decompile, see same in fnExample
-                "      return new Z(var10002);\n" + //this is what var0.callingClassInstance.new Z() translates into normally
+                "      Y var10002 = (Y)var0.enclosingInstances[0];\n" +
+                "      ((Y)var0.enclosingInstances[0]).getClass();\n" +
+                "      return new Z(var10002);\n" +
                 "   };\n" +
                 "\n" +
                 "   Z fn() {\n" +
-                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null));\n" +
+                "      return (Z)$$Z$new.apply(new CallContext(\"Y\", \"Y.Z\", this, (Object)null, new Object[]{this}));\n" +
                 "   }\n" +
                 "\n" +
                 "   Z fnExample() {\n" +
@@ -4507,10 +4519,22 @@ public class TestabilityTest extends BaseTest {
                 "      return new Z(this);\n" +
                 "   }\n" +
                 "}";
+        String expectedOutputZ = "import testablejava.CallContext;\n" +
+                "\n" +
+                "class Y$Z {\n" +
+                "   Y$Z(Y var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "\n" +
+                "   Y$Z fnI() {\n" +
+                "      return (Y$Z)Y.$$Z$new.apply(new CallContext(\"Y.Z\", \"Y.Z\", this, (Object)null, new Object[]{this.this$0}));\n" +
+                "   }\n" +
+                "}";//note an instance of Y passed into context as enclosing instance
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
 
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+        assertEquals(expectedOutputZ, moduleMap.get("Y$Z").stream().collect(joining("\n")));
     }
 
     @Test
@@ -4548,6 +4572,57 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClassFromWithinInnerClass() throws Exception {
+        //Pb(2)  cannot be resolved to a type
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class Z {" +
+                        "      Z zfn(){return this;}" +
+                        "   }" +
+                        "   abstract class R {" +
+                        "      abstract public Z run();" +
+                        "   }" +
+                        "	Z caller() {" +
+                        "      R r =  new R(){" +
+                        "          public Z run(){" +
+                        "              return new Z();" +
+                        "          }" +
+                        "      };" +
+                        "      dontredirect: return r.run();" +
+                        "   }" +
+                        "}"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals("Y$Z", invokeCompiledMethod("Y","caller").getClass().getName());
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClassFromWithinInnerClassMultilevel() throws Exception {
+        //Pb(2)  cannot be resolved to a type
+        String[] task = {
+                "L1.java",
+                "public class L1 {\n" +
+                        "   class L2 {" +
+                        "    class L3 {" +
+                        "     class L4 {" +
+                        "      public L4 run(){" +
+                        "        return new L4();" +
+                        "      }" +
+                        "     }" +
+                        "    }" +
+                        "   }" +
+                        "	String caller() {" +
+                        "      dontredirect: return new L2().new L3().new L4().run().getClass().getName();" +
+                        "   }" +
+                        "}"
+        };
+
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals("L1$L2$L3$L4", invokeCompiledMethod("L1","caller"));
+    }
+
 //TODO reenable
 //    @Test
 //    public void testTestabilityInjectFunctionField_ForNewOperatorForInnerClass() throws Exception {
@@ -4650,13 +4725,13 @@ public class TestabilityTest extends BaseTest {
                 "\n" +
                 "public class Y {\n" +
                 "   public static Function1<CallContext<Z>, Z> $$Y$Container1$Z$new = (var0) -> {\n" +
-                "      Container1 var10002 = (Container1)var0.callingClassInstance;\n" +
-                "      ((Container1)var0.callingClassInstance).getClass();\n" +
+                "      Container1 var10002 = (Container1)var0.enclosingInstances[0];\n" +
+                "      ((Container1)var0.enclosingInstances[0]).getClass();\n" +
                 "      return new Z(var10002);\n" +
                 "   };\n" +
                 "   public static Function1<CallContext<Y.Container2.Z>, Y.Container2.Z> $$Y$Container2$Z$new = (var0) -> {\n" +
-                "      Container2 var10002 = (Container2)var0.callingClassInstance;\n" +
-                "      ((Container2)var0.callingClassInstance).getClass();\n" +
+                "      Container2 var10002 = (Container2)var0.enclosingInstances[0];\n" +
+                "      ((Container2)var0.enclosingInstances[0]).getClass();\n" +
                 "      return new Y.Container2.Z(var10002);\n" +
                 "   };\n" +
                 "}";
@@ -4803,14 +4878,16 @@ public class TestabilityTest extends BaseTest {
                 "import Y.1;\n" +
                         "import Y.Z;\n" +
                         "import helpers.Function1;\n" +
-                        "import testablejava.CallContext;\n\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
                         "public class Y {\n" +
                         "   public static Function1<CallContext<Z>, Z> $$Z$zfn = (var0) -> {\n" +
                         "      return ((Z)var0.calledClassInstance).zfn();\n" +
-                        "   };\n\n" +
+                        "   };\n" +
+                        "\n" +
                         "   Z fn() {\n" +
                         "      1 var1 = new 1(this, this);\n" +
-                        "      return (Z)$$Z$zfn.apply(new CallContext(\"Y\", \"Y.Z\", this, var1));\n" +
+                        "      return (Z)$$Z$zfn.apply(new CallContext(\"Y\", \"Y.Z\", this, var1, new Object[]{this}));\n" +
                         "   }\n" +
                         "}";
 

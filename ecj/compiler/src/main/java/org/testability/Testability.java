@@ -289,14 +289,28 @@ public class Testability {
         //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference poimnitng to inner class and MessageSend magically fixes this
         //in its actualReceiverType)
 
-        Expression[] argv = {
+        List<Expression> argvList = Arrays.asList(
                 exprGetCallingClass,
                 exprGetCalledClass,
                 exprGetCallingClassInstance,
-                exprGetCalledClassInstance
-        };
+                exprGetCalledClassInstance);
 
-        allocationExpression.arguments = argv;
+        List<Expression> combinedList = new ArrayList<>();
+
+        combinedList.addAll(argvList);
+
+        if (messageSend.resolvedType instanceof NestedTypeBinding) {
+            //for enclosing instances, add expressions A.this, B.this etc
+
+            List<QualifiedThisReference> exprsEnclosingInstance =
+                    Arrays.stream(((NestedTypeBinding) messageSend.resolvedType).enclosingInstances).
+                            map(syntheticArgumentBinding -> new QualifiedThisReference(typeReferenceFromTypeBinding(syntheticArgumentBinding.type), 0, 0)).
+                            collect(toList());
+
+            combinedList.addAll(exprsEnclosingInstance);
+        }
+
+        allocationExpression.arguments = combinedList.toArray(new Expression[combinedList.size()]);
 
         allocationExpression.resolve(currentScope);
 
@@ -377,14 +391,28 @@ public class Testability {
         Expression exprGetCalledClassInstance = //no instance yet
                 new CastExpression(new NullLiteral(0,0), calledTypeReference);
 
-        Expression[] argv = {
+        List<Expression> argvList = Arrays.asList(
                 exprGetCallingClass,
                 exprGetCalledClass,
                 exprGetCallingClassInstance,
-                exprGetCalledClassInstance
-        };
+                exprGetCalledClassInstance);
 
-        allocationExpression.arguments = argv;
+        List<Expression> combinedList = new ArrayList<>();
+
+        combinedList.addAll(argvList);
+
+        if (messageSend.resolvedType instanceof NestedTypeBinding && !messageSend.resolvedType.isStatic()) {
+            //for enclosing instances, add expressions A.this, B.this etc
+
+            List<QualifiedThisReference> exprsEnclosingInstance =
+                    Arrays.stream(((MemberTypeBinding) messageSend.resolvedType).enclosingInstances).
+                            map(syntheticArgumentBinding -> new QualifiedThisReference(typeReferenceFromTypeBinding(syntheticArgumentBinding.type), 0, 0)).
+                            collect(toList());
+
+            combinedList.addAll(exprsEnclosingInstance);
+        }
+
+        allocationExpression.arguments = combinedList.toArray(new Expression[combinedList.size()]);;
 
         allocationExpression.resolve(currentScope);
 
@@ -1843,7 +1871,8 @@ public class Testability {
             return null;
         }
 
-        if (typeDeclarationContainingCall.binding.isEnum()) {
+        SourceTypeBinding callerTypeBinding = typeDeclarationContainingCall.binding;
+        if (callerTypeBinding.isEnum()) {
             Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect inside enum: " + new String(typeDeclarationContainingCall.name));
             return null;
         }
@@ -2012,16 +2041,27 @@ public class Testability {
             QualifiedAllocationExpression inLambdaBodyQualifiedAllocationExpression =
                     new QualifiedAllocationExpression();
 
-            char[][] receiverPathDynamicCall = { " arg0".toCharArray(), "callingClassInstance".toCharArray()};
+            char[][] receiverPathDynamicCall = {
+                    " arg0".toCharArray(),
+                    "enclosingInstances".toCharArray()
+            };
 
             Expression enclosingInstanceCall =
                     new QualifiedNameReference(receiverPathDynamicCall, new long[receiverPathDynamicCall.length], 0, 0);
 
             //since callingClassInstance is an object, we need to cast to enclosing instance type. There will be a unique type per call
 
-            TypeReference typeReferenceContainingCall = typeReferenceFromTypeBinding(typeDeclarationContainingCall.binding);
+            IntLiteral zero = IntLiteral.buildIntLiteral(new char[]{'0'}, 0, 0);
+            ArrayReference exprEnclosingInstance0 = new ArrayReference(enclosingInstanceCall, zero);
 
-            CastExpression castExpression = new CastExpression(enclosingInstanceCall, typeReferenceContainingCall);
+            TypeBinding nonLocalClassBinding =
+                    !callerTypeBinding.isLocalType()?
+                            callerTypeBinding :
+                            callerTypeBinding.enclosingType();
+
+            CastExpression castExpression = new CastExpression(
+                    exprEnclosingInstance0,
+                    typeReferenceFromTypeBinding(((MemberTypeBinding) originalMessageSend.resolvedType).enclosingInstances[0].type));//originalMessageSend.resolvedType.enclosingInstances[0]);//typeReferenceContainingCall);
 
             inLambdaBodyQualifiedAllocationExpression.enclosingInstance = castExpression;
             messageSendInLambdaBody = inLambdaBodyQualifiedAllocationExpression;
