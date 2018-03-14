@@ -299,7 +299,7 @@ public class Testability {
 
         combinedList.addAll(argvList);
 
-        if (messageSend.resolvedType instanceof NestedTypeBinding) {
+        if (messageSend.resolvedType instanceof NestedTypeBinding && !messageSend.resolvedType.isStatic()) {
             //for enclosing instances, add expressions A.this, B.this etc
 
             List<QualifiedThisReference> exprsEnclosingInstance =
@@ -405,7 +405,7 @@ public class Testability {
             //for enclosing instances, add expressions A.this, B.this etc
 
             List<QualifiedThisReference> exprsEnclosingInstance =
-                    Arrays.stream(((MemberTypeBinding) messageSend.resolvedType).enclosingInstances).
+                    Arrays.stream(((NestedTypeBinding) messageSend.resolvedType).enclosingInstances).
                             map(syntheticArgumentBinding -> new QualifiedThisReference(typeReferenceFromTypeBinding(syntheticArgumentBinding.type), 0, 0)).
                             collect(toList());
 
@@ -1876,6 +1876,10 @@ public class Testability {
             Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect inside enum: " + new String(typeDeclarationContainingCall.name));
             return null;
         }
+        if (originalMessageSend.resolvedType.isLocalType()) {
+            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect local class allocation: " + originalMessageSend);
+            return null;
+        }
 
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
@@ -2033,8 +2037,7 @@ public class Testability {
 
         AllocationExpression messageSendInLambdaBody;
 
-        if ((originalMessageSend.resolvedType.isMemberType() && !originalMessageSend.resolvedType.isStatic()) ||
-                originalMessageSend.resolvedType.isLocalType()){
+        if ((originalMessageSend.resolvedType.isMemberType() && !originalMessageSend.resolvedType.isStatic())){
             //explicit arg0.callingClassInstance.new MemberType()
             //note: except for member types tagged 'static'
 
@@ -2053,11 +2056,6 @@ public class Testability {
 
             IntLiteral zero = IntLiteral.buildIntLiteral(new char[]{'0'}, 0, 0);
             ArrayReference exprEnclosingInstance0 = new ArrayReference(enclosingInstanceCall, zero);
-
-            TypeBinding nonLocalClassBinding =
-                    !callerTypeBinding.isLocalType()?
-                            callerTypeBinding :
-                            callerTypeBinding.enclosingType();
 
             CastExpression castExpression = new CastExpression(
                     exprEnclosingInstance0,

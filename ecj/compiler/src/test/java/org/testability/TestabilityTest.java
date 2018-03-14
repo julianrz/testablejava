@@ -443,6 +443,79 @@ public class TestabilityTest extends BaseTest {
     }
 
     @Test
+    public void testTestabilityInjectFunctionField_AnonymousTypeNewOperatorNotRedirectedWhenFieldExists() throws Exception {
+        //here field should be created from new Y() and just one redirect of new Y(). Anonymous class not redirected
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "   class Y{}" +
+                        "	void fn() {" +
+                        "     new Y(); " +
+                        "     new Y(){};" +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_AnonymousTypeOrNamedTypeCreatesField() throws Exception {
+        //here field should be created from new Y() even though it is 2nd call and just one redirect of new Y(). Anonymous class not redirected
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "   class Y{}" +
+                        "	void fn() {" +
+                        "     new Y(){};" +
+                        "     new Y(); " +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+    }
+
+    @Test
+    public void testTestabilityInjectFunctionField_LocalTypeNewOperatorNotRedirected() throws Exception {
+        String[] task = {
+                "X.java",
+                "import java.util.*;\n" +
+                        "public class X {\n" +
+                        "	void fn() {" +
+                        "     class Y{}" +
+                        "     new Y();" +
+                        "  }" +
+                        "}\n"
+        };
+
+        String expectedOutput = "import X.1Y;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   void fn() {\n" +
+                "      new 1Y(this);\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputInner = "class X$1Y {\n" +
+                "   X$1Y(X var1) {\n" +
+                "      this.this$0 = var1;\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(expectedOutputInner, moduleMap.get("X$1Y").stream().collect(joining("\n")));
+
+    }
+
+    @Test
     public void testTestabilityInjectFunctionField_CompilationError() throws Exception {
         String[] task = {
                 "X.java",
