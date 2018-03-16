@@ -1,6 +1,5 @@
 package org.testability;
 
-import com.sun.istack.internal.NotNull;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -1192,7 +1191,6 @@ public class Testability {
 
     }
 
-    @NotNull
     static FieldDeclaration makeRedirectorFieldDeclaration(
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
@@ -1842,7 +1840,6 @@ public class Testability {
         return typeBinding;
     }
 
-    @NotNull
     static FieldDeclaration makeRedirectorFieldDeclaration(
             AllocationExpression originalMessageSend,
             TypeDeclaration typeDeclaration,
