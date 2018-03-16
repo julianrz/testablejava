@@ -444,7 +444,7 @@ public class TestabilityTest extends BaseTest {
 
     @Test
     public void testTestabilityInjectFunctionField_AnonymousTypeNewOperatorNotRedirectedWhenFieldExists() throws Exception {
-        //here field should be created from new Y() and just one redirect of new Y(). Anonymous class not redirected
+        //here field should be created from new Y() and just one redirect of new Y(). Anonymous class 'new' operator not redirected
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
@@ -457,14 +457,30 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        String expectedOutput = "";
+        String expectedOutput = "import X.1;\n" +
+                "import X.Y;\n" +
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function1<CallContext<Y>, Y> $$Y$new = (var0) -> {\n" +
+                "      X var10002 = (X)var0.enclosingInstances[0];\n" +
+                "      ((X)var0.enclosingInstances[0]).getClass();\n" +
+                "      return new Y(var10002);\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      $$Y$new.apply(new CallContext(\"X\", \"X.Y\", this, (Object)null, new Object[]{this}));\n" +
+                "      new 1(this, this);\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
     @Test
     public void testTestabilityInjectFunctionField_AnonymousTypeOrNamedTypeCreatesField() throws Exception {
-        //here field should be created from new Y() even though it is 2nd call and just one redirect of new Y(). Anonymous class not redirected
+        //here field should be created from new Y() even though it is 2nd call and just one redirect of new Y(). Anonymous class 'new' operator not redirected
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
@@ -477,7 +493,23 @@ public class TestabilityTest extends BaseTest {
                         "}\n"
         };
 
-        String expectedOutput = "";
+        String expectedOutput = "import X.1;\n" +
+                "import X.Y;\n" +
+                "import helpers.Function1;\n" +
+                "import testablejava.CallContext;\n" +
+                "\n" +
+                "public class X {\n" +
+                "   public static Function1<CallContext<Y>, Y> $$Y$new = (var0) -> {\n" +
+                "      X var10002 = (X)var0.enclosingInstances[0];\n" +
+                "      ((X)var0.enclosingInstances[0]).getClass();\n" +
+                "      return new Y(var10002);\n" +
+                "   };\n" +
+                "\n" +
+                "   void fn() {\n" +
+                "      new 1(this, this);\n" +
+                "      $$Y$new.apply(new CallContext(\"X\", \"X.Y\", this, (Object)null, new Object[]{this}));\n" +
+                "   }\n" +
+                "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));

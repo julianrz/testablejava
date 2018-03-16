@@ -1,5 +1,6 @@
 package org.testability;
 
+import com.sun.istack.internal.NotNull;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -641,7 +642,8 @@ public class Testability {
                 !fromTestabilityFieldInitializer(scope) && //it calls original code
 //                    !classReferenceContext.isTestabilityRedirectorMethod(scope) &&
                 !isTestabilityFieldAccess(messageSend.receiver) &&
-                !isLabelledAsDontRedirect(scope.methodScope(), messageSend)
+                !isLabelledAsDontRedirect(scope.methodScope(), messageSend) &&
+                !unsupporedCase(messageSend)
                 ) //it calls the testability field apply method
 
         {
@@ -656,7 +658,8 @@ public class Testability {
 
         if (!classReferenceContext.methodsResolved &&
                 !fromTestabilityFieldInitializer(scope) &&
-                !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression)
+                !isLabelledAsDontRedirect(scope.methodScope(), allocationExpression) &&
+                !unsupporedCase(allocationExpression, scope)
            ) {//it calls original code
             MethodScope methodScope = scope.methodScope();
 
@@ -664,6 +667,33 @@ public class Testability {
             classReferenceContext.allCallsToRedirect.add(new AbstractMap.SimpleEntry<>(allocationExpression, typeContainingExpression));
         }
     }
+
+    static boolean unsupporedCase(MessageSend expression) {
+        return false;
+    }
+    static boolean unsupporedCase(AllocationExpression originalMessageSend, Scope scope) {
+        if (originalMessageSend instanceof QualifiedAllocationExpression) {
+            Testability.testabilityInstrumentationWarning(scope, "cannot redirect anonymous class allocation: " + originalMessageSend);
+            return true;
+        }
+        if (originalMessageSend.resolvedType.isLocalType()) {
+            Testability.testabilityInstrumentationWarning(scope, "cannot redirect local class allocation: " + originalMessageSend);
+            return true;
+        }
+
+        MethodScope methodScope = scope.methodScope();
+
+        TypeDeclaration typeDeclarationContainingCall = methodScope.classScope().referenceContext;
+
+        SourceTypeBinding callerTypeBinding = typeDeclarationContainingCall.binding;
+        if (callerTypeBinding.isEnum()) {
+            Testability.testabilityInstrumentationWarning(scope, "cannot redirect inside enum: " + new String(typeDeclarationContainingCall.name));
+            return true;
+        }
+
+        return false;
+    }
+
     public static void registerAnonymousType(TypeDeclaration anonymousType, BlockScope scope) {
         TypeDeclaration classReferenceContext = scope.outerMostClassScope().referenceContext;
 
@@ -981,7 +1011,6 @@ public class Testability {
                         })
                 );
 
-
         List<Map.Entry<Expression, TypeDeclaration>> distinctCalls = uniqueFieldToExpression.values().stream().
                 map(expressionList -> expressionList.get(0)).
                 collect(toList()); //take 1st value of each list (where items have same toUniqueMethodDescriptor()
@@ -1049,7 +1078,6 @@ public class Testability {
                             fieldDeclaration = makeRedirectorFieldDeclaration(
                                     originalAllocationExpression,
                                     typeDeclaration,
-                                    typeDeclarationContainingCall,
                                     referenceBinding,
                                     fieldName
                             );
@@ -1114,9 +1142,7 @@ public class Testability {
     static LambdaExpression makeLambdaExpression(
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
-            LookupEnvironment lookupEnvironment,
-            TypeBinding[] typeArgumentsForFunction,
-            ParameterizedTypeBinding typeBindingForFunction) {
+            TypeBinding[] typeArgumentsForFunction) {
 
         LambdaExpression lambdaExpression = new LambdaExpression(typeDeclaration.compilationResult, false);
         //see ReferenceExpression::generateImplicitLambda
@@ -1166,6 +1192,7 @@ public class Testability {
 
     }
 
+    @NotNull
     static FieldDeclaration makeRedirectorFieldDeclaration(
             MessageSend originalMessageSend,
             TypeDeclaration typeDeclaration,
@@ -1193,15 +1220,7 @@ public class Testability {
 
         TypeBinding receiverResolvedType = originalMessageSend.actualReceiverType;//originalMessageSend.receiver.resolvedType;
 
-        TypeBinding callingType = convertIfAnonymous(typeDeclarationContainingCall.binding);
-
-        //TODO apply elsewhere too, factor out a method:
-
-//        callingType = convertToRawIfGeneric(callingType, lookupEnvironment);
-
         TypeBinding calledType = convertIfAnonymous(receiverResolvedType);
-
-//        calledType = convertToRawIfGeneric(calledType, lookupEnvironment);
 
         ParameterizedTypeBinding contextArgument = (ParameterizedTypeBinding) bindingForCallContextType(//TODO fix type of bindingForCallContextType
                 calledType, //this should be apparent compile type called
@@ -1264,20 +1283,7 @@ public class Testability {
                         lookupEnvironment.convertToRawType(typeArgumentsForFunction[iTypeArg], false);
         }
 
-//        //TODO//see if any type argument is CaptureBinding, and replace it with its sourceType
-//        if (receiverResolvedType instanceof ParameterizedTypeBinding){
-//            ParameterizedTypeBinding receiverResolvedTypeParameterized = (ParameterizedTypeBinding) receiverResolvedType;
-//            TypeBinding[] originalArgs = receiverResolvedTypeParameterized.arguments;
-//            TypeBinding [] newArgs = Arrays.stream(originalArgs).
-//                    map(arg -> (arg instanceof CaptureBinding)?((CaptureBinding) arg).sourceType: arg).
-//                    collect(toList()).
-//                    toArray(new TypeBinding[originalArgs.length]);
-//            receiverResolvedTypeParameterized.arguments = newArgs;
-//
-//        }
-
         int functionArgCount = typeArgumentsForFunction.length - (returnsVoid ? 0 : 1);
-
 
         //TODO other place
         List<TypeReference> argCastTypeReferences = new ArrayList<>(); //null if no cast needed
@@ -1296,15 +1302,6 @@ public class Testability {
         }
 
         int additionalTypeVarCountForMethod = (int) argCastTypeReferences.stream().filter(Objects::nonNull).count();
-
-//                originalMessageSend.arguments==null? //TODO other place
-//                0 :
-//                (int) Arrays.stream(originalMessageSend.arguments).
-//                        map(arg -> arg.resolvedType).
-//                        filter(TypeVariableBinding.class::isInstance).
-//                        count();
-
-
 
         char[][] path = {
                 "helpers".toCharArray(),
@@ -1371,14 +1368,11 @@ public class Testability {
         LambdaExpression lambdaExpression = makeLambdaExpression(
                 originalMessageSend,
                 typeDeclarationContainingCall,
-                lookupEnvironment,
-                typeArgumentsForFunction,
-                typeBindingForFunction);
+                typeArgumentsForFunction
+        );
 
         MessageSend messageSendInLambdaBody = new MessageSend();
         messageSendInLambdaBody.selector = originalMessageSend.selector;
-
-
 
         //first argument is always context:  (arg0, arg1, .. argN) -> arg0.calledClassInstance.apply(arg1, .. argN)
 
@@ -1491,18 +1485,7 @@ public class Testability {
 
         if (argv.length != 0) {
             messageSendInLambdaBody.arguments = argv; //otherwise stays 0, resolution logic depends on it
-//            //make type variables available on field class binding
-//            //TODO exper
-//            List<Expression> typeVars = Arrays.stream(originalMessageSend.arguments).
-//                    map(ex -> ex.resolvedType).
-//                    filter(TypeVariableBinding.class::isInstance).
-//                    map(type -> type.sourceName()).
-//                    map(sourceName -> new SingleTypeReference(sourceName, 0)).
-//                    collect(toList());
-//            if (!typeVars.isEmpty())
-//                messageSendInLambdaBody.typeArguments = typeVars.toArray(new TypeReference[0]);
         }
-
 
         //TODO needed?
         if (originalMessageSend.resolvedType instanceof BaseTypeBinding) //primitive type needs to be boxed when returned from lambda
@@ -1859,27 +1842,12 @@ public class Testability {
         return typeBinding;
     }
 
+    @NotNull
     static FieldDeclaration makeRedirectorFieldDeclaration(
             AllocationExpression originalMessageSend,
             TypeDeclaration typeDeclaration,
-            TypeDeclaration typeDeclarationContainingCall,
             SourceTypeBinding referenceBinding,
             String fieldName) {
-
-        if (originalMessageSend instanceof QualifiedAllocationExpression) {
-            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect anonymous class allocation: " + originalMessageSend);
-            return null;
-        }
-
-        SourceTypeBinding callerTypeBinding = typeDeclarationContainingCall.binding;
-        if (callerTypeBinding.isEnum()) {
-            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect inside enum: " + new String(typeDeclarationContainingCall.name));
-            return null;
-        }
-        if (originalMessageSend.resolvedType.isLocalType()) {
-            Testability.testabilityInstrumentationWarning(referenceBinding.scope, "cannot redirect local class allocation: " + originalMessageSend);
-            return null;
-        }
 
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
@@ -2099,24 +2067,6 @@ public class Testability {
         if (argv.length != 0) {
             messageSendInLambdaBody.arguments = argv;
         }
-
-
-
-
-//        Block block = new Block(2);
-//        LabeledStatement labeledStatement = new LabeledStatement(
-//                TESTABILITYLABEL.toCharArray(),
-//                new EmptyStatement(0, 0),
-//                0, 0);
-//
-//        ReturnStatement returnStatement = new ReturnStatement(messageSendInLambdaBody, 0, 0);
-//
-//        block.statements = new Statement[]{
-//                labeledStatement,
-//                returnStatement
-//        };
-//
-
 
         boolean methodCanThrow = methodCanThrow(originalMessageSend);
 
