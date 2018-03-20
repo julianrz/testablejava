@@ -715,8 +715,7 @@ public class Testability {
 
             Set<InstrumentationOptions> instrumentationOptions = getInstrumentationOptions(lookupEnvironment);
 
-            if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS) &&
-                    !new String(typeDeclaration.name).startsWith("Function")) { //TODO better check for FunctionN
+            if (instrumentationOptions.contains(InstrumentationOptions.INSERT_LISTENERS)) {
 
                 if (typeDeclaration.binding.outermostEnclosingType() == typeDeclaration.binding) { //processing top-level type
                     //TODO for all instantiated types if typeDeclaration is generic
