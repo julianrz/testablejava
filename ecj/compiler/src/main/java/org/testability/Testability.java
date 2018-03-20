@@ -1179,7 +1179,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
+            throw internalError(Arrays.stream(path).map(String::new).collect(joining(".")) + " not found");
         }
 
         ReferenceBinding enclosingType = null;
@@ -1331,7 +1331,7 @@ public class Testability {
             char[] selector = (returnsVoid? TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER : TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION).toCharArray();
             MethodBinding[] methods = typeBindingForFunction.actualType().getMethods(selector);
             if (methods.length == 0)
-                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", no methods on functional interface on type " + typeBindingForFunction.actualType());
+                throw internalError("no methods on functional interface on type " + typeBindingForFunction.actualType());
             methods[0].modifiers |= ClassFileConstants.AccVarargs;
         }
 
@@ -1507,19 +1507,11 @@ public class Testability {
             //anonymous type instead of lambda, since method has type variables
             TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
 
-            if (anonymousType.methods == null)
-                anonymousType.methods = new MethodDeclaration[]{};
-
-            anonymousType.methods = Arrays.copyOf(anonymousType.methods, anonymousType.methods.length + 1);
-            MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaration.compilationResult);
-
-            anonymousType.methods[anonymousType.methods.length - 1] = methodDeclaration;
-
-            methodDeclaration.binding = typeBindingForFunction.getSingleAbstractMethod(typeDeclaration.scope, true);
-            methodDeclaration.binding.modifiers &= ~ClassFileConstants.AccAbstract;//clear flag
-            methodDeclaration.binding.modifiers |= ClassFileConstants.AccPublic;
-            methodDeclaration.selector = methodDeclaration.binding.selector;
-            methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
+            MethodDeclaration methodDeclaration = initAnonymousTypeAndRedirectorMethod(
+                    typeDeclaration,
+                    typeBindingForFunction,
+                    anonymousType,
+                    block);
 
             int argc = returnsVoid?
                     typeArgumentsForFunction.length :
@@ -1535,8 +1527,6 @@ public class Testability {
             }
 
             methodDeclaration.arguments = anonInitializerArguments;
-            methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
-            methodDeclaration.statements = block.statements;
 
             if (!argCastTypeReferences.isEmpty()) {
                 //detect all type variables
@@ -1560,8 +1550,7 @@ public class Testability {
                     methodDeclaration.typeParameters = typeArgs.toArray(new TypeParameter[0]);
 
             }
-            anonymousType.name = CharOperation.NO_CHAR;
-            anonymousType.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
+
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
 
             alloc.type = typeReferenceFromTypeBinding(typeBindingForFunction);
@@ -1569,6 +1558,37 @@ public class Testability {
             fieldDeclaration.initialization = alloc;
         }
         return fieldDeclaration;
+    }
+
+    static MethodDeclaration initAnonymousTypeAndRedirectorMethod(
+            TypeDeclaration typeDeclaratinOfOriginalCall,
+            ParameterizedTypeBinding typeBindingForCallWrapperFunction,
+            TypeDeclaration anonymousTypeForWrapperFunction,
+            Block statementsBlockForCallWrapperFunction) {
+
+        anonymousTypeForWrapperFunction.name = CharOperation.NO_CHAR;
+        anonymousTypeForWrapperFunction.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
+
+        if (anonymousTypeForWrapperFunction.methods == null)
+            anonymousTypeForWrapperFunction.methods = new MethodDeclaration[]{};
+
+        anonymousTypeForWrapperFunction.methods = Arrays.copyOf(anonymousTypeForWrapperFunction.methods, anonymousTypeForWrapperFunction.methods.length + 1);
+        MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaratinOfOriginalCall.compilationResult);
+
+        anonymousTypeForWrapperFunction.methods[anonymousTypeForWrapperFunction.methods.length - 1] = methodDeclaration;
+
+        methodDeclaration.binding = getAcceptApplyMethodBinding(typeBindingForCallWrapperFunction);
+
+        methodDeclaration.binding.modifiers &= ~ClassFileConstants.AccAbstract;//unset
+        methodDeclaration.binding.modifiers |= ClassFileConstants.AccPublic;
+
+        methodDeclaration.selector = methodDeclaration.binding.selector;
+        methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
+
+        methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
+        methodDeclaration.statements = statementsBlockForCallWrapperFunction.statements;
+
+        return methodDeclaration;
     }
 
     static boolean deepHasTypeVariables(TypeBinding typeBinding) {
@@ -1966,7 +1986,7 @@ public class Testability {
             char[] selector = TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION.toCharArray();
             MethodBinding[] methods = typeBinding.actualType().getMethods(selector);
             if (methods.length == 0)
-                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", no methods on functional interface on type " + typeBinding.actualType());
+                throw internalError("no methods on functional interface on type " + typeBinding.actualType());
             methods[0].modifiers |= ClassFileConstants.AccVarargs;
         }
 
@@ -2076,20 +2096,14 @@ public class Testability {
         if (!typeVariablesInMethodArgs){ //!(originalMessageSend.binding instanceof ParameterizedGenericMethodBinding)) {
             fieldDeclaration.initialization = lambdaExpression;
         } else {
+            //anonymous type instead of lambda, since method has type variables
             TypeDeclaration anonymousType = new TypeDeclaration(typeDeclaration.compilationResult);
 
-            if (anonymousType.methods == null)
-                anonymousType.methods = new MethodDeclaration[]{};
-            anonymousType.methods = Arrays.copyOf(anonymousType.methods, anonymousType.methods.length + 1);
-            MethodDeclaration methodDeclaration = new MethodDeclaration(typeDeclaration.compilationResult);
-
-            anonymousType.methods[anonymousType.methods.length - 1] = methodDeclaration;
-
-            methodDeclaration.binding = typeBinding.getSingleAbstractMethod(typeDeclaration.scope, true);
-            methodDeclaration.binding.modifiers &= ~ClassFileConstants.AccAbstract; //unset
-            methodDeclaration.binding.modifiers |= ClassFileConstants.AccPublic;
-            methodDeclaration.selector = methodDeclaration.binding.selector;
-            methodDeclaration.modifiers = methodDeclaration.binding.modifiers;
+            MethodDeclaration methodDeclaration = initAnonymousTypeAndRedirectorMethod(
+                    typeDeclaration,
+                    typeBinding,
+                    anonymousType,
+                    block);
 
             Argument[] anonInitializerArguments = new Argument[argc];
             for (int i = 0; i < argc; i++) {
@@ -2099,8 +2113,6 @@ public class Testability {
             }
 
             methodDeclaration.arguments = anonInitializerArguments;
-            methodDeclaration.returnType = typeReferenceFromTypeBinding(methodDeclaration.binding.returnType);
-            methodDeclaration.statements = block.statements;
 
             //each type parameter on method used to cast an argument of original call, and they are named E1...N where N is number of original call arguments
             if (additionalTypeVarCountForMethod > 0) {
@@ -2114,9 +2126,6 @@ public class Testability {
                         toArray(new TypeParameter[0]);
             }
 
-            anonymousType.name = CharOperation.NO_CHAR;
-            anonymousType.bits |= (ASTNode.IsAnonymousType | ASTNode.IsLocalType);
-
             QualifiedAllocationExpression alloc = new QualifiedAllocationExpression(anonymousType);
 
             alloc.type = typeReferenceFromTypeBinding(typeBinding);
@@ -2124,6 +2133,21 @@ public class Testability {
             fieldDeclaration.initialization = alloc;
         }
         return fieldDeclaration;
+    }
+
+    static MethodBinding getAcceptApplyMethodBinding(ParameterizedTypeBinding typeBinding) {
+        return Arrays.stream(typeBinding.methods()).
+                filter(m-> {
+                            String methodName = new String(m.constantPoolName());
+                            return methodName.equals(TARGET_REDIRECTED_METHOD_NAME_FOR_FUNCTION) ||
+                                    methodName.equals(TARGET_REDIRECTED_METHOD_NAME_FOR_CONSUMER);
+                        }).
+                findAny().
+                orElseThrow(()-> Testability.internalError("type has no accept/apply method: " + typeBinding.debugName()));
+    }
+
+    static RuntimeException internalError(String message) {
+        return new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + message);
     }
 
     static boolean returnsVoid(MessageSend messageSend) {
@@ -2151,7 +2175,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
+            throw internalError(new String(path[0]) + " not found");
         }
 
         TypeBinding resultingTypeBinding = Testability.boxIfApplicable(convertIfAnonymous(typeDeclarationBinding), lookupEnvironment);
@@ -2233,7 +2257,7 @@ public class Testability {
         ReferenceBinding genericType = lookupEnvironment.getType(path);
 
         if (genericType == null) {
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", " + new String(path[0]) + " not found");
+            throw internalError(new String(path[0]) + " not found");
         }
 
         TypeBinding[] typeArguments //class
@@ -2369,7 +2393,7 @@ public class Testability {
                     return new QualifiedTypeReference(compoundName, new long[compoundName.length]);
                 }
             } else if (typeBinding instanceof NullTypeBinding){
-                throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ", NullTypeBinding passed in");
+                throw internalError("NullTypeBinding passed in");
             } else if (typeBinding instanceof BaseTypeBinding){
                 return TypeReference.baseTypeReference(typeBinding.id, 0);
             } else { //TODO will this ever happen?
@@ -2847,7 +2871,7 @@ public class Testability {
         }
 
         if (null == messageToFieldApply.receiver.resolvedType)
-            throw new RuntimeException(TESTABLEJAVA_INTERNAL_ERROR + ": unresolved field " + fieldNameReference);
+            throw internalError("unresolved field " + fieldNameReference);
 
         return labeledStatement;
     }

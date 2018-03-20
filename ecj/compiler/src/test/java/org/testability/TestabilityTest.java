@@ -92,16 +92,17 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        invokeCompiledMethod("X","fn");
+        invokeCompiledMethod("X", "fn");
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ReflectiveInstanceProtectedCall() throws Exception {
 
         String[] task = {
                 "X.java",
                 "package a;" +
-                "public class X {\n" +
+                        "public class X {\n" +
                         "	protected int fn(String s) {dontredirect: return s.length();}" +
                         "   public int innerCaller(){return -1;}" +
                         "}",
@@ -131,10 +132,11 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals(3, invokeCompiledMethod("Y","caller"));
+        assertEquals(3, invokeCompiledMethod("Y", "caller"));
         assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
         //TODO check reflection arg forming and valid return in various situations
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ReflectiveStaticProtectedCall() throws Exception {
 
@@ -171,7 +173,7 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals(3, invokeCompiledMethod("Y","caller"));
+        assertEquals(3, invokeCompiledMethod("Y", "caller"));
         assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
     }
 
@@ -181,7 +183,7 @@ public class TestabilityTest extends BaseTest {
         //no need to qualify 'this' when forming calledClassInstance for call that resides in subclass
         String[] task = {
                 "X.java",
-                        "public class X {\n" +
+                "public class X {\n" +
                         "	void fn(String s) {}" +
                         "}",
                 "Y.java",
@@ -213,8 +215,6 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutput, moduleMap.get("Y$1").stream().collect(joining("\n")));
     }
-
-
 
 
     //TODO reen
@@ -478,6 +478,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_AnonymousTypeOrNamedTypeCreatesField() throws Exception {
         //here field should be created from new Y() even though it is 2nd call and just one redirect of new Y(). Anonymous class 'new' operator not redirected
@@ -4209,7 +4210,6 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
 
-
     @Test
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericAllocation() throws Exception {
         String[] task = {
@@ -4677,6 +4677,7 @@ public class TestabilityTest extends BaseTest {
 
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClassFromWithinInnerClass() throws Exception {
         //Pb(2)  cannot be resolved to a type
@@ -4701,8 +4702,9 @@ public class TestabilityTest extends BaseTest {
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals("Y$Z", invokeCompiledMethod("Y","caller").getClass().getName());
+        assertEquals("Y$Z", invokeCompiledMethod("Y", "caller").getClass().getName());
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClassFromWithinInnerClassMultilevel() throws Exception {
         //Pb(2)  cannot be resolved to a type
@@ -4725,7 +4727,7 @@ public class TestabilityTest extends BaseTest {
         };
 
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals("L1$L2$L3$L4", invokeCompiledMethod("L1","caller"));
+        assertEquals("L1$L2$L3$L4", invokeCompiledMethod("L1", "caller"));
     }
 
 //TODO reenable
@@ -5213,7 +5215,7 @@ public class TestabilityTest extends BaseTest {
 
         String[] task = {
                 "ExpressionContext.java",
-                        "    public enum ExpressionContext {\n" +
+                "    public enum ExpressionContext {\n" +
                         "        ASSIGNMENT_CONTEXT {\n" +
                         "            public String toString() {\n" +
                         "                return \"assignment context\"; //$NON-NLS-1$\n" +
@@ -5314,7 +5316,7 @@ public class TestabilityTest extends BaseTest {
         String[] task = {
                 "X.java",
                 "import java.util.*;\n" +
-                "public class X {\n" +
+                        "public class X {\n" +
                         "  public List<String> makeEmptyList() {\n" +
                         "    return Collections.emptyList();\n" +
                         " }\n" +
@@ -5942,6 +5944,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ForCallInferringTypeParameterFromMethodReturn() throws Exception {
 
@@ -5974,6 +5977,5 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
-
 
 }
