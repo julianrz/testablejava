@@ -136,6 +136,29 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
         //TODO check reflection arg forming and valid return in various situations
     }
+    @Test
+    public void testTestabilityInjectFunctionField_CallOfMethodDefinedOnAnonType_Reproduction() throws Exception {
+
+        String[] task = {
+                "X.java",
+                        "public class X {\n" +
+                        "   class Y{};\n" +
+                        "	void fn() {" +
+                        "       new Y(){" +
+                        "          void f(){}" +
+                        "       }.f();" +
+                        "   }" +
+                        "}",
+        };
+
+        String expectedOutput =
+                "";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
+        assertEquals(3, invokeCompiledMethod("X", "fn"));
+
+    }
 
     @Test
     public void testTestabilityInjectFunctionField_ReflectiveStaticProtectedCall() throws Exception {
@@ -258,13 +281,15 @@ public class TestabilityTest extends BaseTest {
         };
 
         String expectedOutput =
-                "import java.util.function.Consumer;\n\n" +
+                "import java.util.function.Consumer;\n" +
+                        "\n" +
                         "public class X {\n" +
-                        "   static int i = 1;\n" +
                         "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
                         "   };\n" +
                         "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
-                        "   };\n\n" +
+                        "   };\n" +
+                        "   static int i = 1;\n" +
+                        "\n" +
                         "   X() {\n" +
                         "      $$preCreate.accept(this);\n" +
                         "      System.out.println();\n" +
@@ -1047,16 +1072,19 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import helpers.Consumer1;\n" +
                         "import java.io.PrintStream;\n" +
-                        "import testablejava.CallContext;\n\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
                         "public class X {\n" +
+                        "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println;\n" +
                         "   static int ct = 0;\n" +
-                        "   public static Consumer1<CallContext<PrintStream>> $$PrintStream$println;\n\n" +
+                        "\n" +
                         "   static {\n" +
                         "      ++ct;\n" +
                         "      $$PrintStream$println = (var0) -> {\n" +
                         "         ((PrintStream)var0.calledClassInstance).println();\n" +
                         "      };\n" +
-                        "   }\n\n" +
+                        "   }\n" +
+                        "\n" +
                         "   int fn() {\n" +
                         "      $$PrintStream$println.accept(new CallContext(\"X\", \"java.io.PrintStream\", this, System.out));\n" +
                         "      return ct;\n" +
@@ -2944,14 +2972,14 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "public class X extends Exception {\n" +
-                        "   Throwable nestedException;\n" +
-                        "   static final long serialVersionUID = 1L;\n" +
                         "   public static Consumer2<CallContext<Throwable>, PrintWriter> $$Throwable$printStackTrace$$PrintWriter = (var0, var1) -> {\n" +
                         "      ((Throwable)var0.calledClassInstance).printStackTrace(var1);\n" +
                         "   };\n" +
                         "   public static Consumer2<CallContext<Exception>, PrintWriter> $$Exception$printStackTrace$$PrintWriter = (var0, var1) -> {\n" +
                         "      ((Exception)var0.calledClassInstance).printStackTrace(var1);\n" +
                         "   };\n" +
+                        "   Throwable nestedException;\n" +
+                        "   static final long serialVersionUID = 1L;\n" +
                         "\n" +
                         "   public void printStackTrace(PrintWriter var1) {\n" +
                         "      $$Exception$printStackTrace$$PrintWriter.accept(new CallContext(\"X\", \"java.lang.Exception\", this, this), var1);\n" +
@@ -4159,10 +4187,10 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "class Y<T1, T2> {\n" +
-                        "   private final Map<T1, Set<T2>> _forward;\n" +
                         "   public static Function1<CallContext<HashMap<Object, Set<Object>>>, HashMap<Object, Set<Object>>> $$HashMap$new = (var0) -> {\n" +
                         "      return new HashMap();\n" +
                         "   };\n" +
+                        "   private final Map<T1, Set<T2>> _forward;\n" +
                         "\n" +
                         "   Y() {\n" +
                         "      this._forward = (HashMap)$$HashMap$new.apply(new CallContext(\"Y<T1,T2>\", \"java.util.HashMap<T1,java.util.Set<T2>>\", this, (Object)null));\n" +
@@ -4193,14 +4221,15 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "class Y<T1, T2> {\n" +
-                        "   private final Map<T1, Set<T2>> _forward;\n" +
                         "   public static Function1<CallContext<Y<Object, Object>>, Map> $$Y$init = (var0) -> {\n" +
                         "      return ((Y)var0.calledClassInstance).init();\n" +
                         "   };\n" +
+                        "   private final Map<T1, Set<T2>> _forward;\n" +
                         "\n" +
                         "   Y() {\n" +
                         "      this._forward = (Map)$$Y$init.apply(new CallContext(\"Y<T1,T2>\", \"Y<T1,T2>\", this, this));\n" +
-                        "   }\n\n" +
+                        "   }\n" +
+                        "\n" +
                         "   Map<T1, Set<T2>> init() {\n" +
                         "      return new HashMap();\n" +
                         "   }\n" +
@@ -4210,6 +4239,61 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
 
+    @Test
+    public void testTestabilityInjectFunctionField_FieldOrder() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "class Y {\n" +
+                        " static void fn3(){} \n" +
+                        " static void fn1(){} \n" +
+                        " static { " +
+                        "   fn1();\n" +
+                        "   fn2();\n" + //forward call, field needs to be previously defined
+                        "   fn3();\n" +
+                        " };\n" +
+                        " static void fn2(){} \n" +
+                        "}\n"
+        };
+
+        String expectedOutputY =
+                "import helpers.Consumer1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y {\n" +
+                        "   public static Consumer1<CallContext<Y>> $$Y$fn1;\n" +
+                        "   public static Consumer1<CallContext<Y>> $$Y$fn2;\n" +
+                        "   public static Consumer1<CallContext<Y>> $$Y$fn3;\n" +
+                        "\n" +
+                        "   static {\n" +
+                        "      $$Y$fn1.accept(new CallContext(\"Y\", \"Y\", (Object)null, (Object)null));\n" +
+                        "      $$Y$fn2.accept(new CallContext(\"Y\", \"Y\", (Object)null, (Object)null));\n" +
+                        "      $$Y$fn3.accept(new CallContext(\"Y\", \"Y\", (Object)null, (Object)null));\n" +
+                        "      $$Y$fn1 = (var0) -> {\n" +
+                        "         fn1();\n" +
+                        "      };\n" +
+                        "      $$Y$fn2 = (var0) -> {\n" +
+                        "         fn2();\n" +
+                        "      };\n" +
+                        "      $$Y$fn3 = (var0) -> {\n" +
+                        "         fn3();\n" +
+                        "      };\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   static void fn3() {\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   static void fn1() {\n" +
+                        "   }\n" +
+                        "\n" +
+                        "   static void fn2() {\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
     @Test
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericAllocation() throws Exception {
         String[] task = {
@@ -5192,11 +5276,11 @@ public class TestabilityTest extends BaseTest {
                         "import java.util.function.Consumer;\n" +
                         "\n" +
                         "public class X {\n" +
-                        "   private Stage stage;\n" +
                         "   public static Consumer<X> $$preCreate = (var0) -> {\n" +
                         "   };\n" +
                         "   public static Consumer<X> $$postCreate = (var0) -> {\n" +
                         "   };\n" +
+                        "   private Stage stage;\n" +
                         "\n" +
                         "   public X() {\n" +
                         "      this.stage = Stage.OuterLess;\n" +
@@ -5927,10 +6011,10 @@ public class TestabilityTest extends BaseTest {
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "class Y {\n" +
-                        "   List<String> _forward;\n" +
                         "   public static Function1<CallContext<Y>, List<String>> $$Y$init = (var0) -> {\n" +
                         "      return ((Y)var0.calledClassInstance).init();\n" +
                         "   };\n" +
+                        "   List<String> _forward;\n" +
                         "\n" +
                         "   Y() {\n" +
                         "      this._forward = (List)$$Y$init.apply(new CallContext(\"Y\", \"Y\", this, this));\n" +
@@ -5944,6 +6028,8 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
+
 
     @Test
     public void testTestabilityInjectFunctionField_ForCallInferringTypeParameterFromMethodReturn() throws Exception {

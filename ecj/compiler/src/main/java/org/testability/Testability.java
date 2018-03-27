@@ -766,7 +766,7 @@ public class Testability {
             return ret.stream().
                     filter(Objects::nonNull).
                     peek(fieldDeclaration -> {
-                        System.out.println("injected field: " + fieldDeclaration);
+//                        System.out.println("injected field: " + fieldDeclaration);
                     }).
                     //TODO reen
 //                    map(fieldDeclaration -> {

@@ -57,6 +57,7 @@ import org.testability.Testability;
 import java.util.*;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Represents a class file wrapper on bytes, it is aware of its actual
@@ -533,6 +534,7 @@ public class ClassFile implements TypeConstants, TypeIds {
      * - a field info for each synthetic field (e.g. this$0)
      * @param forProblemType
      */
+
     public void addFieldInfos(boolean forProblemType) {
         SourceTypeBinding currentBinding = this.referenceBinding;
         FieldBinding[] syntheticFields = currentBinding.syntheticFields();
@@ -548,6 +550,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 
         List<FieldDeclaration> testabilityFieldDeclarations;
 
+        IdentityHashMap<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
         if (forProblemType
                 ||
                 !typeDeclaration.compilationResult.instrumentForTestability ||
@@ -567,18 +570,100 @@ public class ClassFile implements TypeConstants, TypeIds {
                     typeDeclaration,
                     currentBinding,
                     typeDeclaration.scope.compilationUnitScope().environment,
-                    e -> typeDeclaration.callExpressionToRedirectorField.putAll(e));
+                    expressionToRedirectorField -> callExpressionToRedirectorField.putAll(expressionToRedirectorField));
+
+
+        int contentsOffsetFieldCount = this.contentsOffset;
+        this.contents[this.contentsOffset++] = 0;
+        this.contents[this.contentsOffset++] = 0;
+
+        List<FieldDeclaration> testabilityFieldDeclarationsActuallyUsed = Collections.emptyList();
+
+        if (!testabilityFieldDeclarations.isEmpty()) {
+
+            testabilityFieldDeclarationsActuallyUsed = testabilityFieldDeclarations.stream().
+                    map(fieldDecl -> {
+
+                        MethodScope initializationScope = typeDeclaration.staticInitializerScope;
+
+                        //taken from resolveTypeFor()
+
+                        TypeBinding fieldType =
+                                fieldDecl.getKind() == AbstractVariableDeclaration.ENUM_CONSTANT
+                                        ? initializationScope.environment().convertToRawType(currentBinding, false /*do not force conversion of enclosing types*/) // enum constant is implicitly of declaring enum type
+                                        : fieldDecl.type.resolveType(initializationScope, true /* check bounds*/);
+
+                        fieldDecl.binding.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
+                        fieldDecl.binding.type = fieldType;
+
+                        fieldDecl.resolve(typeDeclaration.staticInitializerScope);
+
+                        if (!Testability.validateMessageSendsAndTypesInCode(fieldDecl, typeDeclaration.initializerScope)) {
+                            Testability.testabilityInstrumentationWarning(
+                                typeDeclaration.initializerScope,
+                                "The field cannot be validated, and will not be injected: " + fieldDecl
+                            );
+                            return null;
+                        }
+
+                        this.addFieldInfo(fieldDecl.binding);
+
+                        System.out.println("injected field: " + fieldDecl);
+
+                        return fieldDecl;
+                    }).
+                    filter(Objects::nonNull).
+                    collect(toList());
+
+            List<FieldDeclaration> finalTestabilityFieldDeclarationsActuallyUsed = testabilityFieldDeclarationsActuallyUsed;
+
+            Map<Expression, FieldDeclaration> callExpressionToRedirectorFieldActuallyUsed =
+                    callExpressionToRedirectorField.entrySet().stream().
+                            filter(entry -> {
+                                FieldDeclaration f = entry.getValue();
+                                return finalTestabilityFieldDeclarationsActuallyUsed.contains(f);
+                            }).
+                            collect(toMap(
+                                    e -> e.getKey(),
+                                    e -> e.getValue(),
+                                    (a, b) -> a
+                            ));
+
+            typeDeclaration.callExpressionToRedirectorField.putAll(callExpressionToRedirectorFieldActuallyUsed);
+
+            ReferenceBinding parameterizedType = currentBinding.scope.environment().convertToParameterizedType(currentBinding);
+            if (parameterizedType != null)
+                parameterizedType.tagBits &= ~TagBits.AreFieldsComplete; //get the parameterized type upfront and unset flag to cause it to re-resolve fields
+
+            testabilityFieldDeclarationsActuallyUsed.stream().forEach(fieldDeclaration -> {
+
+                UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
+                FlowContext flowContext = null;
+
+                InitializationFlowContext staticInitializerContext =
+                        new InitializationFlowContext(
+                                null,
+                                typeDeclaration,
+                                flowInfo,
+                                flowContext,
+                                typeDeclaration.staticInitializerScope);
+
+                fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
+
+            });
+
+        }
 
         int fieldCount = currentBinding.fieldCount() +
                 (syntheticFields == null ? 0 : syntheticFields.length) +
-                testabilityFieldDeclarations.size();
+                testabilityFieldDeclarationsActuallyUsed.size();
 
         // write the number of fields
         if (fieldCount > 0xFFFF) {
             this.referenceBinding.scope.problemReporter().tooManyFields(this.referenceBinding.scope.referenceType());
         }
-        this.contents[this.contentsOffset++] = (byte) (fieldCount >> 8);
-        this.contents[this.contentsOffset++] = (byte) fieldCount;
+        this.contents[contentsOffsetFieldCount] = (byte) (fieldCount >> 8);
+        this.contents[contentsOffsetFieldCount + 1] = (byte) fieldCount;
 
         FieldDeclaration[] fieldDecls = currentBinding.scope.referenceContext.fields;
         for (int i = 0, max = fieldDecls == null ? 0 : fieldDecls.length; i < max; i++) {
@@ -594,21 +679,20 @@ public class ClassFile implements TypeConstants, TypeIds {
             }
         }
 
-        if (!testabilityFieldDeclarations.isEmpty()) {
-
+        if (!testabilityFieldDeclarationsActuallyUsed.isEmpty()){
             //make new fields discoverable, put into original fields array
             if (null == currentBinding.scope.referenceContext.fields)
                 currentBinding.scope.referenceContext.fields = new FieldDeclaration[0];
 
             currentBinding.scope.referenceContext.fields = Arrays.copyOf(
                     currentBinding.scope.referenceContext.fields,
-                    currentBinding.scope.referenceContext.fields.length + testabilityFieldDeclarations.size());
+                    currentBinding.scope.referenceContext.fields.length + testabilityFieldDeclarationsActuallyUsed.size());
 
-            for (int iField = 0; iField < testabilityFieldDeclarations.size(); iField++)
+            for (int iField = 0; iField < testabilityFieldDeclarationsActuallyUsed.size(); iField++)
                 currentBinding.scope.referenceContext.fields[
                         currentBinding.scope.referenceContext.fields.length -
-                                testabilityFieldDeclarations.size() +
-                                iField] = testabilityFieldDeclarations.get(iField);
+                                testabilityFieldDeclarationsActuallyUsed.size() +
+                                iField] = testabilityFieldDeclarationsActuallyUsed.get(iField);
 
             FieldBinding[] fields =
                     Arrays.stream(currentBinding.scope.referenceContext.fields).
@@ -617,54 +701,13 @@ public class ClassFile implements TypeConstants, TypeIds {
                             collect(toList()).
                             toArray(new FieldBinding[0]);
 
-            currentBinding.setFields(fields);
-
-            testabilityFieldDeclarations.stream().forEach(field -> field.binding.modifiers |= ExtraCompilerModifiers.AccUnresolved);
+            testabilityFieldDeclarationsActuallyUsed.stream().forEach(field -> field.binding.modifiers |= ExtraCompilerModifiers.AccUnresolved);
 
             currentBinding.tagBits &= ~TagBits.AreFieldsComplete; //unset
+            currentBinding.tagBits &= ~TagBits.AreFieldsSorted;
 
+            currentBinding.setFields(fields);
             currentBinding.fields();
-
-            for(FieldDeclaration fieldDeclaration : testabilityFieldDeclarations) {
-                FieldBinding fieldBinding = fieldDeclaration.binding;
-                if (fieldBinding != null)
-                    this.addFieldInfo(fieldBinding);
-                else
-                    Testability.testabilityInstrumentationError(typeDeclaration.scope, "injected field could not resolve: " + new String(fieldDeclaration.name));
-            }
-
-            ReferenceBinding parameterizedType = currentBinding.scope.environment().convertToParameterizedType(currentBinding);
-            if (parameterizedType != null)
-                parameterizedType.tagBits &= ~TagBits.AreFieldsComplete; //get the parameterized type upfront and unset flag to cause it to re-resolve fields
-
-            ReferenceBinding.sortFields(currentBinding.fields(), 0, currentBinding.fieldCount());//TODO fields() does sort already
-
-            testabilityFieldDeclarations.stream().forEach(fieldDeclaration -> {
-
-                fieldDeclaration.resolve(typeDeclaration.staticInitializerScope);
-
-                if (!Testability.validateMessageSendsAndTypesInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
-                    Testability.testabilityInstrumentationWarning(
-                            typeDeclaration.initializerScope,
-                            "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
-                    );
-                    //TODO handle non-injection, used to return null and not being returned in field list
-                } else {
-
-                    UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
-                    FlowContext flowContext = null;
-
-                    InitializationFlowContext staticInitializerContext =
-                            new InitializationFlowContext(
-                                    null,
-                                    typeDeclaration,
-                                    flowInfo,
-                                    flowContext,
-                                    typeDeclaration.staticInitializerScope);
-
-                    fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
-                }
-            });
 
         }
 
