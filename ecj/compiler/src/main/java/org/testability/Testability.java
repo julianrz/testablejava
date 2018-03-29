@@ -765,44 +765,6 @@ public class Testability {
 
             return ret.stream().
                     filter(Objects::nonNull).
-                    peek(fieldDeclaration -> {
-//                        System.out.println("injected field: " + fieldDeclaration);
-                    }).
-                    //TODO reen
-//                    map(fieldDeclaration -> {
-//                        try {
-//                            fieldDeclaration.type.resolveType(typeDeclaration.initializerScope); //TODO experz
-//                            fieldDeclaration.resolve(typeDeclaration.initializerScope);
-//
-//                            if (!validateMessageSendsAndTypesInCode(fieldDeclaration, typeDeclaration.initializerScope)) {
-//                                Testability.testabilityInstrumentationWarning(
-//                                        typeDeclaration.initializerScope,
-//                                        "The field cannot be validated, and will not be injected: " + new String(fieldDeclaration.name)
-//                                );
-//                                return null;
-//                            }
-//
-//                            UnconditionalFlowInfo flowInfo = FlowInfo.initial(0);
-//                            FlowContext flowContext = null;
-//                            InitializationFlowContext staticInitializerContext = new InitializationFlowContext(null,
-//                                    typeDeclaration,
-//                                    flowInfo,
-//                                    flowContext,
-//                                    typeDeclaration.staticInitializerScope);
-//
-//                            fieldDeclaration.analyseCode(typeDeclaration.staticInitializerScope, staticInitializerContext, flowInfo);
-//
-//                            return fieldDeclaration;
-//                        } catch (Exception ex) {
-//                            testabilityInstrumentationError(
-//                                    typeDeclaration.scope,
-//                                    "The field cannot be resolved: " + new String(fieldDeclaration.name),
-//                                    ex);
-//
-//                            return null;
-//                        }
-//                    }).
-                    filter(Objects::nonNull).
                     collect(toList());
 
         } catch (Exception ex) {
@@ -865,13 +827,23 @@ public class Testability {
     }
 
 
-    static public boolean validateMessageSendsAndTypesInCode(FieldDeclaration fieldDeclaration, MethodScope scope) {
+    /**
+     *
+     * @param fieldDeclaration
+     * @param scope
+     * @return false when invalid
+     */
+    static public boolean validateField(FieldDeclaration fieldDeclaration, MethodScope scope) {
 
         if (fieldDeclaration.binding == null)
             return false;
 
         if ((fieldDeclaration.initialization instanceof FunctionalExpression && ((FunctionalExpression) fieldDeclaration.initialization).binding == null))
             return false;
+
+        if (!getFieldMandatoryErrors(fieldDeclaration).isEmpty())
+            return false;
+
         try {
             fieldDeclaration.traverse(new ASTVisitor() {
                 @Override
@@ -905,6 +877,15 @@ public class Testability {
                 return false;
         }
         return true;
+    }
+
+    public static List<Integer> getFieldMandatoryErrors(FieldDeclaration fieldDeclaration) {
+        if (!(fieldDeclaration.initialization instanceof LambdaExpression))
+           return Collections.emptyList();
+
+        LambdaExpression lambdaExpression = (LambdaExpression) (fieldDeclaration.initialization);
+
+        return lambdaExpression.ignoredProblemIds;
     }
 
     static RuntimeException exceptionVisitorInterrupted = new RuntimeException();
