@@ -1371,11 +1371,19 @@ public class Testability {
                 messageSendInLambdaBody.receiver = newReceiverInstanceCall;
             }
         }
+
+        boolean isDefinedOnAnonymousType =
+                receiverResolvedType.isAnonymousType() &&
+                !originalMessageSend.binding.isOverriding(); //not available on parent
+
+
+        boolean isVisibleFromField = originalMessageSend.binding.canBeSeenBy( //method used in original message send is visible from new field
+                messageSendInLambdaBody,
+                ((SourceTypeBinding) classThatWillContainField).scope
+        );
+
         boolean needsReflectiveCall =
-                !originalMessageSend.binding.canBeSeenBy( //method used in original message send is visible from new field
-                        messageSendInLambdaBody,
-                        ((SourceTypeBinding) classThatWillContainField).scope
-                );
+                !isVisibleFromField || isDefinedOnAnonymousType;
 
         Expression reflectiveInstanceCallInLambdaBody = null;
 

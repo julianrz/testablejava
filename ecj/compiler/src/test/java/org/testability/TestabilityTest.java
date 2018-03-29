@@ -137,26 +137,72 @@ public class TestabilityTest extends BaseTest {
         //TODO check reflection arg forming and valid return in various situations
     }
     @Test
-    public void testTestabilityInjectFunctionField_CallOfMethodDefinedOnAnonType_Reproduction() throws Exception {
+    public void testTestabilityInjectFunctionField_CallOfMethodDefinedOnAnonType_ForceReflective() throws Exception {
 
         String[] task = {
                 "X.java",
                         "public class X {\n" +
-                        "   class Y{};\n" +
-                        "	void fn() {" +
-                        "       new Y(){" +
-                        "          void f(){}" +
+                        "   class Y{}\n" +
+                        "	int fn() {" +
+                        "       return new Y(){" +
+                        "          int f(){return 1;}" +
                         "       }.f();" +
                         "   }" +
                         "}",
         };
 
         String expectedOutput =
-                "";
+                "import X.Y;\n" +
+                        "import helpers.Function1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "import testablejava.ReflectiveCaller;\n" +
+                        "\n" +
+                        "class X$2 implements Function1<CallContext<Y>, Integer> {\n" +
+                        "   public Integer apply(CallContext<Y> var1) {\n" +
+                        "      return (Integer)(new ReflectiveCaller(((Y)var1.calledClassInstance).getClass(), \"f\", new Class[0])).apply(var1.calledClassInstance, new Object[0]);\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutput, moduleMap.get("X$2").stream().collect(joining("\n")));
+        assertEquals(1, invokeCompiledMethod("X", "fn"));
+
+    }
+    @Test
+    public void testTestabilityInjectFunctionField_CallOfMethodOverridenOnAnonType_NonReflective() throws Exception {
+
+        String[] task = {
+                "X.java",
+                "public class X {\n" +
+                        "   class Y{" +
+                        "       void f(){}" +
+                        "   };\n" +
+                        "	void fn() {" +
+                        "       new Y(){" +
+                        "          void f(){}" + //overrides
+                        "       }.f();" +
+                        "   }" +
+                        "}",
+        };
+
+        String expectedOutput =
+                "import X.1;\n" +
+                        "import X.Y;\n" +
+                        "import helpers.Consumer1;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "public class X {\n" +
+                        "   public static Consumer1<CallContext<Y>> $$Y$f = (var0) -> {\n" +
+                        "      ((Y)var0.calledClassInstance).f();\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   void fn() {\n" +
+                        "      $$Y$f.accept(new CallContext(\"X\", \"new X.Y(){}\", this, new 1(this, this)));\n" +
+                        "   }\n" +
+                        "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
-        assertEquals(3, invokeCompiledMethod("X", "fn"));
 
     }
 
