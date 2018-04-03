@@ -56,6 +56,7 @@ import org.testability.Testability;
 
 import java.util.*;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -596,12 +597,20 @@ public class ClassFile implements TypeConstants, TypeIds {
                         fieldDecl.binding.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
                         fieldDecl.binding.type = fieldType;
 
-                        fieldDecl.resolve(typeDeclaration.staticInitializerScope);
+                        {
+                            IErrorHandlingPolicy oldPolicy = initializationScope.problemReporter().policy;
+                            initializationScope.problemReporter().policy = DefaultErrorHandlingPolicies.ignoreAllProblems();
 
-                        if (!Testability.validateMessageSendsAndTypesInCode(fieldDecl, typeDeclaration.initializerScope)) {
+                            fieldDecl.resolve(typeDeclaration.staticInitializerScope);
+
+                            initializationScope.problemReporter().policy = oldPolicy;
+                        }
+
+                        if (!Testability.validateField(fieldDecl, typeDeclaration.initializerScope)) {
                             Testability.testabilityInstrumentationWarning(
                                 typeDeclaration.initializerScope,
-                                "The field cannot be validated, and will not be injected: " + fieldDecl
+                                "The field cannot be validated, and will not be injected: " + fieldDecl +
+                                        "\n\terrors: " + Testability.getFieldMandatoryErrors(fieldDecl).stream().map(Object::toString).collect(joining(","))//TODO descriptive errors
                             );
                             return null;
                         }

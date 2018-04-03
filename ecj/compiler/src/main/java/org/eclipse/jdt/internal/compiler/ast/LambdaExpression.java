@@ -80,7 +80,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
     public SyntheticArgumentBinding[] outerLocalVariables = NO_SYNTHETIC_ARGUMENTS;
     private int outerLocalVariablesSlotSize = 0;
     private boolean assistNode = false;
-    private boolean hasIgnoredMandatoryErrors = false;
+    public boolean hasIgnoredMandatoryErrors = false;
     private ReferenceBinding classType;
     public int ordinal;
     private Set thrownExceptions;
@@ -90,6 +90,8 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
     private HashMap<TypeBinding, LambdaExpression> copiesPerTargetType;
     protected Expression[] resultExpressions = NO_EXPRESSIONS;
     public InferenceContext18 inferenceContext; // when performing tentative resolve keep a back reference to the driving context
+
+    public List<Integer> ignoredProblemIds = new ArrayList<>();
 
     public LambdaExpression(CompilationResult compilationResult, boolean assistNode, boolean requiresGenericSignature) {
         super(compilationResult);
@@ -1042,6 +1044,9 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
     }
 
     public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
+
+        ignoredProblemIds.add(problemId);
+
         switch (problemId) {
             // 15.27.3 requires exception throw related errors to not influence congruence. Other errors should. Also don't abort shape analysis.
             case IProblem.UnhandledExceptionOnAutoClose:
