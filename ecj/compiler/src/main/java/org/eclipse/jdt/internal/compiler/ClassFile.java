@@ -607,10 +607,16 @@ public class ClassFile implements TypeConstants, TypeIds {
                         }
 
                         if (!Testability.validateField(fieldDecl, typeDeclaration.initializerScope)) {
+                            List<String> fieldMandatoryErrorStrings = Testability.getFieldMandatoryErrorStrings(
+                                    fieldDecl,
+                                    initializationScope.problemReporter().problemFactory
+                            );
                             Testability.testabilityInstrumentationWarning(
                                 typeDeclaration.initializerScope,
                                 "The field cannot be validated, and will not be injected: " + fieldDecl +
-                                        "\n\terrors: " + Testability.getFieldMandatoryErrors(fieldDecl).stream().map(Object::toString).collect(joining(","))//TODO descriptive errors
+                                        "\n\terrors: " +
+                                        fieldMandatoryErrorStrings.stream().
+                                        collect(joining(","))
                             );
                             return null;
                         }

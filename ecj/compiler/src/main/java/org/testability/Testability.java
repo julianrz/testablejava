@@ -3,6 +3,7 @@ package org.testability;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
+import org.eclipse.jdt.internal.compiler.IProblemFactory;
 import org.eclipse.jdt.internal.compiler.InstrumentationOptions;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -887,6 +888,12 @@ public class Testability {
 
         return lambdaExpression.ignoredProblemIds;
     }
+    public static List<String> getFieldMandatoryErrorStrings(FieldDeclaration fieldDecl, IProblemFactory problemFactory) {
+        return
+                getFieldMandatoryErrors(fieldDecl).stream().
+                        map(problemId -> problemFactory.getLocalizedMessage(problemId, null)).
+                        collect(toList());
+    }
 
     static RuntimeException exceptionVisitorInterrupted = new RuntimeException();
 
@@ -1242,7 +1249,7 @@ public class Testability {
         //truncate the rest
         typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
 
-        typeArgumentsForFunction = convertToObjectIfTypeVariables(lookupEnvironment, typeArgumentsForFunction);
+        //TODO reen typeArgumentsForFunction = convertToObjectIfTypeVariables(lookupEnvironment, typeArgumentsForFunction);
 
         typeArgumentsForFunction = convertToParentsIfAnonymousInnerClasses(typeArgumentsForFunction);
 
@@ -1915,8 +1922,8 @@ public class Testability {
         //truncate the rest
         typeArguments = Arrays.copyOf(typeArguments, iArg);
 
-        //replace references to type arguments with Object type
-        typeArguments = convertToObjectIfTypeVariables(lookupEnvironment, typeArguments);
+//TODO reen        //replace references to type arguments with Object type
+//        typeArguments = convertToObjectIfTypeVariables(lookupEnvironment, typeArguments);
 
         //rewire anonymous inner classes to their parents
         typeArguments = convertToParentsIfAnonymousInnerClasses(typeArguments);
@@ -2426,11 +2433,21 @@ public class Testability {
             long[] poss = new long[typeName.length];
             poss[poss.length - 1] = typeBinding.id;
 
-            return new ArrayQualifiedTypeReference(
-                    typeName,
-                    dim,
-                    poss
-            );
+            if (typeReference.isParameterizedTypeReference()) { //array of parameterized type
+                return new ParameterizedQualifiedTypeReference(
+                        typeName,
+                        typeReference.getTypeArguments(),
+                        ((ArrayBinding) typeBinding).dimensions,
+                        poss);
+            } else {
+                return new ArrayQualifiedTypeReference(
+                        typeName,
+                        dim,
+                        poss
+                );
+            }
+
+
         }
     }
 
@@ -2902,6 +2919,7 @@ public class Testability {
     public static boolean codeContainsSyntaxErrors(CompilationResult fullParseUnitResult) {
         return fullParseUnitResult.hasSyntaxError;
     }
+
 
 }
 

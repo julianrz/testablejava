@@ -6109,5 +6109,47 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ArgIsArrayOfparameterizedType() throws Exception {
+
+        String[] task = {
+                "Y.java",
+                "import java.util.*;\n" +
+                        "class Y {\n" +
+                        "   void fn() {\n" +
+                        "        ArrayList[] list = {};" +
+                        "        ArrayList<String>[] list2 = list;" +
+                        "        Arrays.sort(list2, new Comparator<List<String>>() {\n" +
+                        "               public int compare(List<String> o1, List<String> o2) {\n" +
+                        "                  return 0;\n" +
+                        "               }\n" +
+                        "            });\n" +
+                        "   }\n" +
+                        "}\n"
+        };
+
+        String expectedOutputY =
+                "import Y.1;\n" +
+                        "import helpers.Consumer3;\n" +
+                        "import java.util.ArrayList;\n" +
+                        "import java.util.Arrays;\n" +
+                        "import java.util.Comparator;\n" +
+                        "import java.util.List;\n" +
+                        "import testablejava.CallContext;\n" +
+                        "\n" +
+                        "class Y {\n" +
+                        "   public static Consumer3<CallContext<Arrays>, ArrayList<String>[], Comparator<List<String>>> $$Arrays$sort$$ⒶArrayList$Y$1 = (var0, var1, var2) -> {\n" +
+                        "      Arrays.sort(var1, var2);\n" +
+                        "   };\n" +
+                        "\n" +
+                        "   void fn() {\n" +
+                        "      ArrayList[] var1 = new ArrayList[0];\n" +
+                        "      $$Arrays$sort$$ⒶArrayList$Y$1.accept(new CallContext(\"Y\", \"java.util.Arrays\", this, (Object)null), var1, new 1(this));\n" +
+                        "   }\n" +
+                        "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+    }
 
 }
