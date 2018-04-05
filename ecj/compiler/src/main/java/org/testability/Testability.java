@@ -725,9 +725,7 @@ public class Testability {
 
                     //find all local type declarations and add corresponding fields
                     List<TypeDeclaration> localTypeDeclarations = findLocalTypeDeclarations(typeDeclaration, null);
-                    List<TypeDeclaration> memberTypeDeclarations = typeDeclaration.memberTypes==null?
-                            Collections.emptyList() :
-                            Arrays.asList(typeDeclaration.memberTypes);
+                    List<TypeDeclaration> memberTypeDeclarations = findMemberTypeDeclarations(typeDeclaration);
 
                     List<TypeDeclaration> localAndMemberTypeDeclarations = new ArrayList<>(localTypeDeclarations);
                     localAndMemberTypeDeclarations.addAll(memberTypeDeclarations);
@@ -772,6 +770,18 @@ public class Testability {
             testabilityInstrumentationError(typeDeclaration.scope,"unexpected", ex);
             return ret;
         }
+    }
+
+    static List<TypeDeclaration> findMemberTypeDeclarations(TypeDeclaration typeDeclaration) {
+        if (typeDeclaration.memberTypes == null)
+                return Collections.emptyList();
+
+        return Arrays.stream(typeDeclaration.memberTypes).
+                flatMap(type ->
+                        Stream.concat(
+                                Stream.of(type), //type and its member types
+                                findMemberTypeDeclarations(type).stream())).
+                collect(toList());
     }
 
     /**

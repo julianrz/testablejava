@@ -4834,6 +4834,77 @@ public class TestabilityTest extends BaseTest {
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals("Y$Z", invokeCompiledMethod("Y", "caller").getClass().getName());
     }
+    @Test
+    public void testTestabilityInjectFunctionField_ListenerForMemberClassNested() throws Exception {
+        //Pb(2)  cannot be resolved to a type
+        String[] task = {
+                "Y.java",
+                "public class Y {\n" +
+                        "   class L1 {" +
+                        "      class L2 {" +
+                        "         class L3 {" +
+                        "         }" +
+                        "      }" +
+                        "   }" +
+                        "	L1.L2.L3 caller() {" +
+                        "      dontredirect: return new L1().new L2().new L3();" +
+                        "   }" +
+                        "}"
+        };
+        String expectedOutputY = "import Y.L1;\n" +
+                "import Y.L1.L2;\n" +
+                "import Y.L1.L2.L3;\n" +
+                "import java.util.function.Consumer;\n" +
+                "\n" +
+                "public class Y {\n" +
+                "   public static Consumer<Y> $$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<Y> $$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L1> $$L1$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L1> $$L1$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L2> $$L2$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L2> $$L2$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L3> $$L3$preCreate = (var0) -> {\n" +
+                "   };\n" +
+                "   public static Consumer<L3> $$L3$postCreate = (var0) -> {\n" +
+                "   };\n" +
+                "\n" +
+                "   public Y() {\n" +
+                "      $$preCreate.accept(this);\n" +
+                "      $$postCreate.accept(this);\n" +
+                "   }\n" +
+                "\n" +
+                "   L3 caller() {\n" +
+                "      L1 var10004 = new L1(this);\n" +
+                "      var10004.getClass();\n" +
+                "      L2 var10002 = new L2(var10004);\n" +
+                "      var10002.getClass();\n" +
+                "      return new L3(var10002);\n" +
+                "   }\n" +
+                "}";
+        String expectedOutputY$L1$L2$L3 = "import Y.L1.L2;\n" +
+                "\n" +
+                "class Y$L1$L2$L3 {\n" +
+                "   Y$L1$L2$L3(L2 var1) {\n" +
+                "      this.this$2 = var1;\n" +
+                "      Y.$$L3$preCreate.accept(this);\n" +
+                "      Y.$$L3$postCreate.accept(this);\n" +
+                "   }\n" +
+                "}";
+
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_LISTENERS_ONLY);
+
+        assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
+
+        assertEquals(expectedOutputY$L1$L2$L3, moduleMap.get("Y$L1$L2$L3").stream().collect(joining("\n")));
+
+        assertEquals("Y$L1$L2$L3", invokeCompiledMethod("Y", "caller").getClass().getName());
+    }
 
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperatorForMemberClassFromWithinInnerClassMultilevel() throws Exception {
