@@ -254,7 +254,9 @@ public class Testability {
 
         AllocationExpression allocationExpression = new AllocationExpression();
 
-        TypeBinding callingTypeBindingForDescription = convertIfAnonymous(currentScope.classScope().referenceContext.binding);
+        SourceTypeBinding originalCallingTypeBinding = currentScope.classScope().referenceContext.binding;
+        TypeBinding callingTypeBindingForDescription = convertIfAnonymous(originalCallingTypeBinding);
+
 
         TypeBinding calledTypeBindingForDescription = messageSend.actualReceiverType;
 
@@ -285,7 +287,7 @@ public class Testability {
 
         Expression exprGetCalledClassInstance = messageSend.binding.isStatic()?
                 new CastExpression(new NullLiteral(0,0), calledTypeReference):
-                fixReceiverIfThisAndTypeMismatches(messageSend.receiver, calledTypeBinding, calledTypeReference);
+                fixReceiverIfThisAndTypeMismatches(messageSend.receiver, messageSend.actualReceiverType, originalCallingTypeBinding);
 
         //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference poimnitng to inner class and MessageSend magically fixes this
         //in its actualReceiverType)
@@ -300,11 +302,13 @@ public class Testability {
 
         combinedList.addAll(argvList);
 
-        if (messageSend.resolvedType instanceof NestedTypeBinding && !messageSend.resolvedType.isStatic()) {
+        if (messageSend.actualReceiverType instanceof NestedTypeBinding && !messageSend.actualReceiverType.isStatic()) {
             //for enclosing instances, add expressions A.this, B.this etc
 
+            SyntheticArgumentBinding[] enclosingInstances = ((NestedTypeBinding) messageSend.actualReceiverType).enclosingInstances;
+
             List<QualifiedThisReference> exprsEnclosingInstance =
-                    Arrays.stream(((NestedTypeBinding) messageSend.resolvedType).enclosingInstances).
+                    Arrays.stream(enclosingInstances).
                             map(syntheticArgumentBinding -> new QualifiedThisReference(typeReferenceFromTypeBinding(syntheticArgumentBinding.type), 0, 0)).
                             collect(toList());
 
@@ -321,16 +325,27 @@ public class Testability {
     /**
      * fixes situation when there was originally a this reference, but moving to field requires nested type qualifier
      * @param receiver
-     * @param calledTypeBinding
-     * @param calledTypeReference
-     * @return
+     * @param actualReceiverType
+     * @param originalCallingTypeBinding    @return
      */
-    static Expression fixReceiverIfThisAndTypeMismatches(Expression receiver, TypeBinding calledTypeBinding, TypeReference calledTypeReference) {
-        return (receiver instanceof ThisReference &&
-                !receiver.resolvedType.isSubtypeOf(calledTypeBinding) &&
-                receiver.resolvedType.id != calledTypeBinding.id)?
-                new QualifiedThisReference(calledTypeReference,0,0) :
-                receiver;
+    static Expression fixReceiverIfThisAndTypeMismatches(Expression receiver, TypeBinding actualReceiverType, SourceTypeBinding originalCallingTypeBinding) {
+        boolean shouldFix = receiver instanceof ThisReference &&
+                actualReceiverType != receiver.resolvedType &&
+                originalCallingTypeBinding instanceof LocalTypeBinding &&
+                ((LocalTypeBinding)originalCallingTypeBinding).enclosingInstances != null;
+
+        if (!shouldFix)
+            return  receiver;
+
+        SyntheticArgumentBinding enclosingInstanceBinding = ((LocalTypeBinding) originalCallingTypeBinding).enclosingInstances[0]; //TODO when multiple enclosing instances - find relevant?
+
+        String fieldNameContainingEnclosingInstance = new String(enclosingInstanceBinding.matchingField.shortReadableName());
+
+        FieldReference fr = new FieldReference(fieldNameContainingEnclosingInstance.toCharArray(), 0);
+
+        fr.receiver = new ThisReference(0,0);
+        return fr;
+
     }
 
     /**
@@ -2931,6 +2946,13 @@ public class Testability {
     }
 
 
+    public static Stream<TypeBinding> getDerivedTypes(SourceTypeBinding baseTypeBinding, LookupEnvironment environment) {
+        return
+                Arrays.stream(Optional.ofNullable(environment.getDerivedTypes(baseTypeBinding)).
+                        orElse(new TypeBinding[0])).
+                        filter(Objects::nonNull).
+                        filter(typeBinding -> typeBinding != baseTypeBinding);
+    }
 }
 
 class MessageSendBuilder {

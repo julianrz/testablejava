@@ -56,9 +56,7 @@ import org.testability.Testability;
 
 import java.util.*;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.*;
 
 /**
  * Represents a class file wrapper on bytes, it is aware of its actual
@@ -552,6 +550,7 @@ public class ClassFile implements TypeConstants, TypeIds {
         List<FieldDeclaration> testabilityFieldDeclarations;
 
         IdentityHashMap<Expression, FieldDeclaration> callExpressionToRedirectorField = new IdentityHashMap<>();
+        LookupEnvironment environment = typeDeclaration.scope.compilationUnitScope().environment;
         if (forProblemType
                 ||
                 !typeDeclaration.compilationResult.instrumentForTestability ||
@@ -570,7 +569,7 @@ public class ClassFile implements TypeConstants, TypeIds {
                 Testability.makeFields(
                     typeDeclaration,
                     currentBinding,
-                    typeDeclaration.scope.compilationUnitScope().environment,
+                        environment,
                     expressionToRedirectorField -> callExpressionToRedirectorField.putAll(expressionToRedirectorField));
 
 
@@ -726,8 +725,38 @@ public class ClassFile implements TypeConstants, TypeIds {
 
         }
 
-        if (fieldCount!=currentBinding.fields().length + (syntheticFields == null ? 0 : syntheticFields.length))
-            throw new RuntimeException("testability internal error: field count");
+        //TODO experiment, remove
+        if (syntheticFields != null){
+            FieldBinding[] oldFields = currentBinding.fields();
+            if (oldFields == null)
+                oldFields = new FieldBinding[0];
+            FieldBinding[] newFieldsWithSynthetics = new FieldBinding[oldFields.length + syntheticFields.length];
+            int off=0;
+            for (;off<oldFields.length;off++)
+                newFieldsWithSynthetics[off] = oldFields[off];
+            for (;off<newFieldsWithSynthetics.length;off++)
+                newFieldsWithSynthetics[off] = syntheticFields[off-oldFields.length];
+
+            currentBinding.tagBits &= ~TagBits.AreFieldsComplete; //unset
+            currentBinding.tagBits &= ~TagBits.AreFieldsSorted;
+
+            currentBinding.setFields(newFieldsWithSynthetics);
+            currentBinding.fields();
+
+            if (currentBinding.isLocalType()) {
+                //propagate to derived types
+
+                Testability.getDerivedTypes(currentBinding, environment).
+                forEach(typeBinding ->
+                    typeBinding.tagBits &= ~TagBits.AreFieldsComplete //unset
+                );
+
+            }
+
+        }
+//TODO reen
+//        if (fieldCount!=currentBinding.fields().length + (syntheticFields == null ? 0 : syntheticFields.length))
+//            throw new RuntimeException("testability internal error: field count");
     }
 
 

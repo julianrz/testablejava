@@ -6222,5 +6222,77 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+    @Test
+    public void testTestabilityInjectFunctionField_WrongCalledType_Reproduction() throws Exception {
+
+        String[] task = {
+
+                "DefaultProblemFactory.java",
+                "import java.util.Locale;" +
+                "class DefaultProblemFactory {void setLocale(Locale locale){}}\n",
+
+                "EclipseCompilerImpl.java",
+                "import javax.tools.Diagnostic;\n" +
+                        "import javax.tools.DiagnosticListener;\n" +
+                        "import javax.tools.JavaFileObject;\n" +
+                        "import java.util.Locale;" +
+                "class EclipseCompilerImpl {\n" +
+                        "\n" +
+                        "\n" +
+                        "    public void getProblemFactory() {\n" +
+                        "         new DefaultProblemFactory() {\n" +
+                        "\n" +
+                        "            public void createProblem(){\n" +
+                        "\n" +
+                        "                DiagnosticListener<? super JavaFileObject> diagListener = null;\n" +
+                        "                if (diagListener != null) {\n" +
+                        "                    dontredirect: diagListener.report(new Diagnostic<JavaFileObject>() {\n" +
+                        "                        @Override\n" +
+                        "                        public String getCode() {\n" +
+                        "                            return null;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public long getColumnNumber() {\n" +
+                        "                            return 0;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public long getEndPosition() {\n" +
+                        "                            return 0;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public long getLineNumber() {\n" +
+                        "                            return 0;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public long getStartPosition() {\n" +
+                        "                            return 0;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public long getPosition() {\n" +
+                        "                            return 0;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public JavaFileObject getSource() {return null;}\n" +
+                        "                        public Kind getKind() {\n" +
+                        "                            return Diagnostic.Kind.ERROR;\n" +
+                        "                        }\n" +
+                        "                        @Override\n" +
+                        "                        public String getMessage(Locale locale) {\n" +
+                        "                            if (locale != null) {\n" +
+                        "                                setLocale(locale);\n" +
+                        "                            }\n" +
+                        "                            return \"\";\n" +
+                        "                        }\n" +
+                        "                    });\n" +
+                        "                }\n" +
+                        "\n" +
+                        "            }\n" +
+                        "        };\n" +
+                        "    }\n" +
+                        "}\n"
+        };
+        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
+
 
 }
