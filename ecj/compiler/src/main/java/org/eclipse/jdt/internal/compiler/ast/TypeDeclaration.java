@@ -1348,7 +1348,6 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
                 }
             }
             blockScope.addLocalType(this);
-//            this.staticInitializerScope.addLocalType(this);//TODO experiment
         }
 
         if (this.binding != null) {

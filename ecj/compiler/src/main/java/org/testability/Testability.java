@@ -1161,8 +1161,6 @@ public class Testability {
 
         lambdaExpression.setExpressionContext(originalMessageSend.expressionContext);
 
-//TODO reen or allways null?        lambdaExpression.setExpectedType(typeReferenceForFunction.resolvedType);
-
         return lambdaExpression;
     }
 
@@ -1261,8 +1259,6 @@ public class Testability {
         //truncate the rest
         typeArgumentsForFunction = Arrays.copyOf(typeArgumentsForFunction, iArg);
 
-        //TODO reen typeArgumentsForFunction = convertToObjectIfTypeVariables(lookupEnvironment, typeArgumentsForFunction);
-
         typeArgumentsForFunction = convertToParentsIfAnonymousInnerClasses(typeArgumentsForFunction);
 
         //TODO test! see testTestabilityInjectFunctionField_getClass
@@ -1290,7 +1286,7 @@ public class Testability {
             TypeReference castType = null;
 
             if (argument instanceof NameReference &&
-                    argument.resolvedType instanceof TypeVariableBinding /*hasTypeVariables(argument.resolvedType*/) {
+                    argument.resolvedType instanceof TypeVariableBinding) {
                 NameReference nameReference = (NameReference) argument;
                 Binding binding = nameReference.binding;
                 castType = ((LocalVariableBinding) binding).declaration.type;
@@ -1876,11 +1872,6 @@ public class Testability {
         TypeBinding fieldTypeBinding =
                 originalMessageSend.binding.declaringClass;
 
-        if (new String(fieldTypeBinding.shortReadableName()).equals("void")) {
-            TypeBinding tvoid = new SingleTypeReference("Void".toCharArray(), -1).resolveType(referenceBinding.scope);
-            fieldTypeBinding = tvoid; //TODO is this called?
-        }
-
         FieldDeclaration fieldDeclaration = new FieldDeclaration(fieldName.toCharArray(), 0, 0);
 
         LookupEnvironment lookupEnvironment = referenceBinding.scope.environment();
@@ -1933,9 +1924,6 @@ public class Testability {
 
         //truncate the rest
         typeArguments = Arrays.copyOf(typeArguments, iArg);
-
-//TODO reen        //replace references to type arguments with Object type
-//        typeArguments = convertToObjectIfTypeVariables(lookupEnvironment, typeArguments);
 
         //rewire anonymous inner classes to their parents
         typeArguments = convertToParentsIfAnonymousInnerClasses(typeArguments);
@@ -2008,6 +1996,7 @@ public class Testability {
                 typeDeclaration.binding.outermostEnclosingType());
 
         fieldDeclaration.binding = fieldBinding;
+
         fieldDeclaration.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature; //TODO needed? see  makeRedirectorFieldDeclaration for message
 
         LambdaExpression lambdaExpression = new LambdaExpression(
@@ -2323,15 +2312,11 @@ public class Testability {
     static public TypeReference typeReferenceFromTypeBinding(TypeBinding typeBinding) {
         int dim = typeBinding.dimensions();
         if (dim == 0){
-//            if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
-//                //replace with ?
-//                Wildcard wildcard = new Wildcard(Wildcard.UNBOUND);
-//                wildcard.bound = null;
-//                return wildcard;
-//            }
             if (typeBinding instanceof TypeVariableBinding) { //TODO experiment
                 //replace with Object, if replacing with ?, will get declarations like '? arg'
-                SingleTypeReference objectTypeReference = new SingleTypeReference("Object".toCharArray(), 0);//TODO full p
+                QualifiedTypeReference objectTypeReference = new QualifiedTypeReference(
+                        new char[][]{"java".toCharArray(), "lang".toCharArray(), "Object".toCharArray()},
+                        new long[3]);
 
                 return objectTypeReference;
             }

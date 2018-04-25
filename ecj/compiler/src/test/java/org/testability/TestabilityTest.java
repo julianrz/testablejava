@@ -3624,7 +3624,6 @@ public class TestabilityTest extends BaseTest {
 
     }
 
-    //TODO re-enable
     @Test
     public void testTestabilityInjectFunctionField_getClass() throws Exception {
         //incompatible CaptionBinding generated. getClass is specialcased, should not be bypassed
@@ -5072,7 +5071,6 @@ public class TestabilityTest extends BaseTest {
     @Test
     public void testTestabilityInjectFunctionField_ForNewOperator_ExpandsInsideInnerClass() throws Exception {
 
-        //TODO pending correct calling class info
         String[] task = {
                 "Y.java",
                 "public class Y {\n" +
@@ -5212,7 +5210,6 @@ public class TestabilityTest extends BaseTest {
     @Test
     public void testTestabilityInjectFunctionField_ForExternalCallWithExecute_StaticInnerClass() throws Exception {
 
-        //TODO pending fix of actual inner class type
         //here call from static class is redirected using instance field of Y
         String[] task = {
                 "Y.java",
