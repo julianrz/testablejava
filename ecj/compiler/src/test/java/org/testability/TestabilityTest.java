@@ -136,12 +136,13 @@ public class TestabilityTest extends BaseTest {
         assertEquals(expectedOutput, moduleMap.get("Y$2").stream().collect(joining("\n")));
         //TODO check reflection arg forming and valid return in various situations
     }
+
     @Test
     public void testTestabilityInjectFunctionField_CallOfMethodDefinedOnAnonType_ForceReflective() throws Exception {
 
         String[] task = {
                 "X.java",
-                        "public class X {\n" +
+                "public class X {\n" +
                         "   class Y{}\n" +
                         "	int fn() {" +
                         "       return new Y(){" +
@@ -168,6 +169,7 @@ public class TestabilityTest extends BaseTest {
         assertEquals(1, invokeCompiledMethod("X", "fn"));
 
     }
+
     @Test
     public void testTestabilityInjectFunctionField_CallOfMethodOverridenOnAnonType_NonReflective() throws Exception {
 
@@ -202,7 +204,7 @@ public class TestabilityTest extends BaseTest {
                         "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
-        assertEquals("", invokeCompiledMethod("X","fn"));
+        assertEquals("", invokeCompiledMethod("X", "fn"));
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
@@ -4340,6 +4342,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_RedirectGenericToGenericAllocation() throws Exception {
         String[] task = {
@@ -4834,6 +4837,7 @@ public class TestabilityTest extends BaseTest {
         compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals("Y$Z", invokeCompiledMethod("Y", "caller").getClass().getName());
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ListenerForMemberClassNested() throws Exception {
         //Pb(2)  cannot be resolved to a type
@@ -6145,7 +6149,6 @@ public class TestabilityTest extends BaseTest {
     }
 
 
-
     @Test
     public void testTestabilityInjectFunctionField_ForCallInferringTypeParameterFromMethodReturn() throws Exception {
 
@@ -6178,6 +6181,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_ArgIsArrayOfparameterizedType() throws Exception {
 
@@ -6220,6 +6224,7 @@ public class TestabilityTest extends BaseTest {
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
         assertEquals(expectedOutputY, moduleMap.get("Y").stream().collect(joining("\n")));
     }
+
     @Test
     public void testTestabilityInjectFunctionField_WrongCalledType_Reproduction() throws Exception {
 
@@ -6227,14 +6232,14 @@ public class TestabilityTest extends BaseTest {
 
                 "DefaultProblemFactory.java",
                 "import java.util.Locale;" +
-                "class DefaultProblemFactory {void setLocale(Locale locale){}}\n",
+                        "class DefaultProblemFactory {void setLocale(Locale locale){}}\n",
 
                 "EclipseCompilerImpl.java",
                 "import javax.tools.Diagnostic;\n" +
                         "import javax.tools.DiagnosticListener;\n" +
                         "import javax.tools.JavaFileObject;\n" +
                         "import java.util.Locale;" +
-                "class EclipseCompilerImpl {\n" +
+                        "class EclipseCompilerImpl {\n" +
                         "\n" +
                         "\n" +
                         "    public void getProblemFactory() {\n" +
@@ -6289,8 +6294,27 @@ public class TestabilityTest extends BaseTest {
                         "    }\n" +
                         "}\n"
         };
-        Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
     }
 
+    @Test
+    public void testTestabilityInjectFunctionField_ApparentThisInNestedTypeGoesToEnclosingInstance() throws Exception {
+
+        String[] task = {
+                "HookedJavaFileObject.java",
+                "import javax.tools.JavaFileObject;\n" +
+                "\n" +
+                "public class HookedJavaFileObject\n" +
+                "{\n" +
+                "   void closed(){}" +
+                "   private class ForwardingWriter {\n" +
+                "      public void close(){\n" +
+                "          closed();\n" + //this call looks like local, but goes to enclosing instance
+                "      }" +
+                "   }" +
+                "   public HookedJavaFileObject(JavaFileObject fileObject) {}\n" +
+                "}\n"};
+        compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+    }
 
 }

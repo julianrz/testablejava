@@ -289,7 +289,7 @@ public class Testability {
                 new CastExpression(new NullLiteral(0,0), calledTypeReference):
                 fixReceiverIfThisAndTypeMismatches(messageSend.receiver, messageSend.actualReceiverType, originalCallingTypeBinding);
 
-        //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference poimnitng to inner class and MessageSend magically fixes this
+        //(forcing Qualified, e.g. X.this.fn() for inner types since simple fn() call will result in ThisReference pointing to inner class and MessageSend magically fixes this
         //in its actualReceiverType)
 
         List<Expression> argvList = Arrays.asList(
@@ -310,7 +310,7 @@ public class Testability {
     }
 
     /**
-     * fixes situation when there was originally a this reference, but moving to field requires nested type qualifier
+     * fixes situation when there was originally a this reference (because it looked like one), but referring to nested class instead
      * @param receiver
      * @param actualReceiverType
      * @param originalCallingTypeBinding    @return
@@ -318,13 +318,13 @@ public class Testability {
     static Expression fixReceiverIfThisAndTypeMismatches(Expression receiver, TypeBinding actualReceiverType, SourceTypeBinding originalCallingTypeBinding) {
         boolean shouldFix = receiver instanceof ThisReference &&
                 actualReceiverType != receiver.resolvedType &&
-                originalCallingTypeBinding instanceof LocalTypeBinding &&
-                ((LocalTypeBinding)originalCallingTypeBinding).enclosingInstances != null;
+                originalCallingTypeBinding instanceof NestedTypeBinding &&
+                ((NestedTypeBinding)originalCallingTypeBinding).enclosingInstances != null;
 
         if (!shouldFix)
-            return  receiver;
+            return receiver;
 
-        SyntheticArgumentBinding enclosingInstanceBinding = ((LocalTypeBinding) originalCallingTypeBinding).enclosingInstances[0]; //TODO when multiple enclosing instances - find relevant?
+        SyntheticArgumentBinding enclosingInstanceBinding = ((NestedTypeBinding) originalCallingTypeBinding).enclosingInstances[0]; //TODO when multiple enclosing instances - find relevant?
 
         String fieldNameContainingEnclosingInstance = new String(enclosingInstanceBinding.matchingField.shortReadableName());
 
