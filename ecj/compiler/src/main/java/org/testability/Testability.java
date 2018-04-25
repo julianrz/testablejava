@@ -302,19 +302,6 @@ public class Testability {
 
         combinedList.addAll(argvList);
 
-        if (messageSend.actualReceiverType instanceof NestedTypeBinding && !messageSend.actualReceiverType.isStatic()) {
-            //for enclosing instances, add expressions A.this, B.this etc
-
-            SyntheticArgumentBinding[] enclosingInstances = ((NestedTypeBinding) messageSend.actualReceiverType).enclosingInstances;
-
-            List<QualifiedThisReference> exprsEnclosingInstance =
-                    Arrays.stream(enclosingInstances).
-                            map(syntheticArgumentBinding -> new QualifiedThisReference(typeReferenceFromTypeBinding(syntheticArgumentBinding.type), 0, 0)).
-                            collect(toList());
-
-            combinedList.addAll(exprsEnclosingInstance);
-        }
-
         allocationExpression.arguments = combinedList.toArray(new Expression[combinedList.size()]);
 
         allocationExpression.resolve(currentScope);

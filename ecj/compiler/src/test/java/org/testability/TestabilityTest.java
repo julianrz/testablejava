@@ -175,11 +175,11 @@ public class TestabilityTest extends BaseTest {
                 "X.java",
                 "public class X {\n" +
                         "   class Y{" +
-                        "       void f(){}" +
+                        "       String f(){return null;}" +
                         "   };\n" +
-                        "	void fn() {" +
-                        "       new Y(){" +
-                        "          void f(){}" + //overrides
+                        "	String fn() {" +
+                        "       return new Y(){" +
+                        "          String f(){return \"\";}" + //overrides
                         "       }.f();" +
                         "   }" +
                         "}",
@@ -188,20 +188,21 @@ public class TestabilityTest extends BaseTest {
         String expectedOutput =
                 "import X.1;\n" +
                         "import X.Y;\n" +
-                        "import helpers.Consumer1;\n" +
+                        "import helpers.Function1;\n" +
                         "import testablejava.CallContext;\n" +
                         "\n" +
                         "public class X {\n" +
-                        "   public static Consumer1<CallContext<Y>> $$Y$f = (var0) -> {\n" +
-                        "      ((Y)var0.calledClassInstance).f();\n" +
+                        "   public static Function1<CallContext<Y>, String> $$Y$f = (var0) -> {\n" +
+                        "      return ((Y)var0.calledClassInstance).f();\n" +
                         "   };\n" +
                         "\n" +
-                        "   void fn() {\n" +
-                        "      $$Y$f.accept(new CallContext(\"X\", \"new X.Y(){}\", this, new 1(this, this)));\n" +
+                        "   String fn() {\n" +
+                        "      return (String)$$Y$f.apply(new CallContext(\"X\", \"new X.Y(){}\", this, new 1(this, this)));\n" +
                         "   }\n" +
                         "}";
 
         Map<String, List<String>> moduleMap = compileAndDisassemble(task, INSERT_REDIRECTORS_ONLY);
+        assertEquals("", invokeCompiledMethod("X","fn"));
         assertEquals(expectedOutput, moduleMap.get("X").stream().collect(joining("\n")));
 
     }
@@ -5195,7 +5196,7 @@ public class TestabilityTest extends BaseTest {
                         "\n" +
                         "   Z fn() {\n" +
                         "      1 var1 = new 1(this, this);\n" +
-                        "      return (Z)$$Z$zfn.apply(new CallContext(\"Y\", \"Y.Z\", this, var1, new Object[]{this}));\n" +
+                        "      return (Z)$$Z$zfn.apply(new CallContext(\"Y\", \"Y.Z\", this, var1));\n" +
                         "   }\n" +
                         "}";
 
