@@ -30,7 +30,7 @@
 
              <!--Now, select which projects to include in this module-set. -->
             <includes>
-                <include>org.eclipse.jdt.core.compiler:testablejava</include>
+                <include>org.eclipse.jdt.core.compiler:testablejava-compiler</include>
             </includes>
 
             <binaries>
