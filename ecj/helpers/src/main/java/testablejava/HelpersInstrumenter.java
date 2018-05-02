@@ -1,3 +1,11 @@
+/*******************************************************************************
+ * Copyright (c) 2017-2018 Julian Rozentur
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
+
 package testablejava;
 
 import net.bytebuddy.ByteBuddy;
@@ -54,7 +62,7 @@ public class HelpersInstrumenter {
         }
     }
 
-    static int maxArgs = 255; //change this to 20 or so for practical reasons when running in dev environment
+    static public int maxArgs = 20;//255; //change this to 20 or so for practical reasons when running in dev environment
 
     public static void main(String[] args) throws Exception {
         String targetDir = args[0];

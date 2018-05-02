@@ -31,6 +31,7 @@
  *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
  *     Till Brychcy - Contributions for
  *     							bug 413460 - NonNullByDefault is not inherited to Constructors when accessed via Class File
+ *     Julian Rozentur - testability
  ******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

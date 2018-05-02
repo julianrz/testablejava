@@ -33,6 +33,7 @@
  *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
  *								Bug 455180 - IllegalStateException in AnnotatableTypeSystem.getRawType
  *								Bug 470467 - [null] Nullness of special Enum methods not detected from .class file
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 

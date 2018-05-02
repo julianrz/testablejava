@@ -26,6 +26,7 @@
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
  *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *     Julian Rozentur - testability
  *
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;

@@ -15,6 +15,7 @@
  *								Bug 424727 - [compiler][null] NullPointerException in nullAnnotationUnsupportedLocation(ProblemReporter.java:5708)
  *								Bug 457210 - [1.8][compiler][null] Wrong Nullness errors given on full build build but not on incremental build?
  *     Keigo Imai - Contribution for  bug 388903 - Cannot extend inner class as an anonymous class when it extends the outer class
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

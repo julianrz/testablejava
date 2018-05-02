@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2017-2018 Julian Rozentur
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
 package org.testability;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -26,7 +33,6 @@ import static org.testability.Testability.makeSingleNameReference;
 import static org.testability.Testability.typeReferenceFromTypeBinding;
 
 //TODO can we redirect things like "binding.enclosingType().readableName()" and avoid calling enclosingType for example(e.g can throw)? Could do a string->function map, but how to keep type safety?
-//TODO how to test recursive functions?
 public class Testability {
     public static final String TESTABILITY_FIELD_NAME_PREFIX = "$$";
     public static final String TESTABILITY_ARG_LIST_SEPARATOR = "$$";

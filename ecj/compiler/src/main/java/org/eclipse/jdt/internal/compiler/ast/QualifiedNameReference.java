@@ -22,6 +22,7 @@
  *								bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
  *     Jesper S Moller <jesper@selskabet.org> - Contributions for
  *								bug 378674 - "The method can be declared as static" is wrong
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

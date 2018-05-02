@@ -1,3 +1,11 @@
+/*******************************************************************************
+ * Copyright (c) 2017-2018 Julian Rozentur
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
+
 package org.testability;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -34,9 +42,6 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
 
-/**
- * Created by julianrozentur1 on 6/25/17.
- */
 public class BaseTest {
 
     File classStoreDir = new File("target", "ecj-compiled");

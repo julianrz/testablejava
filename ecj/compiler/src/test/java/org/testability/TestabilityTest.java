@@ -1,3 +1,11 @@
+/*******************************************************************************
+ * Copyright (c) 2017-2018 Julian Rozentur
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
+
 package org.testability;
 
 import com.google.common.collect.ImmutableList;
@@ -21,10 +29,6 @@ import static junit.framework.TestCase.fail;
 import static org.junit.Assert.*;
 import static org.unitils.reflectionassert.ReflectionAssert.assertReflectionEquals;
 
-
-/**
- * Created by julianrozentur1 on 6/23/17.
- */
 //TODO feature: all object allocations go through static callback inside its class. Typically we redirect via caller, but this case is different. Allows to find and instrument objects easier if multiple creators exist. Note: handle reflective create
 //TODO feature: redirect full expressions such as System.out.println, otherwise System.out will still be computed and potentially ignored
 public class TestabilityTest extends BaseTest {

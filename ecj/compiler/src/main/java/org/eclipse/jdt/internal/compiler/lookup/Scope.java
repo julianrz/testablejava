@@ -55,6 +55,7 @@
  *  							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335
  *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *                          	Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 

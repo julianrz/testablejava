@@ -17,6 +17,7 @@
  *								Bug 458396 - NPE in CodeStream.invoke()
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *								Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

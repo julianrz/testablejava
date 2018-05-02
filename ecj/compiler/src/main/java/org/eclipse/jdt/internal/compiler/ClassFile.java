@@ -26,6 +26,7 @@
  *							Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *     Olivier Tardieu tardieu@us.ibm.com - Contributions for
  *							Bug 442416 - $deserializeLambda$ missing cases for nested lambdas
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler;
 

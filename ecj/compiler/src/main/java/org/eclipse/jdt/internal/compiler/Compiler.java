@@ -10,6 +10,7 @@
  *     Stephan Herrmann - contributions for 
  *     							bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
  *     							bug 186342 - [compiler][null] Using annotations for null checking
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler;
 

@@ -70,6 +70,7 @@
  *								Bug 416182 - [1.8][compiler][null] Contradictory null annotations not rejected
  *     Ulrich Grave <ulrich.grave@gmx.de> - Contributions for
  *                              bug 386692 - Missing "unused" warning on "autowired" fields
+ *     Julian Rozentur - testability
  ********************************************************************************/
 package org.eclipse.jdt.internal.compiler.problem;
 

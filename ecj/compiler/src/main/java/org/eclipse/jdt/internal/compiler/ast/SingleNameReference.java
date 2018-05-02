@@ -19,6 +19,7 @@
  *     							bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 378674 - "The method can be declared as static" is wrong
  *								bug 404657 - [1.8][compiler] Analysis for effectively final variables fails to consider loops
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

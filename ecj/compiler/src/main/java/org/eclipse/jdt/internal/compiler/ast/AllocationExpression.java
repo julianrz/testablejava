@@ -48,6 +48,7 @@
  *     						bug 413460 - NonNullByDefault is not inherited to Constructors when accessed via Class File
  *     Lars Vogel <Lars.Vogel@vogella.com> - Contributions for
  *     						Bug 473178
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

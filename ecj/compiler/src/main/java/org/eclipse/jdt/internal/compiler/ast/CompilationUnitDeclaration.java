@@ -10,6 +10,7 @@
  *     Stephan Herrmann  - Contribution for bug 295551
  *     Jesper S Moller   - Contributions for
  *							  Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335
+ *     Julian Rozentur - testability
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

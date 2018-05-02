@@ -1,3 +1,11 @@
+/*******************************************************************************
+ * Copyright (c) 2017-2018 Julian Rozentur
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
+
 package timer;
 
 import org.junit.Test;
@@ -35,7 +43,7 @@ public class TestTimer {
         //instead, with TestableJava, you can induce condition where consecutive calls to System.currentTimeMills
         // will return the same value!
 
-        timer.$$System$currentTimeMillis = () -> 42384723984L;
+        timer.$$System$currentTimeMillis = (ctx) -> 42384723984L;
 
         assertTrue(Double.isInfinite(timer.rate(testRun, 1)));
     }
