@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.codehaus.plexus</groupId>
+    <artifactId>plexus-compilers</artifactId>
+    <version>2.8.1</version>
+  </parent>
+
+  <artifactId>plexus-compiler-testablejava</artifactId>
+
+  <name>Plexus Eclipse Compiler With Testability Enhancements</name>
+  <description>Eclipse Compiler With Testability Enhancements support for Plexus Compiler component.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-utils</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.jdt.core.compiler</groupId>
+      <artifactId>testablejava</artifactId>
+      <version>0.1-4.6.1</version>
+    </dependency>
+    <dependency><!-- TODO remove, s/be inside testablejava assembly-->
+      <groupId>org.eclipse.jdt.core.compiler</groupId>
+      <artifactId>ecj</artifactId>
+      <version>4.6.1</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- deploy to repository -->
+    <extensions>
+      <extension>
+        <groupId>io.packagecloud.maven.wagon</groupId>
+        <artifactId>maven-packagecloud-wagon</artifactId>
+        <version>0.0.6</version>
+      </extension>
+    </extensions>
+  </build>
+
+  <distributionManagement>
+    <!-- deploy to repository -->
+    <repository>
+      <id>packagecloud-julianrz</id>
+      <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+    </repository>
+    <snapshotRepository>
+      <id>packagecloud-julianrz</id>
+      <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+</project>
