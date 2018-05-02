@@ -16,9 +16,7 @@
     </organization>
 
     <modules>
-        <module>helpers</module>
         <module>compiler</module>
-        <module>samples</module>
     </modules>
 
     <properties>
@@ -87,7 +85,24 @@
                     <skip>false</skip>
                 </configuration>
             </plugin>
-
         </plugins>
+        <!-- deploy to repository -->
+        <extensions>
+            <extension>
+                <groupId>io.packagecloud.maven.wagon</groupId>
+                <artifactId>maven-packagecloud-wagon</artifactId>
+                <version>0.0.6</version>
+            </extension>
+        </extensions>
     </build>
+    <distributionManagement>
+        <repository>
+            <id>packagecloud-julianrz</id>
+            <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+        </repository>
+        <snapshotRepository>
+            <id>packagecloud-julianrz</id>
+            <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>

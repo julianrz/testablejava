@@ -3,16 +3,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.eclipse.jdt.core.compiler</groupId>
+    <groupId>testablejava</groupId>
     <artifactId>testablejava-helpers</artifactId>
-    <version>0.1-4.6.1</version>
+    <version>0.1</version>
     <packaging>jar</packaging>
-
-    <parent>
-        <groupId>org.eclipse.jdt.core.compiler</groupId>
-        <artifactId>testablejava-parent</artifactId>
-        <version>0.1-4.6.1</version>
-    </parent>
 
     <dependencies>
         <dependency>
@@ -86,5 +80,25 @@
                 </executions>
             </plugin>
         </plugins>
+        <!-- deploy to repository -->
+        <extensions>
+            <extension>
+                <groupId>io.packagecloud.maven.wagon</groupId>
+                <artifactId>maven-packagecloud-wagon</artifactId>
+                <version>0.0.6</version>
+            </extension>
+        </extensions>
     </build>
+
+    <distributionManagement>
+        <!-- deploy to repository -->
+        <repository>
+            <id>packagecloud-julianrz</id>
+            <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+        </repository>
+        <snapshotRepository>
+            <id>packagecloud-julianrz</id>
+            <url>packagecloud+https://packagecloud.io/julianrz/tools</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
