@@ -68,8 +68,8 @@ public class EclipseCompilerTest
 
     protected int expectedWarnings()
     {
-        return 2;
-    }
+        return 3;
+    } //one extra Instrumentation Aborted
 
     protected Collection<String> expectedOutputFiles()
     {
