@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 /**
  * @author <a href="mailto:trygvis@inamo.no">Trygve Laugst&oslash;l</a>
@@ -87,12 +88,15 @@ public class SourceCodeLocator
      * @return
      */
     static boolean caseSensitiveFileExists(File f) {
+
         if (!f.exists())
             return false;
-        try {
-            return f.getCanonicalFile().getName().equals(f.getName());
-        } catch (IOException e) {
-            return false;
-        }
+
+        String[] fileFames = f.getParentFile().list();
+
+        return Arrays.asList(fileFames).
+                contains(f.getName());
+
     }
+
 }
