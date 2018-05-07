@@ -8,9 +8,22 @@
     <version>0.1-4.6.1</version>
     <packaging>jar</packaging>
 
+    <repositories>
+        <repository>
+            <id>julianrz-tools</id> <!-- to resolve testablejava-helpers -->
+            <url>https://packagecloud.io/julianrz/tools/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <pluginRepositories>
         <pluginRepository>
-            <id>julianrz-tools</id>
+            <id>julianrz-tools</id> <!-- to resolve testablejava-compiler, a dependency of maven-compiler-plugin -->
             <url>https://packagecloud.io/julianrz/tools/maven2</url>
             <releases>
                 <enabled>true</enabled>
