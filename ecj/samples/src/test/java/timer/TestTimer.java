@@ -43,7 +43,7 @@ public class TestTimer {
         //instead, with TestableJava, you can induce condition where consecutive calls to System.currentTimeMills
         // will return the same value!
 
-        timer.$$System$currentTimeMillis = (ctx) -> 42384723984L;
+        Timer.$$System$currentTimeMillis = (ctx) -> 42384723984L;
 
         assertTrue(Double.isInfinite(timer.rate(testRun, 1)));
     }

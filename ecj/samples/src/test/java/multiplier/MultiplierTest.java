@@ -18,11 +18,12 @@ public class MultiplierTest {
         //but we do not want to invent unparsable strings
         Multiplier multiplier = new Multiplier();
 
-        multiplier.$$Double$parseDouble$$String = (ctx, s) -> {
+        //make Double.parseDouble(String) throw
+        Multiplier.$$Double$parseDouble$$String = (ctx, s) -> {
             Helpers.uncheckedThrow(new NumberFormatException());
             return null;
         };
-
+        //make a call that has parseDouble as a dependency, it should throw (propagate exception from parseDouble)
         multiplier.multiplyDoublesAsStrings("1","2");
     }
 
